@@ -168,7 +168,7 @@ Ví dụ: mảng ngân hàng → RIM; mảng BĐS → RNAV; mảng bán lẻ →
 ## Nguồn dữ liệu
 
 - **Phân loại ngành → vnstock** `Company.overview()`: `is_bank`, `sector`, `icb_code_lv2/lv4`; hoặc `Listing.symbols_by_industries()` → `icb_name`.
-- **BCTC → vnstock** (`lang="vi"`): `net_sales`, `gross_profit`, `net_profit_loss_after_tax`, `attributable_to_parent_company`, `owners_equity` (B0/RIM), `total_assets`, `short_term_borrowings`, `long_term_borrowings`, `cash_and_cash_equivalents` (nợ ròng), CFO.
+- **BCTC → vnstock nguồn KBS** (`Finance(source="kbs", ...)`, chi tiết theo VAS): dùng KEY SẠCH (loader tự ánh xạ + xử lý quirk KBS): `net_sales`, `gross_profit`, `net_profit_loss_after_tax`, `attributable_to_parent_company`, `owners_equity` (B0/RIM — thực ở KBS là `owners_equity_2`, đã map sẵn), `total_assets`, `short_term_borrowings`, `long_term_borrowings`, `cash_and_cash_equivalents` (nợ ròng), CFO (`net_cash_inflows_outflows_from_operating_activities`), `eps`.
 - **Chỉ số định giá/sinh lời → vnstock bảng `ratio` (nguồn KBS)**: `from vnstock import Finance; Finance(source="kbs", symbol="X").ratio(period="year")` → SẴN `pe_ratio`, `pb_ratio`, `ps_ratio`, `ev_ebit`, `ev_ebitda`, `roe`, `roa`, `net_margin`, `beta`, `dividend_yield`, tăng trưởng...; ngân hàng có `net_interest_margin_nim`. *(Dùng KBS, KHÔNG dùng VCI cho ratio — VCI trả layout kỳ lỗi.)*
 - **Giá / vốn hóa / β → DataPro** (`source="datapro"`, mã `.VN`); **β tự tính regress vs VNINDEX full-history** (nêu cửa sổ + R²) cho WACC; `ratio.beta` của KBS chỉ dùng kiểm chứng nhanh.
 - **issue_share / market_cap / target_price → `Company.overview()`.**

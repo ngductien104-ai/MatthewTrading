@@ -53,11 +53,48 @@ _TABLE_METHODS = {
     "ratio": "ratio",
 }
 
-# Data source per table. Statements use VCI (item_id đã kiểm thử PIT). Ratios use
-# KBS — nguồn KBS trả chỉ số SẠCH theo đặc thù ngành (roe/pe_ratio/pb_ratio/
-# net_margin/ev_ebitda/beta..., ngân hàng có net_interest_margin_nim); VCI ratio()
-# trả layout kỳ lỗi nên không dùng cho chỉ số.
-_TABLE_SOURCES = {"ratio": "kbs"}
+# Tất cả bảng dùng nguồn KBS: statements KBS chi tiết hơn (CĐKT ~143 khoản,
+# tên VAS tiếng Việt đầy đủ, có EPS + lợi ích cổ đông thiểu số) và chỉ số rat()
+# theo đặc thù ngành. NHƯNG KBS tự sinh item_id từ tên VAS nên có dòng header lẫn
+# dữ liệu (giá trị NaN) và item_id trùng (vd `revenue` = gộp rồi thuần;
+# `total_assets` = header NaN rồi tổng thật). Ta phơi ra KEY SẠCH qua alias, và
+# `_value` lấy giá trị KHÔNG rỗng CUỐI CÙNG cho mỗi kỳ → vừa bỏ header NaN, vừa
+# ưu tiên "thuần" (xuất hiện sau) thay "gộp". Đã verify bằng GIÁ TRỊ, không đoán
+# theo tên. Field không có trong alias → dùng thẳng item_id KBS (truy cập 143 khoản chi tiết).
+_STATEMENT_ALIASES = {
+    # KQHĐKD
+    "net_sales": "revenue",                    # Doanh thu thuần (lần xuất hiện sau)
+    "revenue": "revenue",
+    "cost_of_sales": "cost_of_goods_sold",
+    "gross_profit": "gross_profit",
+    "selling_expenses": "selling_expenses",
+    "general_and_admin_expenses": "admin_expenses",
+    "interest_expenses": "of_which_interest_expense",
+    "operating_profit": "operating_profit",
+    "profit_before_tax": "profit_before_tax",
+    "net_profit_loss_after_tax": "net_profit",
+    "attributable_to_parent_company": "profit_after_tax_for_shareholders_of_parent_company",
+    "eps": "earnings_per_share_vnd",
+    # CĐKT
+    "total_assets": "total_assets",            # tổng thật ở lần sau (header đầu = NaN)
+    "current_assets": "current_assets",
+    "cash_and_cash_equivalents": "cash_and_cash_equivalents",
+    "short_term_investments": "short_term_financial_investments",
+    "accounts_receivable": "short_term_receivables",
+    "inventories_net": "inventories",          # tồn kho thuần (đã trừ dự phòng)
+    "liabilities": "total_liabilities",
+    "current_liabilities": "current_liabilities",
+    "long_term_liabilities": "long_term_liabilities",
+    "short_term_borrowings": "short_term_borrowings_and_financial_leases",
+    "long_term_borrowings": "long_term_borrowings_and_financial_leases",
+    "owners_equity": "owners_equity_2",        # vốn chủ thật (KBS đánh hậu tố _2)
+    "goodwill": "goodwill",
+    "construction_in_progress": "construction_in_progress",
+    # LCTT
+    "net_cash_inflows_outflows_from_operating_activities": "operating_cash_flow",
+    "net_cash_inflows_outflows_from_investing_activities": "investing_cash_flow",
+    "net_cash_inflows_outflows_from_financing_activities": "financing_cash_flow",
+}
 
 _SCHEMAS = {
     table: TableSchema(
@@ -74,9 +111,9 @@ _YEAR_RE = re.compile(r"^(\d{4})")
 
 
 class VNStockFundamentalProvider:
-    """Provider over vnstock annual financial statements (VCI source)."""
+    """Provider over vnstock annual financial statements + ratios (KBS source)."""
 
-    def __init__(self, source: str = "VCI", period: str = "year") -> None:
+    def __init__(self, source: str = "kbs", period: str = "year") -> None:
         self.source = source
         self.period = period
         self._finance_cls = self._import_finance()
@@ -134,7 +171,6 @@ class VNStockFundamentalProvider:
                 continue
 
             year_cols = [c for c in statement.columns if _YEAR_RE.match(str(c))]
-            by_id = statement.set_index("item_id")
             seen_years: set[str] = set()
             for col in year_cols:
                 year_str = _YEAR_RE.match(str(col)).group(1)
@@ -152,7 +188,7 @@ class VNStockFundamentalProvider:
                     "ann_date": ann_date,
                 }
                 for field in field_list:
-                    row[field] = self._value(by_id, field, col)
+                    row[field] = self._value(statement, field, col)
                 records.append(row)
 
         if not records:
@@ -166,28 +202,31 @@ class VNStockFundamentalProvider:
     def _fetch_statement(self, symbol: str, table: str, method_name: str) -> pd.DataFrame | None:
         """Call the vnstock Finance method for one symbol (stdout suppressed).
 
-        Ratios use the KBS source (clean industry-aware metrics); statements use
-        the configured source (VCI).
+        All tables use the KBS source — statements (chi tiết, tên VAS tiếng Việt)
+        và ratios (chỉ số theo đặc thù ngành). KBS trả sẵn ``item``/``item_id``,
+        không cần tham số ``lang``.
         """
-        source = _TABLE_SOURCES.get(table, self.source)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            finance = self._finance_cls(symbol=symbol, source=source)
+            finance = self._finance_cls(symbol=symbol, source=self.source)
             method = getattr(finance, method_name, None)
             if method is None:
                 raise DataProviderError(f"vnstock Finance has no method: {method_name}")
-            if table == "ratio":
-                return method(period=self.period)  # KBS ratio: item_id sẵn, không cần lang
-            return method(period=self.period, lang="en")
+            return method(period=self.period)
 
     @staticmethod
-    def _value(by_id: pd.DataFrame, field: str, year):
-        """Look up one item_id's value for a year column; NaN when absent."""
-        if field not in by_id.index:
+    def _value(statement: pd.DataFrame, field: str, col):
+        """Giá trị KHÔNG rỗng CUỐI CÙNG của item_id (qua alias) cho kỳ ``col``.
+
+        Lấy giá trị cuối cùng để (1) bỏ qua dòng header có giá trị NaN, (2) ưu
+        tiên "thuần" (xuất hiện sau) thay "gộp" khi KBS để trùng item_id. Field
+        ngoài alias → tra thẳng item_id KBS (truy cập khoản chi tiết bất kỳ).
+        """
+        kbs_id = _STATEMENT_ALIASES.get(field, field)
+        rows = statement[statement["item_id"] == kbs_id]
+        if rows.empty:
             return float("nan")
-        cell = by_id.loc[field, year]
-        if isinstance(cell, pd.Series):  # duplicate item_id rows: take the first
-            cell = cell.iloc[0]
-        return pd.to_numeric(cell, errors="coerce")
+        vals = pd.to_numeric(rows[col], errors="coerce").dropna()
+        return vals.iloc[-1] if len(vals) else float("nan")
 
     @staticmethod
     def _bare(symbol: str) -> str:
