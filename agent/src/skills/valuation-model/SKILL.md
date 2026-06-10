@@ -14,20 +14,16 @@ category: analysis
 
 ## Bước 0 — Phân loại ngành (quyết định phương pháp)
 
-Xác định ngành TRƯỚC khi định giá, dùng dữ liệu thật:
+**Cách TỰ ĐỘNG (khuyến nghị):** chạy script đi kèm — nó đọc `is_bank/sector/icb_code_lv2` từ vnstock và TRẢ THẲNG bộ phương pháp:
 
-```python
-from vnstock.api.company import Company
-ov = Company(symbol="FPT", source="VCI").overview()
-is_bank   = ov["is_bank"].iloc[0]          # True → ngân hàng
-sector    = ov["sector"].iloc[0]           # tên ngành
-icb_lv2   = ov["icb_code_lv2"].iloc[0]     # mã ICB cấp 2
-# hoặc: Listing(source="VCI").symbols_by_industries() → cột icb_name
+```bash
+python classify_valuation.py VCB            # 1 mã
+python classify_valuation.py FPT HPG VHM    # nhiều mã
 ```
+→ in ra: ngành, khung áp dụng, phương pháp CHÍNH / kiểm chứng chéo / TRÁNH / động lực giá trị + cảnh báo (BĐS KCN, holding→SOTP).
+Hoặc import: `from classify_valuation import classify_valuation; rec = classify_valuation("VCB")`.
 
-- `is_bank=True` → đi thẳng nhánh **Ngân hàng (RIM/PB-ROE/DDM)**.
-- Còn lại: tra `sector` / `icb_name` để vào đúng dòng bản đồ bên dưới.
-- Tập đoàn đa ngành (nhiều mảng lớn) → **SOTP**, định giá từng mảng theo ngành của nó.
+**Logic phân loại:** `is_bank=True` → **Ngân hàng (RIM/PB-ROE/DDM)**; còn lại map theo `sector` (vd "Real Estate"→RNAV, "Basic Resources"→EV/EBITDA chu kỳ), lùi về `icb_code_lv2` nếu thiếu. ICB **không** tách BĐS nhà ở vs KCN và không gắn cờ holding → script nêu cảnh báo để xét tay; tập đoàn đa ngành → **SOTP**.
 
 ## Bản đồ Ngành → Phương pháp định giá
 
