@@ -1,192 +1,189 @@
 ---
 name: macro-analysis
-description: Macroeconomic cycle positioning and central-bank policy interpretation, including GDP/CPI/PMI/rates/FX analysis, with output in the form of major-asset allocation tilts.
+description: "Định vị chu kỳ kinh tế & đọc chính sách tiền tệ cho thị trường VN — phân tích GDP/CPI/PMI/lãi suất/tỷ giá/tăng trưởng tín dụng (SBV), với đầu ra là khuyến nghị phân bổ tài sản lớn. Nguồn: GSO/SBV/PMI (firecrawl) + dòng tiền ngoại (DataPro)."
 category: analysis
 ---
 
-# Macroeconomic Analysis
+# Phân tích vĩ mô (Việt Nam)
 
-## Overview
+## Tổng quan
 
-Interprets macroeconomic data and central-bank policy, identifies the current economic-cycle stage, and derives major-asset allocation direction. Covers the three major economies of China (PBOC), the United States (Fed), and Europe (ECB).
+Đọc dữ liệu vĩ mô và chính sách của **Ngân hàng Nhà nước (SBV)**, xác định giai đoạn chu kỳ kinh tế VN, và suy ra hướng phân bổ tài sản lớn. Có theo dõi **Fed/DXY** vì là neo định giá toàn cầu tác động tỷ giá VND và dòng tiền khối ngoại.
 
-## Core Indicator System
+## Hệ chỉ tiêu cốt lõi
 
-### Growth Indicators
+### Chỉ tiêu tăng trưởng
 
-| Indicator | Frequency | Key Threshold | Data Source |
+| Chỉ tiêu | Tần suất | Ngưỡng then chốt | Nguồn |
 |------|------|----------|--------|
-| GDP YoY | Quarterly | China >5% = normal, <4% = weak | National Bureau of Statistics |
-| Manufacturing PMI | Monthly | >50 = expansion, <50 = contraction, 49-51 = borderline | NBS / Caixin |
-| Industrial production | Monthly | >5% = normal | National Bureau of Statistics |
-| Retail sales | Monthly | >8% = strong consumption | National Bureau of Statistics |
-| Fixed asset investment | Monthly | Focus on infrastructure vs real-estate components | National Bureau of Statistics |
+| GDP YoY | Quý | VN >6% = tốt, <5% = yếu | GSO (Tổng cục Thống kê) |
+| PMI sản xuất | Tháng | >50 = mở rộng, <50 = thu hẹp | S&P Global Vietnam PMI |
+| Chỉ số SX công nghiệp (IIP) | Tháng | >7% = tốt | GSO |
+| Bán lẻ hàng hóa & DV | Tháng | >9% (danh nghĩa) = tiêu dùng mạnh | GSO |
+| FDI (đăng ký + giải ngân) | Tháng | Động lực cấu trúc — dịch chuyển sản xuất, KCN | Bộ KH&ĐT |
+| Xuất nhập khẩu / cán cân TM | Tháng | Xuất siêu = đệm tỷ giá; VN định hướng xuất khẩu | Tổng cục Hải quan |
+| Giải ngân đầu tư công | Tháng | Đòn bẩy phản chu kỳ | Bộ Tài chính |
 
-### Inflation Indicators
+### Chỉ tiêu lạm phát
 
-| Indicator | Frequency | Key Threshold | Interpretation |
+| Chỉ tiêu | Tần suất | Ngưỡng then chốt | Diễn giải |
 |------|------|----------|------|
-| CPI YoY | Monthly | >3% = inflation pressure, <0% = deflation risk | Strongly affected by the pork cycle, so core CPI is more reliable |
-| PPI YoY | Monthly | >0% = improving corporate profits, <0% = deflation transmission | Leads CPI by 3-6 months |
-| Core CPI | Monthly | >2% = demand-driven inflation | Excludes food and energy |
-| M2 YoY | Monthly | >10% = monetary easing | The M2-M1 spread reflects how active liquidity is |
+| CPI YoY | Tháng | Mục tiêu SBV ~4-4,5%; >4,5% = áp lực | Trọng số lớn ở lương thực-thực phẩm (gạo, thịt heo), xăng dầu, giáo dục, y tế |
+| Lạm phát cơ bản | Tháng | >3% = cầu kéo | Loại thực phẩm, năng lượng, hàng Nhà nước quản lý |
+| Cung tiền M2 | Tháng/Quý | Tăng = nới lỏng | Đo thanh khoản hệ thống |
+| **Tăng trưởng tín dụng** | Tháng/Quý | So **mục tiêu năm (~14-16%)** | Đòn bẩy chính sách QUAN TRỌNG NHẤT của VN |
 
-### Rates and FX
+### Lãi suất & tỷ giá
 
-| Indicator | Meaning | Focus |
+| Chỉ tiêu | Ý nghĩa | Theo dõi |
 |------|------|--------|
-| 1Y / 5Y LPR | Loan prime rate | Rate-cut signal |
-| DR007 | Interbank 7-day repo rate | Funding tightness / looseness |
-| 10Y government bond yield | Risk-free rate anchor | <2.5% = loose, >3.5% = tight |
-| USD/CNY | Exchange rate | >7.3 = high depreciation pressure |
-| US 10Y-2Y spread | Term spread | Inversion signals recession (leads by 12-18 months) |
+| Lãi suất tái cấp vốn / tái chiết khấu (SBV) | Lãi suất điều hành | Tín hiệu cắt/tăng |
+| Lãi suất liên ngân hàng O/N – 1 tuần | Căng/lỏng thanh khoản | Tăng vọt = hút ròng/áp lực tỷ giá |
+| Lợi suất TPCP 10 năm | Neo risk-free | Thấp = lỏng, cao = chặt |
+| **Tỷ giá USD/VND** (tỷ giá trung tâm + biên ±5%) | Áp lực tỷ giá | Sát trần biên độ = áp lực cao, SBV can thiệp (bán USD / phát hành tín phiếu) |
+| Lãi suất Fed / DXY / US 10Y | Neo toàn cầu | Fed cao/USD mạnh → áp lực mất giá VND + khối ngoại rút |
 
-## Four-Stage Economic Cycle Model
+## Mô hình chu kỳ 4 giai đoạn
 
-### Merrill Lynch Clock Framework
+### Đồng hồ đầu tư Merrill Lynch
 
 ```
         GDP↑ + CPI↓           GDP↑ + CPI↑
         ┌─────────┐           ┌─────────┐
-        │ Recovery │ ────→    │ Overheat│
-        │          │           │         │
+        │ Phục hồi │ ────→    │ Quá nóng│
         └────┬────┘           └────┬────┘
              ↑                     │
              │                     ↓
         ┌────┴────┐           ┌────┴────┐
-        │Recession│ ←────     │Stagflat │
-        │         │           │         │
+        │Suy thoái│ ←────     │ Đình lạm│
         └─────────┘           └─────────┘
         GDP↓ + CPI↓           GDP↓ + CPI↑
 ```
 
-### Asset Performance by Stage
+### Hiệu suất tài sản theo giai đoạn (tài sản VN)
 
-| Stage | Best Asset | Second-Best Asset | Worst Asset | Typical Policy |
+| Giai đoạn | Tốt nhất | Nhì | Tệ nhất | Chính sách điển hình |
 |------|----------|----------|----------|----------|
-| Recovery | Equities (growth / small cap) | Commodities | Bonds | Monetary easing + fiscal stimulus |
-| Overheat | Commodities (oil / copper) | Equities (cyclical / value) | Bonds | Hiking cycle begins |
-| Stagflation | Cash / short-duration bonds | Gold | Equities | Policy dilemma |
-| Recession | Bonds (long duration) | Gold | Equities / commodities | Rate cuts + quantitative easing |
+| Phục hồi | Cổ phiếu (tăng trưởng/midcap) | Bất động sản | Tiền gửi | Nới lỏng tiền tệ + kích thích tài khóa |
+| Quá nóng | BĐS, cổ phiếu chu kỳ | Hàng hóa | Trái phiếu | Bắt đầu thắt chặt / tăng lãi suất |
+| Đình lạm | Tiền gửi / vàng | Vàng | Cổ phiếu | Lưỡng nan chính sách |
+| Suy thoái | Trái phiếu (TPCP dài hạn) | Vàng | Cổ phiếu / BĐS | Cắt lãi suất + bơm thanh khoản |
 
-### China-Specific Adjustments
+> VN: **vàng** và **bất động sản** là kênh trú ẩn/tích sản phổ biến; phái sinh hàng hóa cho NĐT lẻ hạn chế.
 
-- **Real-estate cycle**: property sales / investment is a core variable in China's economy, and the policy response during downturns determines the turning point
-- **Infrastructure offset**: when property is weak, infrastructure often strengthens (countercyclical adjustment), so track the pace of special-bond issuance
-- **Export orientation**: external demand (US PMI / Eurozone PMI) affects manufacturing conditions
-- **Policy-driven market**: tone-setting from Politburo meetings / the Central Economic Work Conference matters more than the data itself
+### Điều chỉnh đặc thù Việt Nam
 
-## Central Bank Policy Analysis Framework
+- **Chu kỳ BĐS + tín dụng**: BĐS là biến cốt lõi; phản ứng chính sách khi suy yếu (gỡ vướng pháp lý, hạ lãi suất, room tín dụng) quyết định điểm đảo.
+- **Đầu tư công bù đắp**: khi tư nhân/BĐS yếu, đẩy mạnh giải ngân đầu tư công (phản chu kỳ) → theo dõi tiến độ giải ngân.
+- **Định hướng xuất khẩu**: cầu ngoại (PMI Mỹ/EU/Trung Quốc) chi phối sản xuất & xuất khẩu VN.
+- **FDI**: động lực tăng trưởng cấu trúc (dịch chuyển chuỗi cung ứng, KCN).
+- **Thị trường dẫn dắt bởi chính sách**: định hướng của Chính phủ/Quốc hội, mục tiêu tăng trưởng tín dụng SBV, các Nghị quyết/Nghị định quan trọng hơn bản thân số liệu.
 
-### Federal Reserve (Fed)
+## Khung chính sách ngân hàng trung ương
 
-**Sequence to watch**: FOMC statement → dot plot → Powell speech → meeting minutes
+### Ngân hàng Nhà nước (SBV)
 
-| Signal | Hawkish (tightening) | Dovish (easing) |
-|------|-------------|-------------|
-| Employment | "labor market remains tight" | "softening in labor market" |
-| Inflation | "inflation remains elevated" | "inflation moving toward target" |
-| Forward guidance | "further tightening may be appropriate" | "rate cuts could be appropriate" |
-| Balance sheet | Faster / continued QT | Slower QT / hints of QE |
+**Bộ công cụ:**
 
-**Fed decision function**: core PCE > 2.5% → tightening bias; unemployment > 4.5% → easing bias; when the two conflict, focus on which deviation is larger
-
-### People's Bank of China (PBOC)
-
-**Toolbox:**
-
-| Tool | Signal Strength | Impact |
+| Công cụ | Độ mạnh | Tác động |
 |------|---------|------|
-| RRR cut | Strong | Releases long-term liquidity, bullish for equities and bonds |
-| Rate cuts (MLF/LPR) | Strong | Reduces financing costs, bullish for growth stocks |
-| OMO (reverse repo) | Medium | Short-term liquidity adjustment |
-| PSL / relending | Medium | Targeted support (infrastructure / real estate) |
-| Window guidance | Weak but effective | Directs credit allocation |
+| Cắt lãi suất điều hành | Mạnh | Giảm chi phí vốn → lợi cổ phiếu & trái phiếu |
+| **Nới room tăng trưởng tín dụng** | RẤT mạnh (đặc thù VN) | Bơm tín dụng vào nền KT → lợi ngân hàng, BĐS |
+| OMO (tín phiếu / repo) | Trung bình | Điều tiết thanh khoản ngắn hạn; **phát hành tín phiếu = hút tiền** (thường để giảm áp lực tỷ giá) |
+| Can thiệp tỷ giá (mua/bán USD dự trữ) | Trung bình | Ổn định VND |
+| Chỉ đạo / phân bổ room tín dụng từng NHTM | Yếu nhưng hiệu quả | Định hướng dòng vốn |
 
-### European Central Bank (ECB)
+**Hàm quyết định SBV (đơn giản hóa):** ưu tiên ổn định vĩ mô — CPI vượt ~4,5% hoặc tỷ giá căng → nghiêng thắt chặt/hút tiền; tăng trưởng yếu + lạm phát thấp → nghiêng nới lỏng. **Ràng buộc Fed**: khó hạ lãi suất quá xa dưới Fed vì áp lực mất giá VND & rút vốn ngoại.
 
-**Core variables**: HICP (harmonized CPI), Eurozone PMI, Germany-France yield spread
-**Special feature**: large divergence among member economies, creating a "one size fits all" problem
+### Cục Dự trữ Liên bang Mỹ (Fed) — yếu tố ngoại
 
-## Analysis Framework
+**Trình tự theo dõi**: tuyên bố FOMC → dot plot → phát biểu Chủ tịch Fed → biên bản họp.
+**Vì sao quan trọng với VN**: Fed thắt chặt → USD/DXY mạnh → áp lực tỷ giá USD/VND + khối ngoại bán ròng. Fed nới → dư địa cho SBV nới + dòng tiền ngoại trở lại.
 
-### Step 1: Data Collection and Current-State Description
+## Khung phân tích
 
-```
-Collect core indicators from the latest 3 months:
-- China: PMI, CPI, PPI, M2, aggregate financing, LPR
-- United States: nonfarm payrolls, CPI, core PCE, ISM PMI, Fed rate
-- Global: oil, copper, US dollar index (DXY), VIX
-```
-
-### Step 2: Cycle Positioning
+### Bước 1: Thu thập dữ liệu & mô tả hiện trạng
 
 ```
-Decision criteria:
-1. GDP trend: accelerating / decelerating / topping / bottoming
-2. Inflation trend: rising / falling / topping / bottoming
-3. Policy direction: easing / neutral / tightening / turning
-4. Composite stage: recovery / overheat / stagflation / recession
-5. Cycle position: early / mid / late
+Thu thập chỉ tiêu cốt lõi 3 tháng gần nhất:
+- VN: PMI, CPI, lạm phát cơ bản, tăng trưởng tín dụng, M2, FDI, XNK, lãi suất điều hành, tỷ giá
+- Mỹ/toàn cầu: bảng lương phi nông nghiệp, CPI Mỹ, lãi suất Fed, DXY, US 10Y, giá dầu, vàng
 ```
 
-### Step 3: Policy Impact Assessment
+### Bước 2: Định vị chu kỳ
 
 ```
-1. Recent policy events (last 30 days)
-2. Interpretation of policy intent (support growth / control inflation / contain risk)
-3. Transmission paths to each asset class
-4. Lag estimation (6-12 months for monetary policy, 3-6 months for fiscal policy)
+1. Xu hướng GDP: tăng tốc / giảm tốc / tạo đỉnh / tạo đáy
+2. Xu hướng lạm phát: lên / xuống / đỉnh / đáy
+3. Hướng chính sách: nới / trung tính / thắt / đảo chiều
+4. Giai đoạn tổng hợp: phục hồi / quá nóng / đình lạm / suy thoái
+5. Vị trí trong chu kỳ: đầu / giữa / cuối
 ```
 
-### Step 4: Asset Allocation Tilt
+### Bước 3: Đánh giá tác động chính sách
 
 ```
-Based on cycle position and policy direction:
-- Overweight / neutral / underweight: China A-shares / Hong Kong stocks / US equities / bonds / commodities / cash
-- Style tilt: growth vs value, large cap vs small cap
-- Sector preference: cyclical / defensive / growth
+1. Sự kiện chính sách gần đây (30 ngày): quyết định lãi suất, room tín dụng, gói tài khóa, Nghị định
+2. Diễn giải ý đồ (hỗ trợ tăng trưởng / kiểm soát lạm phát / ổn định tỷ giá / kiềm rủi ro)
+3. Đường truyền dẫn tới từng lớp tài sản
+4. Ước lượng độ trễ (tiền tệ 6-12 tháng, tài khóa 3-6 tháng)
 ```
 
-## Output Format
+### Bước 4: Nghiêng phân bổ tài sản
+
+```
+Theo vị trí chu kỳ + hướng chính sách:
+- Tăng/Trung lập/Giảm tỷ trọng: cổ phiếu VN / trái phiếu / vàng / BĐS / tiền gửi
+- Nghiêng phong cách: tăng trưởng vs giá trị, large-cap vs mid/small-cap
+- Ưu tiên ngành: chu kỳ / phòng thủ / tăng trưởng (ghép skill `sector-rotation`)
+```
+
+## Mẫu output
 
 ```markdown
-## Macro Environment Assessment
+## Đánh giá môi trường vĩ mô
 
-### Snapshot of Core Data
-| Indicator | Latest | Previous | Trend |
+### Ảnh chụp dữ liệu cốt lõi
+| Chỉ tiêu | Mới nhất | Kỳ trước | Xu hướng |
 |------|--------|------|------|
-| China PMI | 50.2 | 49.8 | ↑ |
-| ... | ... | ... | ... |
+| PMI VN | 50,8 | 49,9 | ↑ |
+| CPI YoY | 3,2% | 3,0% | ↑ |
+| Tăng trưởng tín dụng | ... | ... | ... |
 
-### Economic Cycle Positioning
-- **Current stage**: early recovery / mid-overheat / late stagflation / mid-recession
-- **Core logic**: explain the basis in 2-3 sentences
-- **Estimated remaining duration**: expected to last another X months
+### Định vị chu kỳ
+- **Giai đoạn hiện tại**: đầu phục hồi / giữa quá nóng / cuối đình lạm / giữa suy thoái
+- **Logic cốt lõi**: 2-3 câu
+- **Thời lượng còn lại ước tính**: ~X tháng
 
-### Central Bank Policy Analysis
-- **PBOC**: easing bias, likely another 25bp RRR cut in Q2
-- **Fed**: hiking pause, watch the June dot plot
-- **Policy conflicts**: whether there are conflicting policy signals worth attention
+### Phân tích chính sách
+- **SBV**: nghiêng nới lỏng, khả năng cấp thêm room tín dụng nửa cuối năm
+- **Fed**: tạm dừng tăng, theo dõi dot plot — tác động tỷ giá VND & khối ngoại
+- **Xung đột chính sách**: tỷ giá căng vs nhu cầu hạ lãi suất?
 
-### Major Asset Allocation Tilt
-| Asset | Recommendation | Logic |
+### Nghiêng phân bổ tài sản
+| Tài sản | Khuyến nghị | Logic |
 |------|------|------|
-| China A-shares | Overweight | Policy bottom confirmed + loose liquidity |
-| Bonds | Neutral | Limited room for rates to fall further |
-| Commodities | Underweight | Weak demand |
-| Cash | Underweight | High opportunity cost |
+| Cổ phiếu VN | Tăng tỷ trọng | Đáy chính sách + thanh khoản dồi dào |
+| Trái phiếu | Trung lập | Dư địa giảm lãi suất hạn chế |
+| Vàng | Trung lập/Tăng | Phòng thủ khi tỷ giá/địa chính trị căng |
+| Tiền gửi | Giảm | Chi phí cơ hội cao |
 
-### Risk Warnings
-- Risk 1: ...
-- Risk 2: ...
+### Rủi ro
+- Rủi ro 1: ...
 ```
 
-## Notes
+## Lưu ý
 
-1. **Data timeliness**: macro data is released with lags; PMI is the timeliest (start of month), GDP is the most delayed (quarter-end + 15 days)
-2. **Do not predict precisely**: macro analysis provides directional judgment, not exact levels or timing
-3. **Focus on marginal change**: direction and speed of change matter more than absolute levels
-4. **China-specific feature**: policy intent > economic data, and major meeting tone-setting has the highest priority
-5. **Global linkage**: the US dollar / US Treasury yields are global pricing anchors, and Fed policy affects global liquidity
-6. **Avoid hindsight bias**: analyze based on the information available at the time, not by reverse-engineering from future data
+1. **Độ trễ dữ liệu**: PMI kịp thời nhất (đầu tháng), GDP trễ nhất (cuối quý + ~ngày); dòng tiền ngoại (DataPro) theo ngày.
+2. **Không dự báo chính xác tuyệt đối**: vĩ mô cho phán đoán HƯỚNG, không phải mức/thời điểm chính xác.
+3. **Tập trung biến động biên**: hướng và tốc độ thay đổi quan trọng hơn mức tuyệt đối.
+4. **Đặc thù VN**: ý đồ chính sách > số liệu; **room tín dụng & lãi suất điều hành SBV** là biến dẫn dắt mạnh nhất.
+5. **Liên thông toàn cầu**: USD/DXY và lãi suất Mỹ là neo định giá; Fed chi phối tỷ giá VND & dòng vốn ngoại.
+6. **Tránh thiên kiến hồi cố**: phân tích theo thông tin có TẠI THỜI ĐIỂM, không suy ngược từ dữ liệu tương lai.
+
+## Nguồn dữ liệu
+
+- **Vĩ mô VN → firecrawl/`web-reader`**: GSO (gso.gov.vn — GDP/CPI/IIP/bán lẻ/FDI), SBV (sbv.gov.vn — lãi suất điều hành/tín dụng/tỷ giá trung tâm), Tổng cục Hải quan (XNK), Bộ Tài chính (đầu tư công), S&P Global (PMI VN).
+- **Vĩ mô Mỹ/toàn cầu → firecrawl/`web-reader`**: Fed, CPI Mỹ, DXY, US 10Y, giá dầu/vàng.
+- **Dòng tiền khối ngoại (xác nhận khẩu vị rủi ro) → DataPro** (`FRN_BUY_VOL/FRN_SELL_VOL`, mã `.VN`/VNINDEX).
+- **Phản ứng thị trường (VNINDEX, nhóm ngành) → DataPro** giá theo ngày.
