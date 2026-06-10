@@ -1,96 +1,125 @@
-"""基本面因子过滤选股信号引擎。
+"""Signal engine lọc cổ phiếu theo yếu tố cơ bản.
 
-基于 PE/PB/ROE 等财务指标对 A 股进行价值筛选，
-满足全部条件的股票等权做多。支持 tushare `extra_fields`
-以及 `fundamental_fields` 注入的财务报表字段。
+Lọc giá trị bằng ROE / biên LN / P-B, các mã đạt điều kiện được long đều trọng số.
+Ưu tiên thị trường Việt Nam: dùng BCTC vnstock gắn qua ``fundamental_fields``
+(cột tiền tố ``income_`` / ``balancesheet_``) + giá DataPro, tự tính tỷ số.
+Vẫn tương thích A-share (tushare ``extra_fields``) và US/HK (cột pe/pb/roe).
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
 
 class SignalEngine:
-    """基本面因子过滤信号引擎。
+    """Signal engine lọc yếu tố cơ bản.
 
-    通过 PE/PB/ROE 三重过滤筛选价值股，满足条件的股票等权分配。
+    Lọc cổ phiếu giá trị qua ROE + (tuỳ chọn) P/B + biên ròng, các mã đạt
+    điều kiện chia đều trọng số.
 
     Attributes:
-        pe_min: PE 下限（排除亏损股）。
-        pe_max: PE 上限（排除高估值）。
-        pb_max: PB 上限。
-        roe_min: ROE 下限（%）。
-
-    Example:
-        >>> engine = SignalEngine(pe_max=15, pb_max=2, roe_min=10)
-        >>> signals = engine.generate({"000001.SZ": df1, "600036.SH": df2})
+        roe_min: Sàn ROE (%).
+        pb_max: Trần P/B (chỉ áp khi có ``shares_map``).
+        pe_max: Trần P/E (chỉ áp khi có ``shares_map``).
+        margin_min: Sàn biên ròng (%).
+        shares_map: ``{mã: issue_share}`` số CP lưu hành — cần cho P/B, P/E.
     """
 
     def __init__(
         self,
-        pe_min: float = 0.0,
-        pe_max: float = 20.0,
-        pb_max: float = 3.0,
         roe_min: float = 8.0,
+        pb_max: float = 3.0,
+        pe_max: float = 20.0,
+        margin_min: float = 0.0,
         revenue_min: float = 0.0,
-        net_assets_min: float = 0.0,
+        equity_min: float = 0.0,
+        shares_map: Optional[Dict[str, float]] = None,
     ):
-        """初始化基本面过滤引擎。
+        """Khởi tạo engine lọc cơ bản.
 
         Args:
-            pe_min: PE 下限（排除亏损股，默认 0）。
-            pe_max: PE 上限（排除高估值）。
-            pb_max: PB 上限。
-            roe_min: ROE 下限（%）。
-            revenue_min: 营收下限，单位沿用 Tushare income 表。
-            net_assets_min: 净资产下限，单位沿用 Tushare balancesheet 表。
+            roe_min: Sàn ROE (%) (loại DN sinh lời thấp).
+            pb_max: Trần P/B (áp khi có số CP lưu hành).
+            pe_max: Trần P/E (áp khi có số CP lưu hành).
+            margin_min: Sàn biên ròng (%) (tuỳ chọn).
+            revenue_min: Sàn doanh thu thuần (đơn vị đồng theo BCTC vnstock).
+            equity_min: Sàn vốn chủ sở hữu (đồng).
+            shares_map: ``{mã: issue_share}``; thiếu thì bỏ qua lọc P/B, P/E.
         """
-        self.pe_min = pe_min
-        self.pe_max = pe_max
-        self.pb_max = pb_max
         self.roe_min = roe_min
+        self.pb_max = pb_max
+        self.pe_max = pe_max
+        self.margin_min = margin_min
         self.revenue_min = revenue_min
-        self.net_assets_min = net_assets_min
+        self.equity_min = equity_min
+        self.shares_map = shares_map or {}
 
-    def _passes_statement_filter(self, row: pd.Series) -> bool | None:
-        """Return statement-filter decision, or None when statement data is absent."""
-        revenue = _first_number(row, ["income_total_revenue", "income_revenue"])
-        profit = _first_number(row, ["income_n_income"])
-        net_assets = _first_number(row, ["balancesheet_total_hldr_eqy_exc_min_int"])
-        roe = _first_number(row, ["fina_indicator_roe", "roe"])
+    def _passes_statement_filter(self, code: str, row: pd.Series) -> Optional[bool]:
+        """Quyết định lọc theo BCTC, hoặc None khi không có dữ liệu BCTC.
 
-        statement_values = [revenue, profit, net_assets, roe]
-        if all(pd.isna(value) for value in statement_values):
-            return None
-        if any(pd.isna(value) for value in statement_values):
-            return False
-        return (
-            revenue >= self.revenue_min
-            and profit > 0
-            and net_assets > self.net_assets_min
-            and roe >= self.roe_min
+        Ưu tiên cột vnstock (VN); lùi về cột tushare (A-share) để tương thích.
+        """
+        # --- Việt Nam (vnstock) ---
+        revenue = _first_number(row, ["income_net_sales"])
+        profit = _first_number(
+            row, ["income_net_profit_loss_after_tax", "income_attributable_to_parent_company"]
         )
+        equity = _first_number(row, ["balancesheet_owners_equity"])
+
+        # --- A-share (tushare) — tương thích ngược ---
+        if pd.isna(revenue):
+            revenue = _first_number(row, ["income_total_revenue", "income_revenue"])
+        if pd.isna(profit):
+            profit = _first_number(row, ["income_n_income"])
+        if pd.isna(equity):
+            equity = _first_number(row, ["balancesheet_total_hldr_eqy_exc_min_int"])
+
+        if all(pd.isna(v) for v in (revenue, profit, equity)):
+            return None  # không có dữ liệu BCTC ở dòng này
+        if pd.isna(profit) or pd.isna(equity) or equity <= 0:
+            return False
+
+        roe = profit / equity * 100.0
+        if not (profit > 0 and equity > self.equity_min and roe >= self.roe_min):
+            return False
+
+        # Doanh thu: ngân hàng có thể rỗng net_sales → chỉ áp khi có
+        if not pd.isna(revenue):
+            if revenue < self.revenue_min:
+                return False
+            if self.margin_min > 0 and revenue > 0 and (profit / revenue * 100.0) < self.margin_min:
+                return False
+
+        # P/B (cần số CP lưu hành + giá). close DataPro tính bằng NGHÌN đồng.
+        shares = self.shares_map.get(code)
+        close = row.get("close", np.nan)
+        if shares and pd.notna(close):
+            market_cap = float(close) * 1000.0 * float(shares)
+            pb = market_cap / equity
+            if not (0 < pb < self.pb_max):
+                return False
+            if profit > 0:
+                pe = market_cap / profit
+                if not (0 < pe < self.pe_max):
+                    return False
+        return True
 
     def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
-        """基于基本面条件过滤，对满足条件的股票等权做多。
+        """Lọc theo điều kiện cơ bản, long đều trọng số các mã đạt.
 
         Args:
-            data_map: 标的代码到 DataFrame 的映射。
-                DataFrame 需包含 open/high/low/close/volume 列及 pe/pb/roe 等 extra_fields。
+            data_map: Mã → DataFrame (OHLCV + cột BCTC tiền tố, hoặc pe/pb/roe).
 
         Returns:
-            标的代码到信号 Series 的映射。
+            Mã → Series tín hiệu (1/N khi được chọn, 0 khi không).
         """
         codes = list(data_map.keys())
         if not codes:
             return {}
 
-        # 获取所有日期的并集
         all_dates = sorted(set().union(*(df.index for df in data_map.values())))
         date_index = pd.DatetimeIndex(all_dates)
-
-        # 逐日判断每只股票是否满足条件
         signals: Dict[str, pd.Series] = {code: pd.Series(0.0, index=date_index) for code in codes}
 
         for dt in date_index:
@@ -99,19 +128,20 @@ class SignalEngine:
                 if dt not in df.index:
                     continue
                 row = df.loc[dt]
-                statement_pass = self._passes_statement_filter(row)
+
+                statement_pass = self._passes_statement_filter(code, row)
                 if statement_pass is not None:
                     if statement_pass:
                         qualified.append(code)
                     continue
 
+                # Lùi về tỷ số có sẵn theo ngày (US/HK qua yfinance, hoặc tushare daily_basic)
                 pe = row.get("pe", np.nan)
                 pb = row.get("pb", np.nan)
                 roe = row.get("roe", np.nan)
-
                 if pd.isna(pe) or pd.isna(pb) or pd.isna(roe):
                     continue
-                if self.pe_min < pe <= self.pe_max and pb <= self.pb_max and roe >= self.roe_min:
+                if 0 < pe <= self.pe_max and pb <= self.pb_max and roe >= self.roe_min:
                     qualified.append(code)
 
             if qualified:
@@ -119,15 +149,11 @@ class SignalEngine:
                 for code in qualified:
                     signals[code].at[dt] = weight
 
-        # 对齐到各自原始索引
-        result = {}
-        for code, df in data_map.items():
-            result[code] = signals[code].reindex(df.index).fillna(0.0)
-        return result
+        return {code: signals[code].reindex(df.index).fillna(0.0) for code, df in data_map.items()}
 
 
 def _first_number(row: pd.Series, columns: List[str]) -> float:
-    """Return the first numeric value found in row, otherwise NaN."""
+    """Trả về số đầu tiên tìm thấy trong row, nếu không có thì NaN."""
     for column in columns:
         value = row.get(column, np.nan)
         if pd.notna(value):
@@ -136,33 +162,28 @@ def _first_number(row: pd.Series, columns: List[str]) -> float:
 
 
 if __name__ == "__main__":
-    # 演示：用随机数据模拟基本面过滤
+    # Demo: mô phỏng lọc cơ bản bằng cột BCTC vnstock (đơn vị đồng)
     np.random.seed(42)
     dates = pd.bdate_range("2024-01-01", "2024-12-31")
 
-    def _mock_stock(pe_range, pb_range, roe_range):
+    def _mock(profit, equity, revenue, close):
         n = len(dates)
         return pd.DataFrame({
-            "open": np.random.uniform(10, 50, n),
-            "high": np.random.uniform(10, 50, n),
-            "low": np.random.uniform(10, 50, n),
-            "close": np.random.uniform(10, 50, n),
+            "close": np.full(n, close),
             "volume": np.random.uniform(1e6, 1e7, n),
-            "pe": np.random.uniform(*pe_range, n),
-            "pb": np.random.uniform(*pb_range, n),
-            "roe": np.random.uniform(*roe_range, n),
+            "income_net_sales": np.full(n, revenue),
+            "income_net_profit_loss_after_tax": np.full(n, profit),
+            "balancesheet_owners_equity": np.full(n, equity),
         }, index=dates)
 
     data_map = {
-        "000001.SZ": _mock_stock((5, 15), (0.5, 2.0), (8, 20)),    # 大概率入选
-        "600036.SH": _mock_stock((3, 10), (0.3, 1.5), (12, 25)),   # 高概率入选
-        "000858.SZ": _mock_stock((30, 80), (5, 15), (5, 10)),       # 大概率不入选
+        "FPT.VN": _mock(profit=9_000e9, equity=35_000e9, revenue=62_000e9, close=120.0),  # ROE ~25,7% → đạt
+        "HPG.VN": _mock(profit=12_000e9, equity=110_000e9, revenue=140_000e9, close=27.0),  # ROE ~10,9% → đạt
+        "XYZ.VN": _mock(profit=100e9, equity=20_000e9, revenue=5_000e9, close=15.0),        # ROE ~0,5% → loại
     }
 
-    engine = SignalEngine(pe_max=20, pb_max=3, roe_min=8)
+    engine = SignalEngine(roe_min=8.0)
     signals = engine.generate(data_map)
-
     for code in data_map:
         sig = signals[code]
-        active_days = (sig > 0).sum()
-        print(f"{code}: {active_days}/{len(sig)} days in portfolio")
+        print(f"{code}: {int((sig > 0).sum())}/{len(sig)} phiên trong danh mục")

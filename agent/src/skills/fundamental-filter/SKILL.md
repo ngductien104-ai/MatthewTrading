@@ -1,175 +1,115 @@
 ---
 name: fundamental-filter
-description: Fundamental factor screening — filter stocks by PE/PB/ROE, financial statement fields, and other metrics for value or growth selection. Supports A-shares (via tushare extra_fields or fundamental_fields) and HK/US stocks (via yfinance Ticker info).
+description: "Lọc cổ phiếu theo yếu tố cơ bản (ROE/biên LN/tăng trưởng/P-B) cho thị trường Việt Nam — dùng BCTC vnstock qua fundamental_fields + giá DataPro, tính tỷ số trong signal engine. Hỗ trợ value/growth screen cho backtest."
 category: flow
 ---
-# Fundamental Factor Screening
+# Lọc cổ phiếu theo yếu tố cơ bản (Việt Nam)
 
-## Purpose
+## Mục đích
 
-Filter stocks using fundamental financial data (PE/PB/ROE, etc.) to build value or growth screen signals for backtesting. Supports multiple markets with different data sources.
+Lọc cổ phiếu bằng dữ liệu cơ bản (ROE, biên lợi nhuận, tăng trưởng, P/B...) để tạo tín hiệu value/growth cho backtest. Trọng tâm thị trường Việt Nam.
 
-## Market Support
+## Đặc thù dữ liệu Việt Nam
 
-| Market | Data Source | Method | Supported Metrics |
-|--------|-----------|--------|------------------|
-| A-shares | tushare `daily_basic` | `extra_fields` in config.json | pe, pb, pe_ttm, ps_ttm, dv_ttm, total_mv, circ_mv, roe |
-| A-shares | Tushare statements | `fundamental_fields` in config.json | income, balancesheet, cashflow, fina_indicator fields |
-| US stocks | yfinance `Ticker.info` | Direct API call | trailingPE, forwardPE, priceToBook, returnOnEquity, marketCap, dividendYield |
-| HK stocks | yfinance `Ticker.info` | Direct API call | trailingPE, priceToBook, returnOnEquity, marketCap |
+| Việc cần | Nguồn | Cách lấy |
+|------|------|------|
+| BCTC (doanh thu, LN, vốn chủ, CFO) | **vnstock** | `fundamental_fields` trong config.json (an toàn point-in-time) |
+| Giá / vốn hoá | **DataPro** | cột `close` (nghìn đồng) × `issue_share` |
+| Số CP lưu hành | **vnstock** | `Company.overview().issue_share` — truyền vào engine, KHÔNG suy từ EPS |
 
-## Signal Logic
+> ⚠️ Khác Tushare/A-share: DataPro **KHÔNG** cấp sẵn `pe/pb/roe` theo ngày. Với VN phải **tự tính tỷ số** trong signal engine từ BCTC + giá. Endpoint `ratio()` của vnstock community không ổn định → đừng lấy trực tiếp.
 
-### Value Filter (Default)
+## Logic tín hiệu
 
-1. PE < pe_max AND PE > 0 (exclude loss-making stocks)
-2. PB < pb_max
-3. ROE > roe_min
-4. All conditions met → long (1), otherwise → flat (0)
+### Bộ lọc giá trị (mặc định) — tính từ BCTC, KHÔNG cần số CP
+1. LN sau thuế > 0 (loại DN lỗ)
+2. Doanh thu thuần > 0
+3. **ROE = LN sau thuế / Vốn chủ × 100 > roe_min**
+4. (tuỳ chọn) Biên ròng = LN sau thuế / Doanh thu thuần > margin_min
+5. Đủ điều kiện → long (1/N), không thì flat (0)
 
-### Growth Filter (Optional)
+### Bộ lọc định giá (tuỳ chọn) — cần `issue_share`
+6. **P/B = (close × 1000 × issue_share) / Vốn chủ < pb_max**
+   *(close DataPro tính bằng NGHÌN đồng nên ×1000 để ra đồng, khớp đơn vị BCTC)*
+7. **P/E = (close × 1000 × issue_share) / LN sau thuế (TTM) < pe_max** và > 0
 
-1. PE_TTM within reasonable range (0 < PE_TTM < pe_ttm_max)
-2. ROE > roe_min (profitability floor)
-3. Market cap > mv_min (exclude micro-caps)
-
-## A-Share Usage (tushare)
-
-### config.json
+## Cách dùng cho VN (config.json)
 
 ```json
 {
-  "source": "tushare",
-  "codes": ["000001.SZ", "600036.SH", "000858.SZ"],
+  "source": "datapro",
+  "codes": ["VCB.VN", "FPT.VN", "HPG.VN"],
   "start_date": "2023-01-01",
-  "end_date": "2024-12-31",
-  "extra_fields": ["pe", "pb", "pe_ttm", "roe", "total_mv"],
-  "initial_cash": 1000000,
-  "commission": 0.001
-}
-```
-
-The `extra_fields` columns are automatically merged into the daily DataFrame by the DataLoader.
-
-### A-Share Statement Pre-Filter
-
-Use `fundamental_fields` when the strategy needs PIT-safe financial statement data instead of daily valuation fields:
-
-```json
-{
-  "source": "tushare",
-  "codes": ["000001.SZ", "600036.SH", "000858.SZ"],
-  "start_date": "2023-01-01",
-  "end_date": "2024-12-31",
+  "end_date": "2025-12-31",
   "fundamental_fields": {
-    "income": ["total_revenue", "n_income"],
-    "balancesheet": ["total_hldr_eqy_exc_min_int"],
-    "fina_indicator": ["roe", "debt_to_assets"]
+    "income": ["net_sales", "net_profit_loss_after_tax"],
+    "balancesheet": ["owners_equity"]
   },
-  "initial_cash": 1000000,
-  "commission": 0.001
+  "initial_cash": 1000000000,
+  "commission": 0.0015
 }
 ```
 
-The backtest runner queries the configured tables through `TushareFundamentalProvider` and merges each published statement snapshot into daily bars only after its announcement/disclosure date. Statement columns are prefixed by table name:
+Runner sẽ truy vấn các bảng BCTC qua `VNStockFundamentalProvider` và gắn mỗi kỳ vào nến ngày **chỉ sau ngày công bố ước tính** (point-in-time). Cột BCTC được tiền tố theo tên bảng:
 
-| Requested field | SignalEngine column |
+| Field yêu cầu | Cột trong SignalEngine |
 |-----------------|---------------------|
-| `income.total_revenue` | `income_total_revenue` |
-| `income.n_income` | `income_n_income` |
-| `balancesheet.total_hldr_eqy_exc_min_int` | `balancesheet_total_hldr_eqy_exc_min_int` |
-| `fina_indicator.roe` | `fina_indicator_roe` |
+| `income.net_sales` | `income_net_sales` |
+| `income.net_profit_loss_after_tax` | `income_net_profit_loss_after_tax` |
+| `balancesheet.owners_equity` | `balancesheet_owners_equity` |
 
-Representative financial-quality pre-filter:
+Bộ lọc chất lượng cơ bản tiêu biểu:
 
 ```python
-revenue = row.get("income_total_revenue")
-profit = row.get("income_n_income")
-net_assets = row.get("balancesheet_total_hldr_eqy_exc_min_int")
-roe = row.get("fina_indicator_roe")
+revenue = row.get("income_net_sales")
+profit = row.get("income_net_profit_loss_after_tax")
+equity = row.get("balancesheet_owners_equity")
 
 passes = (
     revenue is not None and revenue > 0
     and profit is not None and profit > 0
-    and net_assets is not None and net_assets > 0
-    and roe is not None and roe >= 8.0
+    and equity is not None and equity > 0
+    and (profit / equity * 100) >= 8.0   # ROE >= 8%
 )
 ```
 
-## HK/US Stock Usage (yfinance)
-
-For HK/US stocks, fundamental data is not available as daily time-series via the backtest loader. Instead, use `yfinance` Ticker info for point-in-time screening:
+### Thêm bộ lọc P/B (cần issue_share)
 
 ```python
-import yfinance as yf
-
-def screen_us_stocks(tickers, criteria):
-    """Screen US/HK stocks by fundamental criteria."""
-    passed = []
-    for symbol in tickers:
-        info = yf.Ticker(symbol).info
-        pe = info.get("trailingPE")
-        pb = info.get("priceToBook")
-        roe = info.get("returnOnEquity")  # Decimal (e.g., 0.25 = 25%)
-        mcap = info.get("marketCap")
-
-        if pe is None or pb is None or roe is None:
-            continue  # Skip stocks with missing data
-
-        if (0 < pe < criteria["pe_max"]
-            and pb < criteria["pb_max"]
-            and roe > criteria["roe_min"]
-            and (mcap or 0) > criteria.get("mcap_min", 0)):
-            passed.append({
-                "symbol": symbol,
-                "pe": pe,
-                "pb": pb,
-                "roe": round(roe * 100, 1),  # Convert to percentage
-                "mcap": mcap,
-            })
-
-    return passed
-
-# Example: screen S&P 500 components
-criteria = {"pe_max": 20, "pb_max": 3.0, "roe_min": 0.08, "mcap_min": 10_000_000_000}
-results = screen_us_stocks(["AAPL", "MSFT", "JNJ", "JPM", "XOM"], criteria)
+# shares: số CP lưu hành (issue_share) truyền vào engine theo từng mã
+market_cap = row["close"] * 1000 * shares          # close (nghìn đồng) → đồng
+pb = market_cap / equity                            # equity (đồng) từ BCTC
+passes_pb = 0 < pb < pb_max
 ```
 
-### HK Stock Screening
+## Tham số
 
-```python
-# HK stocks use the same yfinance interface
-hk_tickers = ["0700.HK", "9988.HK", "1810.HK", "2318.HK", "0005.HK"]
-results = screen_us_stocks(hk_tickers, criteria)  # Same function works
-```
+| Tham số | Mặc định | Mô tả |
+|-----------|---------|------|
+| roe_min | 8.0 | Sàn ROE (%), loại DN sinh lời thấp |
+| pb_max | 3.0 | Trần P/B |
+| pe_max | 20.0 | Trần P/E (loại định giá cao) |
+| margin_min | 0.0 | Sàn biên ròng (%) (tuỳ chọn) |
+| shares_map | {} | `{mã: issue_share}` — cần cho lọc P/B, P/E |
 
-## Parameters
+## Lỗi thường gặp
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| pe_max | 20.0 | PE ceiling (exclude overvalued) |
-| pb_max | 3.0 | PB ceiling |
-| roe_min | 8.0 | ROE floor (%), exclude low-profitability |
-| pe_min | 0.0 | PE floor (exclude loss-making stocks) |
-| mcap_min | 0 | Market cap floor (for US/HK, in USD) |
+- Cột `fundamental_fields` bị NaN trước khi BCTC đầu tiên được công bố trong cửa sổ backtest → phải `dropna`/bỏ qua, KHÔNG forward-fill thủ công (loader đã đảm bảo point-in-time).
+- **Đơn vị giá DataPro là NGHÌN đồng** (vd 61.7 = 61.700đ); BCTC vnstock là **đồng**. Tính vốn hoá phải ×1000 — đây là lỗi sai đơn vị phổ biến nhất.
+- ROE tự tính = LN/Vốn chủ ×100; đừng kỳ vọng có cột `roe` sẵn như Tushare.
+- `issue_share` thay đổi khi pha loãng (tăng vốn, cổ tức cổ phiếu) — lý tưởng là cập nhật theo kỳ; nếu dùng hằng số, nêu rõ giả định.
+- Ngân hàng: `net_sales` thường rỗng (mẫu BCTC riêng) → lọc bằng ROE/LN sau thuế, không lọc bằng doanh thu/biên.
+- Bản community vnstock chỉ ~4 kỳ năm gần nhất → mã backtest dài sẽ thiếu BCTC năm cũ.
+- Danh mục N mã đạt lọc → mỗi mã trọng số 1/N.
 
-## Common Pitfalls
-
-- `extra_fields` columns may contain NaN (new listings, ST stocks) — must `fillna` or `dropna`
-- `fundamental_fields` columns are prefixed by table and may be NaN before the first statement is published in the backtest window
-- Do not forward-fill statement rows manually before their `ann_date` / `f_ann_date`; the runner's merge already enforces point-in-time visibility
-- Negative PE means loss-making — always filter with `pe > 0`
-- ROE units differ: tushare uses percentage (e.g., 15 = 15%), yfinance uses decimal (e.g., 0.15 = 15%)
-- For portfolio strategies: N stocks passing the screen each get weight 1/N
-- yfinance `Ticker.info` is a point-in-time snapshot, not historical time-series — cannot directly use for daily rebalancing backtests on US/HK stocks
-- For US/HK daily fundamental backtests, consider using the screening results as a stock universe, then applying technical signals within that universe
-
-## Dependencies
+## Phụ thuộc
 
 ```bash
-pip install pandas numpy yfinance
+pip install pandas numpy vnstock
 ```
 
-## Signal Convention
+## Quy ước tín hiệu
 
-- `1/N` = selected for long (N = number of stocks passing the screen), `0` = not selected
+- `1/N` = được chọn long (N = số mã đạt lọc), `0` = không chọn.
+
+> Ghi chú: bộ khung A-share (tushare `extra_fields`/`fundamental_fields`) và HK/US (yfinance `Ticker.info`) vẫn còn trong `example_signal_engine.py` để tương thích đa thị trường; với VN dùng nhánh BCTC vnstock ở trên.
