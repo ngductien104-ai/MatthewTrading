@@ -1,0 +1,23 @@
+{
+  "name": "MatthewTrading",
+  "version": "0.2.0",
+  "description": "AI-powered trading toolkit for Vietnam stock market (HOSE/HNX/UPCOM) with backtesting, fundamental analysis via vnstock & datapro, factor analysis, and 452 pre-built alphas.",
+  "author": "ngductien104-ai",
+  "license": "MIT",
+  "homepage": "https://github.com/ngductien104-ai/MatthewTrading",
+  "keywords": [
+    "trading",
+    "vietnam",
+    "stock-market",
+    "backtesting",
+    "vnstock",
+    "datapro",
+    "finance",
+    "quantitative"
+  ],
+  "categories": [
+    "finance",
+    "trading",
+    "data-analysis"
+  ]
+}
