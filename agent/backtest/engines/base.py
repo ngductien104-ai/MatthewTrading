@@ -187,8 +187,8 @@ def _maybe_enrich_fundamentals(
     if not fields_by_table:
         return data_map
 
+    provider, label = _fundamental_provider(config)
     try:
-        provider = TushareFundamentalProvider()
         return enrich_price_frames_with_fundamentals(
             data_map,
             provider,
@@ -198,8 +198,24 @@ def _maybe_enrich_fundamentals(
         )
     except Exception as exc:
         raise RuntimeError(
-            f"fundamental_fields requested but Tushare enrichment failed: {exc}"
+            f"fundamental_fields requested but {label} enrichment failed: {exc}"
         ) from exc
+
+
+def _fundamental_provider(config: Dict[str, Any]):
+    """Pick the fundamental provider matching the price source.
+
+    DataPro / ``.VN`` symbols → vnstock statements; everything else → Tushare.
+    """
+    source = str(config.get("source") or "").lower()
+    codes = config.get("codes") or []
+    is_vn = source == "datapro" or any(str(c).upper().endswith(".VN") for c in codes)
+    if is_vn:
+        from backtest.loaders.vnstock_fundamentals import VNStockFundamentalProvider
+
+        period = str(config.get("fundamental_period", "year"))
+        return VNStockFundamentalProvider(period=period), "vnstock"
+    return TushareFundamentalProvider(), "Tushare"
 
 
 # ─── Base Engine ───

@@ -284,6 +284,7 @@ _MARKET_TO_SOURCE = {
     "a_share": "tushare",
     "us_equity": "yfinance",
     "hk_equity": "yfinance",
+    "vn_equity": "datapro",
     "crypto": "okx",
     "futures": "tushare",
     "fund": "tushare",
@@ -549,6 +550,12 @@ def _create_market_engine(source: str, config: dict, codes: List[str]):
     if "forex" in markets:
         from backtest.engines.forex import ForexEngine
         return ForexEngine(config)
+
+    # Vietnam equities (HOSE/HNX/UPCOM): detected via the ``.VN`` suffix, or
+    # whenever DataPro (a VN-only source) is the explicit source.
+    if "vn_equity" in markets or source == "datapro":
+        from backtest.engines.vn_equity import VNEquityEngine
+        return VNEquityEngine(config)
 
     # Original routing (Wave 1)
     if source in ("okx", "ccxt"):
