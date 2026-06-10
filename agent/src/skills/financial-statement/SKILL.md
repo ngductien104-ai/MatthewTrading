@@ -1,262 +1,294 @@
 ---
 name: financial-statement
-description: 财报三表深度解读——三表勾稽关系、盈利质量(应计vs现金流)分析、杜邦分解、10+财务造假红旗指标
+description: "Đọc hiểu BCTC theo chuẩn kế toán Việt Nam (VAS — TT 200/2014/TT-BTC) — quan hệ khớp số 3 báo cáo, chất lượng lợi nhuận (dồn tích vs tiền mặt), phân tích Dupont, 12 cờ đỏ gian lận tài chính. Nguồn dữ liệu vnstock (BCTC) + DataPro (giá)."
 category: flow
 ---
 
-# 财报三表解读
+# Đọc hiểu BCTC doanh nghiệp Việt Nam (VAS)
 
-## 概述
+## Tổng quan
 
-从三张报表（利润表、资产负债表、现金流量表）的勾稽关系出发，深度分析企业盈利质量，识别财务造假信号，用杜邦分析分解盈利驱动因子。
+Phân tích sâu chất lượng lợi nhuận từ quan hệ khớp số của 3 báo cáo (Kết quả HĐKD, Cân đối kế toán, Lưu chuyển tiền tệ) theo **Thông tư 200/2014/TT-BTC**, nhận diện tín hiệu gian lận tài chính, và phân rã động lực sinh lời bằng Dupont. Dữ liệu lấy từ **vnstock** (`lang='vi'` để phân loại đúng khoản mục) và **DataPro** (giá/khối lượng).
 
-## 三表核心框架
+> ⚠️ **Trước khi tính, theo checklist Karpathy:** số CP lưu hành lấy từ `Company.overview().issue_share` (KHÔNG suy từ EPS); lục đúng line-item BCTC `lang='vi'` (đừng đoán khoản mục); bóc khoản một lần (FX/thanh lý/đánh giá lại) trước khi annualize quý.
 
-### 利润表（赚了多少）
+## Khung 3 báo cáo (VAS)
+
+### Báo cáo Kết quả HĐKD (kiếm được bao nhiêu)
 
 ```
-营业收入
- - 营业成本               → 毛利润（毛利率 = 毛利/营收）
- - 销售费用 + 管理费用 + 研发费用  → 核心利润
- + 投资收益 + 公允价值变动        → 营业利润
- + 营业外收支               → 利润总额
- - 所得税                 → 净利润
- - 少数股东损益              → 归母净利润
+Doanh thu bán hàng và cung cấp dịch vụ        (mã 01)
+ − Các khoản giảm trừ doanh thu               (02)
+ = Doanh thu thuần                            (10)
+ − Giá vốn hàng bán                           (11)
+ = Lợi nhuận gộp                              (20)  → biên gộp = LN gộp / DT thuần
+ + Doanh thu hoạt động tài chính              (21)
+ − Chi phí tài chính (trong đó: chi phí lãi vay) (22, 23)
+ − Chi phí bán hàng                           (25)
+ − Chi phí quản lý doanh nghiệp               (26)
+ = Lợi nhuận thuần từ HĐKD                    (30)
+ + Lợi nhuận khác (Thu nhập khác − Chi phí khác) (40)
+ = Tổng lợi nhuận kế toán trước thuế          (50)
+ − Chi phí thuế TNDN (hiện hành + hoãn lại)   (51, 52)
+ = Lợi nhuận sau thuế TNDN                    (60)
+ → tách: LN cổ đông công ty mẹ / cổ đông không kiểm soát
 ```
 
-**关键比率**：
+> **Lợi nhuận cốt lõi** (thước đo phân tích, không có trên BCTC): với DN phi tài chính ≈ Lợi nhuận gộp − Chi phí bán hàng − Chi phí QLDN. Mục đích: loại bỏ lãi/lỗ tài chính và khoản bất thường để thấy "lõi" kinh doanh thật.
 
-| 比率 | 公式 | 健康范围 | 警示 |
+**Tỷ số then chốt:**
+
+| Tỷ số | Công thức | Khoẻ | Cảnh báo |
 |------|------|---------|------|
-| 毛利率 | 毛利/营收 | 行业差异大 | 连续3季下滑 |
-| 净利率 | 净利/营收 | >10%优秀 | <0%且无改善趋势 |
-| 期间费用率 | (销管研)/营收 | <30% | 逐年上升 |
-| 扣非/归母 | 扣非净利/归母净利 | >80% | <50%依赖非经常 |
+| Biên gộp | LN gộp / DT thuần | Tuỳ ngành | Giảm 3 quý liên tiếp |
+| Biên ròng | LN sau thuế / DT thuần | >10% là tốt | <0% và không cải thiện |
+| Tỷ lệ chi phí (BH+QL) | (CPBH+CPQLDN)/DT thuần | <30% | Tăng dần qua các năm |
+| LN cốt lõi / LN sau thuế | LN cốt lõi / LN ròng | >80% | <50% → lệ thuộc khoản bất thường |
 
-### 资产负债表（有什么家底）
+### Bảng Cân đối kế toán (gia sản có gì)
 
 ```
-资产 = 负债 + 所有者权益
+TÀI SẢN = NỢ PHẢI TRẢ + VỐN CHỦ SỞ HỮU
 
-资产端重点:
-- 货币资金: 是否受限？存贷双高？
-- 应收账款: 增速是否超过营收？
-- 存货: 是否积压？跌价准备够不够？
-- 商誉: 并购溢价，减值风险
-- 在建工程: 是否长期不转固？
+A. TÀI SẢN NGẮN HẠN (100)
+   - Tiền và tương đương tiền (110): có bị hạn chế? "vừa nhiều tiền vừa nhiều nợ vay"?
+   - Đầu tư tài chính ngắn hạn (120)
+   - Phải thu ngắn hạn (130): tăng có nhanh hơn doanh thu không?
+   - Hàng tồn kho (140): có ứ đọng? dự phòng giảm giá đủ chưa?
+B. TÀI SẢN DÀI HẠN (200)
+   - Tài sản cố định; Bất động sản đầu tư
+   - Tài sản dở dang dài hạn (xây dựng cơ bản dở dang): có "treo" lâu không chuyển TSCĐ?
+   - Đầu tư tài chính dài hạn
+   - Lợi thế thương mại (chỉ trên BCTC hợp nhất): rủi ro tổn thất
 
-负债端重点:
-- 有息负债: 短期借款+长期借款+应付债券
-- 应付账款: 对上游议价权
-- 预收/合同负债: 对下游议价权
+NGUỒN VỐN
+C. NỢ PHẢI TRẢ (300)
+   - Nợ ngắn hạn (310): vay ngắn hạn, phải trả người bán, người mua trả trước
+   - Nợ dài hạn (330): vay dài hạn, trái phiếu phát hành
+   - Nợ vay có lãi = vay ngắn hạn + vay dài hạn + trái phiếu
+D. VỐN CHỦ SỞ HỮU (400)
 ```
 
-**关键比率**：
+**Tỷ số then chốt:**
 
-| 比率 | 公式 | 健康范围 |
+| Tỷ số | Công thức | Khoẻ (phi tài chính) |
 |------|------|---------|
-| 资产负债率 | 负债/资产 | 40-60%（非金融） |
-| 流动比率 | 流动资产/流动负债 | 1.5-2.5 |
-| 速动比率 | (流动资产-存货)/流动负债 | >1.0 |
-| 有息负债率 | 有息负债/总资产 | <30% |
+| Hệ số nợ | Nợ phải trả / Tổng tài sản | 40-60% |
+| Thanh toán hiện hành | TS ngắn hạn / Nợ ngắn hạn | 1,5-2,5 |
+| Thanh toán nhanh | (TS ngắn hạn − Tồn kho) / Nợ ngắn hạn | >1,0 |
+| Tỷ lệ nợ vay | Nợ vay có lãi / Tổng tài sản | <30% |
+| Khả năng trả lãi (ICR) | LN thuần HĐKD trước lãi vay / Chi phí lãi vay | >3 lần |
 
-### 现金流量表（真正拿到多少现金）
+### Báo cáo Lưu chuyển tiền tệ (tiền thật về bao nhiêu)
 
 ```
-经营活动现金流(CFO): 做生意赚的现金
-投资活动现金流(CFI): 买卖资产花的现金
-筹资活动现金流(CFF): 借钱/还钱/分红
+CFO — Lưu chuyển tiền từ hoạt động kinh doanh: tiền thật từ làm ăn
+CFI — Lưu chuyển tiền từ hoạt động đầu tư: mua/bán tài sản
+CFF — Lưu chuyển tiền từ hoạt động tài chính: vay/trả nợ/cổ tức/phát hành
 
-黄金公式: 净利润 ≈ CFO（长期来看）
+Công thức vàng (dài hạn): Lợi nhuận sau thuế ≈ CFO
 ```
 
-**现金流质量矩阵**：
+**Ma trận chất lượng dòng tiền:**
 
-| CFO | CFI | CFF | 企业状态 |
+| CFO | CFI | CFF | Trạng thái doanh nghiệp |
 |-----|-----|-----|---------|
-| + | - | - | 优秀（赚钱、投资、还债） |
-| + | - | + | 扩张（赚钱、投资、借钱加速） |
-| + | + | - | 稳健（赚钱、回收投资、还债） |
-| - | - | + | 危险（亏钱、还在投、靠借钱活） |
-| - | + | + | 困境（卖资产+借钱维持） |
-| - | + | - | 衰退（卖资产还债） |
+| + | − | − | Ưu tú (làm ra tiền, đầu tư, trả nợ) |
+| + | − | + | Mở rộng (làm ra tiền, đầu tư, vay thêm tăng tốc) |
+| + | + | − | Vững (làm ra tiền, thu hồi đầu tư, trả nợ) |
+| − | − | + | Nguy hiểm (lỗ tiền, vẫn đầu tư, sống bằng đi vay) |
+| − | + | + | Khó khăn (bán tài sản + vay để cầm cự) |
+| − | + | − | Suy thoái (bán tài sản để trả nợ) |
 
-## 三表勾稽关系
+## Quan hệ khớp số 3 báo cáo
 
-### 核心勾稽
+### Khớp số cốt lõi
 
 ```
-1. 利润表 → 资产负债表
-   净利润 → 留存收益（未分配利润增加）
-   应收增加 = 收入 - 实际收款
-   存货增加 = 采购 - 已售成本
+1. KQHĐKD → Cân đối kế toán
+   LN sau thuế → tăng Lợi nhuận sau thuế chưa phân phối (vốn CSH)
+   Phải thu tăng = Doanh thu − Tiền thực thu
+   Tồn kho tăng = Mua vào − Giá vốn đã bán
 
-2. 利润表 → 现金流量表
-   净利润 + 折旧 - 营运资本增加 ≈ 经营现金流
-   如果差异大 → 盈利质量存疑
+2. KQHĐKD → Lưu chuyển tiền tệ
+   LN sau thuế + Khấu hao − Tăng vốn lưu động ≈ CFO
+   Nếu chênh lệch lớn → chất lượng lợi nhuận đáng ngờ
 
-3. 资产负债表 → 现金流量表
-   期末现金 = 期初现金 + CFO + CFI + CFF
-   货币资金变动 = 三个现金流之和
+3. Cân đối kế toán → Lưu chuyển tiền tệ
+   Tiền cuối kỳ = Tiền đầu kỳ + CFO + CFI + CFF
 ```
 
-### 勾稽验证公式
+### Công thức kiểm chứng (Python)
 
 ```python
-# 验证盈利质量
-accrual_ratio = (net_income - cfo) / total_assets
-# accrual_ratio > 10% → 应计利润占比高，盈利质量差
+# Chất lượng lợi nhuận
+accrual_ratio = (net_profit_loss_after_tax - cfo) / total_assets
+# accrual_ratio > 10% → tỷ trọng lợi nhuận dồn tích cao, chất lượng kém
 
-# 验证收入质量
+# Chất lượng doanh thu
 receivable_growth = accounts_receivable.pct_change()
-revenue_growth = revenue.pct_change()
-# receivable_growth > revenue_growth → 收入质量恶化
+revenue_growth = net_sales.pct_change()
+# receivable_growth > revenue_growth → chất lượng doanh thu xấu đi
 
-# 验证资产负债表与现金流一致性
-cash_change = cash_end - cash_begin
-cf_total = cfo + cfi + cff
-# abs(cash_change - cf_total) > 1 → 数据有问题
+# Nhất quán cân đối kế toán vs dòng tiền
+cf_total = cfo + cfi + cff   # ≈ thay đổi tiền & tương đương tiền trong kỳ
 ```
 
-## 盈利质量分析
+## Phân tích chất lượng lợi nhuận
 
-### 应计 vs 现金流
+### Dồn tích vs tiền mặt
 
 ```
-高质量盈利:
-- CFO / 净利润 > 1.0（现金利润大于纸面利润）
-- 应收账款增速 < 营收增速
-- 经营现金流持续为正
+Lợi nhuận chất lượng CAO:
+- CFO / LN sau thuế > 1,0 (tiền thật lớn hơn lợi nhuận trên giấy)
+- Phải thu tăng chậm hơn doanh thu
+- CFO dương liên tục
 
-低质量盈利:
-- CFO / 净利润 < 0.5（大量利润没变成现金）
-- 应收/营收比例持续上升
-- 依赖一次性收益（投资收益、资产处置）
+Lợi nhuận chất lượng THẤP:
+- CFO / LN sau thuế < 0,5 (nhiều lợi nhuận chưa thành tiền)
+- Tỷ lệ Phải thu/Doanh thu tăng liên tục
+- Lệ thuộc khoản một lần (lãi tài chính, thanh lý tài sản, đánh giá lại)
 ```
 
-### 盈利质量评分卡
+### Thẻ điểm chất lượng lợi nhuận
 
-| 指标 | 优秀(3分) | 一般(2分) | 差(1分) | 权重 |
+| Chỉ tiêu | Tốt (3đ) | Trung bình (2đ) | Kém (1đ) | Trọng số |
 |------|----------|----------|---------|------|
-| CFO/净利润 | >1.2 | 0.8-1.2 | <0.8 | 25% |
-| 应收增速vs营收 | 应收增速更慢 | 同步 | 应收更快 | 20% |
-| 扣非/归母 | >90% | 70-90% | <70% | 20% |
-| 经营现金流趋势 | 连续增长 | 波动 | 下降 | 20% |
-| 存货周转 | 加快 | 稳定 | 放慢 | 15% |
+| CFO/LN sau thuế | >1,2 | 0,8-1,2 | <0,8 | 25% |
+| Phải thu vs Doanh thu | Phải thu chậm hơn | Đồng tốc | Phải thu nhanh hơn | 20% |
+| LN cốt lõi/LN ròng | >90% | 70-90% | <70% | 20% |
+| Xu hướng CFO | Tăng liên tục | Dao động | Giảm | 20% |
+| Vòng quay tồn kho | Nhanh lên | Ổn định | Chậm lại | 15% |
 
-评分 ≥ 2.5 = 盈利质量优秀
-评分 1.5-2.5 = 需要关注
-评分 < 1.5 = 盈利质量差，建议回避
+Điểm ≥ 2,5 = chất lượng ưu tú · 1,5-2,5 = cần theo dõi · < 1,5 = kém, nên tránh
 
-## 财务造假红旗指标
+## 🚩 Cờ đỏ gian lận tài chính
 
-### 12个红旗信号
+### 12 tín hiệu cờ đỏ
 
-| # | 红旗 | 检测方法 | 严重度 |
+| # | Cờ đỏ | Cách phát hiện | Mức độ |
 |---|------|---------|--------|
-| 1 | 存贷双高 | 货币资金高 + 有息负债高（同时>营收30%） | 高 |
-| 2 | 应收暴增 | 应收增速 > 营收增速 × 1.5，持续2季+ | 高 |
-| 3 | 存货异常 | 存货/营收比例突然上升>50% | 高 |
-| 4 | 经营现金流为负 | CFO连续2年为负但净利润为正 | 高 |
-| 5 | 关联交易占比高 | 关联交易/营收 > 30% | 高 |
-| 6 | 频繁更换审计师 | 3年内换2次审计师 | 中 |
-| 7 | 在建工程不转固 | 在建工程/固定资产 > 50%，持续3年+ | 中 |
-| 8 | 预付账款异常 | 预付/营收比例突然上升 | 中 |
-| 9 | 少数股东损益异常 | 少数股东损益/净利润比例波动大 | 中 |
-| 10 | 审计意见 | 非标准无保留意见（保留/否定/无法表示） | 高 |
-| 11 | 资本化率过高 | 研发资本化/研发总额 > 50% | 中 |
-| 12 | 商誉占比高 | 商誉/净资产 > 30%，且标的业绩不达标 | 中 |
+| 1 | "Vừa nhiều tiền vừa nhiều nợ vay" | Tiền & ĐTTC ngắn hạn cao + nợ vay cao (cùng >30% DT thuần) — tiền có thể ảo/bị hạn chế | Cao |
+| 2 | Phải thu bùng nổ | Phải thu tăng > doanh thu tăng × 1,5, kéo dài ≥2 quý | Cao |
+| 3 | Tồn kho bất thường | Tỷ lệ Tồn kho/DT thuần tăng đột ngột >50% | Cao |
+| 4 | CFO âm | CFO âm 2 năm liên tiếp nhưng LN sau thuế dương | Cao |
+| 5 | Giao dịch bên liên quan lớn | Giao dịch bên liên quan / doanh thu > 30% | Cao |
+| 6 | Đổi kiểm toán liên tục | Thay đơn vị kiểm toán 2 lần trong 3 năm | Trung bình |
+| 7 | Xây dựng dở dang "treo" | TS dở dang/TSCĐ > 50%, kéo dài ≥3 năm không chuyển TSCĐ | Trung bình |
+| 8 | Trả trước người bán bất thường | Tỷ lệ trả trước/doanh thu tăng đột ngột | Trung bình |
+| 9 | LN cổ đông không kiểm soát lạ | Tỷ lệ LN cổ đông không kiểm soát/LN ròng dao động mạnh | Trung bình |
+| 10 | Ý kiến kiểm toán | Không phải "chấp nhận toàn phần" (ngoại trừ / trái ngược / từ chối) | Cao |
+| 11 | Vốn hoá lãi vay / chi phí | Vốn hoá lãi vay hoặc chi phí phát triển lớn để thổi lợi nhuận | Trung bình |
+| 12 | Lợi thế thương mại / đánh giá lại | Lợi thế thương mại hoặc đánh giá lại tài sản chiếm tỷ trọng lớn, tài sản mua về không đạt kế hoạch | Trung bình |
 
-### 综合造假概率评估
+> **Lưu ý ý kiến kiểm toán (VSA 700/705/706):** phân biệt **đoạn "Vấn đề cần nhấn mạnh"** (Emphasis of Matter, vd nghi ngờ hoạt động liên tục — going concern) với **ý kiến ngoại trừ**. "Nhấn mạnh" KHÔNG phải ý kiến ngoại trừ và không tự động đưa cổ phiếu vào diện cảnh báo — nhưng vẫn là tín hiệu rủi ro cần soi vốn lưu động và khả năng thanh toán.
 
-```
-红旗数量    造假概率    建议
-0-1个       低          正常投资
-2-3个       中          深入调查，谨慎投资
-4-5个       高          建议回避
-6+个        极高        强烈回避
-```
-
-## 杜邦分析
-
-### 三级分解
+### Đánh giá xác suất gian lận tổng hợp
 
 ```
-ROE = 净利率 × 总资产周转率 × 权益乘数
-
-ROE = (净利润/营收) × (营收/总资产) × (总资产/净资产)
-     盈利能力        运营效率        杠杆水平
+Số cờ đỏ    Xác suất gian lận    Khuyến nghị
+0-1         Thấp                 Đầu tư bình thường
+2-3         Trung bình           Điều tra sâu, thận trọng
+4-5         Cao                  Nên tránh
+6+          Rất cao              Tránh dứt khoát
 ```
 
-### 五级分解
+## Phân tích Dupont
+
+### Phân rã 3 cấp
 
 ```
-ROE = 税务负担 × 利息负担 × 营业利润率 × 资产周转率 × 权益乘数
-    = (净利/税前利润) × (税前利润/EBIT) × (EBIT/营收) × (营收/总资产) × (总资产/净资产)
+ROE = Biên ròng × Vòng quay tổng tài sản × Đòn bẩy tài chính
+
+ROE = (LN ròng/DT thuần) × (DT thuần/Tổng TS) × (Tổng TS/Vốn CSH)
+       Khả năng sinh lời    Hiệu quả vận hành    Mức đòn bẩy
 ```
 
-### 杜邦分析模板
+### Phân rã 5 cấp
+
+```
+ROE = Gánh nặng thuế × Gánh nặng lãi vay × Biên LN hoạt động × Vòng quay TS × Đòn bẩy
+    = (LN ròng/LN trước thuế) × (LN trước thuế/EBIT) × (EBIT/DT thuần) × (DT thuần/Tổng TS) × (Tổng TS/Vốn CSH)
+```
+
+### Mẫu bảng Dupont
 
 ```markdown
-### 杜邦分析: [公司名]
+### Phân tích Dupont: [Tên DN]
 
-| 指标 | 2024 | 2025 | 变化 | 驱动判断 |
+| Chỉ tiêu | Năm N-1 | Năm N | Thay đổi | Đánh giá động lực |
 |------|------|------|------|---------|
-| ROE | 15.2% | 17.8% | +2.6% | ↑ |
-| 净利率 | 8.5% | 9.2% | +0.7% | 盈利改善 ✓ |
-| 资产周转率 | 0.85 | 0.88 | +0.03 | 效率提升 ✓ |
-| 权益乘数 | 2.10 | 2.20 | +0.10 | 杠杆上升 ⚠️ |
+| ROE | 15,2% | 17,8% | +2,6% | ↑ |
+| Biên ròng | 8,5% | 9,2% | +0,7% | Sinh lời cải thiện ✓ |
+| Vòng quay TS | 0,85 | 0,88 | +0,03 | Hiệu quả tăng ✓ |
+| Đòn bẩy | 2,10 | 2,20 | +0,10 | Đòn bẩy tăng ⚠️ |
 
-结论: ROE提升主要由盈利能力改善驱动，杠杆小幅上升需关注
+Kết luận: ROE tăng chủ yếu do sinh lời cải thiện; đòn bẩy nhích lên cần theo dõi.
 ```
 
-### 行业ROE对比
+### ROE tham chiếu theo ngành VN
 
-| 行业 | 典型ROE | 驱动类型 |
-|------|---------|---------|
-| 白酒 | 25-30% | 高净利率驱动（毛利率>90%） |
-| 零售 | 8-15% | 高周转驱动（薄利多销） |
-| 银行 | 10-14% | 高杠杆驱动（权益乘数>10x） |
-| 科技 | 12-20% | 高净利率+中等周转 |
-| 地产 | 5-10% | 高杠杆但在去杠杆 |
+> Chỉ là khoảng tham chiếu định tính — **luôn xác minh bằng số thật của DN** (tính ≥2 cách khi nhạy cảm).
 
-## 输出格式
+| Ngành | Động lực ROE chủ đạo |
+|------|---------|
+| Ngân hàng | Đòn bẩy cao (hệ số nhân vốn lớn) — báo cáo theo mẫu riêng |
+| Bất động sản | Đòn bẩy cao + chu kỳ bàn giao; coi chừng vốn lưu động âm |
+| Bán lẻ / Tiêu dùng | Vòng quay cao (biên mỏng, bán nhiều) |
+| Công nghệ | Biên ròng cao + vòng quay trung bình |
+| Thép / Vật liệu (chu kỳ) | Biên dao động mạnh theo giá hàng hoá — dùng LN chuẩn hoá giữa chu kỳ |
+
+## Mẫu output
 
 ```markdown
-## 财务分析: [公司名/代码]
+## Phân tích tài chính: [Tên DN / Mã .VN]
 
-### 三表概要
-| 指标 | 2023A | 2024A | 2025E | 趋势 |
+### Tóm tắt 3 báo cáo (đơn vị: tỷ đồng)
+| Chỉ tiêu | N-2 | N-1 | N | Xu hướng |
 |------|-------|-------|-------|------|
-| 营收(亿) | ... | ... | ... | ... |
-| 净利润(亿) | ... | ... | ... | ... |
-| CFO(亿) | ... | ... | ... | ... |
-| 资产负债率 | ... | ... | ... | ... |
+| Doanh thu thuần | ... | ... | ... | ... |
+| LN sau thuế | ... | ... | ... | ... |
+| CFO | ... | ... | ... | ... |
+| Hệ số nợ | ... | ... | ... | ... |
 
-### 盈利质量评分
-| 指标 | 得分 | 说明 |
+### Điểm chất lượng lợi nhuận
+| Chỉ tiêu | Điểm | Diễn giải |
 |------|------|------|
-| CFO/净利润 | 3/3 | 1.25, 现金回收优秀 |
+| CFO/LN sau thuế | 3/3 | 1,25 — thu tiền tốt |
 | ... | ... | ... |
-| **综合** | **2.7/3** | **盈利质量优秀** |
+| **Tổng** | **2,7/3** | **Chất lượng ưu tú** |
 
-### 杜邦分解
-[杜邦分析表格]
+### Phân rã Dupont
+[bảng Dupont]
 
-### 红旗检查
-- [x] 存贷双高 → 否，货币资金合理
-- [x] 应收异常 → 否，增速低于营收
-- [!] 商誉占比 → 22%，接近警戒线，需关注
+### Soát cờ đỏ
+- [x] Vừa nhiều tiền vừa nhiều nợ → Không
+- [x] Phải thu bất thường → Không, tăng chậm hơn doanh thu
+- [!] Lợi thế thương mại → 22%, sát ngưỡng, cần theo dõi
+- [x] Ý kiến kiểm toán → Chấp nhận toàn phần
 
-### 结论
+### Kết luận
 ...
 ```
 
-## 注意事项
+## Lưu ý
 
-1. **财报会计准则差异**：A股用中国会计准则，港股/美股用IFRS/US GAAP，比较时注意调整
-2. **季度数据看同比非环比**：季节性因素大（如消费Q4旺季），环比波动不代表趋势
-3. **银行/保险特殊**：三表结构与一般企业完全不同，不适用传统勾稽分析
-4. **重资产 vs 轻资产**：资产周转率跨行业不可比，同行业内比较才有意义
-5. **并表范围变化**：新收购/处置子公司导致同比不可比，需看可比口径
-6. **数据来源**：tushare提供A股财报数据，extra_fields中可获取pe/pb/roe等指标
+1. **Chuẩn kế toán VAS (TT 200/2014/TT-BTC)**: khác IFRS/US GAAP. So sánh với DN nước ngoài phải điều chỉnh; lưu ý lợi thế thương mại chỉ trên BCTC **hợp nhất** (phân bổ ≤10 năm theo TT 202).
+2. **Dữ liệu quý xem cùng kỳ, không xem liên tiếp**: yếu tố mùa vụ lớn (tiêu dùng cao điểm Q4) — biến động quý-trên-quý không phải xu hướng.
+3. **Ngân hàng / Chứng khoán / Bảo hiểm dùng mẫu BCTC riêng** (không có Doanh thu thuần/Giá vốn) — quan hệ khớp số truyền thống KHÔNG áp dụng; dùng khung riêng (NIM, NPL, LLR, CAR cho ngân hàng).
+4. **Tài sản nặng vs nhẹ**: vòng quay tài sản không so được liên ngành; chỉ so trong cùng ngành.
+5. **Thay đổi phạm vi hợp nhất**: mua/bán công ty con làm số cùng kỳ không so được — cần xem số liệu có thể so sánh (comparable).
+
+## Nguồn dữ liệu
+
+- **BCTC → vnstock** (`source="VCI"`, `lang="vi"`):
+  - `income_statement(period=...)`, `balance_sheet(...)`, `cash_flow(...)`
+  - Trong backtest: đặt `fundamental_fields` với bảng `income` / `balancesheet` / `cashflow`, tên field là **`item_id`** (đã an toàn point-in-time qua loader vnstock).
+  - `item_id` thường dùng:
+    - KQHĐKD: `net_sales`, `cost_of_sales`, `gross_profit`, `selling_expenses`, `general_and_admin_expenses`, `interest_expenses`, `net_profit_loss_after_tax`, `attributable_to_parent_company`
+    - CĐKT: `cash_and_cash_equivalents`, `short_term_investments`, `accounts_receivable`, `inventories_net`, `total_assets`, `liabilities`, `current_liabilities`, `short_term_borrowings`, `long_term_borrowings`, `owners_equity`
+    - LCTT: `net_cash_inflows_outflows_from_operating_activities` (CFO), `...investing_activities` (CFI), `...financing_activities` (CFF)
+  - Để xem toàn bộ khoản mục: in cột `item_id` của báo cáo tương ứng.
+- **Giá / khối lượng / khối ngoại → DataPro** (`source="datapro"`, mã có đuôi `.VN`).
+- **Số CP lưu hành → `Company.overview().issue_share`** (không suy từ EPS).
+- ⚠️ Bản community vnstock chỉ trả ~4 kỳ năm gần nhất → backtest dài thiếu BCTC năm cũ.
