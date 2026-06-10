@@ -1,156 +1,148 @@
 ---
 name: factor-research
-description: Factor research framework with IC/IR analysis, quantile backtesting, and factor combination. Suitable for cross-sectional factor evaluation across multiple instruments.
+description: "Khung nghiên cứu nhân tố (factor) cho thị trường VN — phân tích IC/IR, backtest theo nhóm phân vị, kết hợp đa nhân tố, trung lập ngành theo ICB. Dùng cho đánh giá nhân tố cross-sectional trên rổ cổ phiếu .VN. Nguồn: DataPro (giá/KL/khối ngoại) + vnstock (cơ bản)."
 category: analysis
 ---
 
-# Factor Research Framework
+# Khung nghiên cứu nhân tố (Việt Nam)
 
-## Purpose
+## Mục đích
 
-Systematically evaluates the predictive power of single or multiple factors. Uses IC/IR statistical tests and quantile backtests to determine whether a factor has stock-selection power, and to guide factor screening and combination.
+Đánh giá có hệ thống sức mạnh dự báo của một hoặc nhiều nhân tố. Dùng kiểm định thống kê IC/IR và backtest theo nhóm phân vị để xác định nhân tố có khả năng chọn cổ phiếu hay không, từ đó sàng lọc và kết hợp nhân tố.
 
-Applicable scenarios:
-- Single-factor validity testing (momentum, value, quality, volatility, and more)
-- Determining weights for multi-factor combination
-- Factor decay analysis (IC changes across different holding periods)
-- Comparing factor differences across industries and markets
+Tình huống áp dụng:
+- Kiểm định hiệu lực nhân tố đơn (momentum, value, quality, volatility, **dòng tiền khối ngoại**...)
+- Xác định trọng số kết hợp đa nhân tố
+- Phân tích suy giảm nhân tố (IC thay đổi theo kỳ nắm giữ)
+- So sánh nhân tố giữa các ngành/thị trường
 
-## Workflow
+## Quy trình
 
-1. **Calculate factor values**: compute factor exposures for each instrument on the cross-section, and output a factor CSV (`index=date`, `columns=codes`)
-2. **Calculate returns**: compute each instrument's forward N-day return, and output a return CSV (same structure)
-3. **Call the `factor_analysis` tool**: pass in the factor CSV, return CSV, and output directory
-4. **Interpret the results**: judge factor validity based on IC/IR criteria and quantile backtest results
-5. **Factor screening / combination**: keep effective factors and combine them with equal weights or IC-based weights
+1. **Tính giá trị nhân tố**: tính exposure cho từng mã trên cross-section → xuất factor CSV (`index=date`, `columns=mã .VN`)
+2. **Tính lợi suất**: lợi suất forward N ngày của từng mã → return CSV (cùng cấu trúc)
+3. **Gọi tool `factor_analysis`**: truyền factor CSV, return CSV, thư mục output
+4. **Diễn giải**: đánh giá hiệu lực theo IC/IR + backtest phân vị
+5. **Sàng lọc/kết hợp**: giữ nhân tố hiệu lực, kết hợp đều trọng số hoặc theo IC
 
-**Key point**: the rows (dates) and columns (instrument codes) of the factor CSV and return CSV must align exactly. Returns must be forward returns after the factor-observation date (to avoid look-ahead bias).
+**Then chốt**: dòng (ngày) và cột (mã) của factor CSV và return CSV phải khớp CHÍNH XÁC. Lợi suất phải là forward return SAU ngày quan sát nhân tố (tránh nhìn trước).
 
-## `factor_analysis` Tool Parameters
+## Tham số tool `factor_analysis`
 
-| Parameter | Type | Required | Default | Description |
+| Tham số | Kiểu | Bắt buộc | Mặc định | Mô tả |
 |------|------|------|------|------|
-| factor_csv | string | Yes | - | Path to the factor-value CSV |
-| return_csv | string | Yes | - | Path to the return CSV |
-| output_dir | string | Yes | - | Output directory for results |
-| n_groups | integer | No | 5 | Number of quantile groups |
+| factor_csv | string | Có | - | Đường dẫn CSV giá trị nhân tố |
+| return_csv | string | Có | - | Đường dẫn CSV lợi suất |
+| output_dir | string | Có | - | Thư mục output |
+| n_groups | integer | Không | 5 | Số nhóm phân vị |
 
-## Output Files
+## File output
 
-| File | Contents |
+| File | Nội dung |
 |------|------|
-| ic_series.csv | Daily IC series |
-| ic_summary.json | IC mean, IC standard deviation, IR, proportion of IC > 0 |
-| group_equity.csv | Cumulative equity curves for each quantile group |
+| ic_series.csv | Chuỗi IC theo ngày |
+| ic_summary.json | IC trung bình, độ lệch chuẩn IC, IR, tỷ lệ IC > 0 |
+| group_equity.csv | Đường vốn lũy kế từng nhóm phân vị |
 
-## IC/IR Interpretation Standards
+## Chuẩn diễn giải IC/IR
 
-| Metric | Threshold | Interpretation |
+| Chỉ tiêu | Ngưỡng | Diễn giải |
 |------|------|------|
-| IC mean | > 0.03 | Factor has basic predictive power |
-| IC mean | > 0.05 | Factor has strong predictive power |
-| IC mean | > 0.10 | Unusually high; check for look-ahead bias |
-| IR (IC mean / IC std) | > 0.5 | Factor is stably effective |
-| IR | > 1.0 | Extremely strong, very rare |
-| Proportion of IC > 0 | > 55% | Factor direction is stable |
-| Proportion of IC > 0 | < 50% | Factor direction is unstable and unusable |
+| IC trung bình | > 0,03 | Nhân tố có sức dự báo cơ bản |
+| IC trung bình | > 0,05 | Sức dự báo mạnh |
+| IC trung bình | > 0,10 | Cao bất thường → kiểm tra nhìn trước |
+| IR (IC mean / IC std) | > 0,5 | Hiệu lực ổn định |
+| IR | > 1,0 | Cực mạnh, rất hiếm |
+| Tỷ lệ IC > 0 | > 55% | Hướng nhân tố ổn định |
+| Tỷ lệ IC > 0 | < 50% | Hướng không ổn định, không dùng được |
 
-Note: negative IC can also be useful (reverse factors). Judge by absolute value, and reverse the signal direction in actual use.
+Lưu ý: IC âm vẫn hữu ích (nhân tố nghịch) — xét theo giá trị tuyệt đối, đảo dấu khi dùng.
 
-## Quantile Backtest Interpretation
+## Diễn giải backtest phân vị
 
-Quantile backtesting sorts instruments into N groups by factor value from low to high (default 5 groups), with equal-weight holding inside each group.
+Chia mã thành N nhóm theo giá trị nhân tố từ thấp đến cao (mặc định 5), nắm giữ đều trọng số trong mỗi nhóm.
 
-**Criteria**:
-- **Monotonicity**: the final net values from `Group_1` to `Group_N` should show a monotonic rising (or falling) pattern. Better monotonicity means stronger factor discrimination
-- **Long-short spread**: the net-value difference between the highest and lowest group (`long_short_spread`). A larger spread means stronger selection power
-- **Nonlinearity**: if only the top and bottom groups differ materially while the middle groups are similar, the factor may only be effective in the tails
-- **Stability**: group equity curves should be smooth; sharp swings indicate an unstable factor
+**Tiêu chí**:
+- **Đơn điệu**: vốn cuối từ `Group_1` → `Group_N` nên tăng (hoặc giảm) đơn điệu. Đơn điệu càng tốt → phân biệt càng mạnh.
+- **Chênh lệch long-short**: chênh vốn nhóm cao nhất vs thấp nhất. Càng lớn → chọn lọc càng mạnh. *(Ở VN long-short chỉ là thước đo phân tích — NĐT lẻ KHÔNG bán khống được; thực chiến dùng phía LONG nhóm tốt nhất.)*
+- **Phi tuyến**: nếu chỉ nhóm đầu-cuối khác biệt còn giữa giống nhau → nhân tố chỉ hiệu lực ở đuôi.
+- **Ổn định**: đường vốn nhóm nên mượt; giật mạnh = nhân tố bất ổn.
 
-**Warning signs**:
-- No meaningful difference across group equity curves → the factor is ineffective
-- Non-monotonic pattern (such as V-shape or inverted V-shape) → the factor may have a nonlinear relationship and requires further analysis
-- One group's net value falls persistently → the factor may be usable in reverse
+**Cảnh báo**: các nhóm không khác biệt → nhân tố vô hiệu; hình chữ V/V ngược → quan hệ phi tuyến; một nhóm rơi liên tục → có thể dùng đảo chiều.
 
-## Factor Combination Methods
+## Kết hợp nhân tố
 
-When multiple single factors pass validity tests, they should be combined into a composite factor:
-
-### Equal-Weight Combination
-The simplest method: standardize each factor and sum them with equal weights. Suitable when the factor count is small and IC differences are minor.
-
+### Đều trọng số
+Chuẩn hóa từng nhân tố rồi cộng đều. Hợp khi ít nhân tố, IC chênh nhỏ.
 ```
-Composite factor = Z(factor1) + Z(factor2) + ... + Z(factorN)
-where Z() is cross-sectional Z-score standardization
+Composite = Z(factor1) + Z(factor2) + ... ;  Z() = chuẩn hóa Z-score cross-sectional
 ```
 
-### IC-Weighted Combination
-Assign weights according to historical IC mean. Factors with higher IC receive larger weights.
-
+### Theo IC
+Trọng số theo |IC trung bình|.
 ```
-weight_i = |IC_mean_i| / sum(|IC_mean_j|)
-Composite factor = sum(weight_i * Z(factor_i))
+weight_i = |IC_mean_i| / sum(|IC_mean_j|) ;  Composite = sum(weight_i * Z(factor_i))
 ```
 
-### Orthogonalized Combination
-First orthogonalize the factors with the Schmidt process to remove collinearity, then combine them with equal weights. Suitable when factors are highly correlated with one another.
+### Trực giao hóa (Schmidt)
+Khử cộng tuyến trước khi kết hợp (khi các nhân tố tương quan cao): xếp theo IC giảm dần → giữ nhân tố đầu → hồi quy nhân tố sau lên các nhân tố trước, lấy phần dư → kết hợp đều phần dư.
 
-```
-1. Sort factors by IC from high to low
-2. Keep the first factor unchanged
-3. Regress each later factor on all previous factors and use the residual as the orthogonalized factor
-4. Combine the orthogonalized factors with equal weights
-```
+## Bẫy thường gặp
 
-## Common Pitfalls
+### Nhìn trước (look-ahead)
+- Nhân tố tính từ dữ liệu ngày T trở về trước; lợi suất dùng T+1..T+N.
+- SAI: tính nhân tố bằng giá đóng T rồi tương quan với lợi suất NGÀY T → IC thổi phồng giả tạo.
+- ĐÚNG: nhân tố tại T, lợi suất từ đóng T → đóng T+1 trở đi.
 
-### Look-Ahead Bias
-- Factor values must be computed using data from day T and earlier, while returns must use data from T+1 to T+N
-- Wrong example: calculate the factor with day T closing price and correlate it with day T return → artificially inflated IC
-- Correct approach: factor value at day T, return defined as the move from the T close to the T+1 close and beyond
+### Phân phối lệch
+- Một số nhân tố (vốn hóa, thanh khoản) lệch phải mạnh → IC bị outlier chi phối.
+- Giải: rank cross-sectional hoặc Z-score trước khi tính IC.
 
-### Skewed Factor Distributions
-- Some factors (such as market cap and turnover) have heavily right-skewed distributions
-- Computing IC directly from raw values makes the result dominated by outliers
-- Solution: apply cross-sectional rank or Z-score standardization before computing IC
+### Trung lập ngành (theo ICB) ⭐
+- Giá trị nhân tố dễ giống nhau trong cùng ngành → chọn cổ phiếu dồn vào vài ngành.
+- Giải: Z-score TRONG từng ngành (trung lập ngành) để khử hiệu ứng ngành.
+- **VN dùng phân ngành ICB**: `Listing(source="VCI").symbols_by_industries()` (`icb_code`/`icb_name`); ngân hàng nhận diện bằng `Company.overview().is_bank`.
 
-### Industry Neutralization
-- Factor values can be highly similar within the same industry, causing stock selection to cluster in a few sectors
-- Solution: perform Z-score standardization within each industry (industry neutralization) to remove industry effects
-- For China A-shares, Shenwan Level-1 industries can be used
+### Mẫu quá nhỏ / thanh khoản mỏng (đặc thù VN)
+- Mỗi cross-section cần ≥5 mã hợp lệ để IC có ý nghĩa; backtest phân vị cần ≥ `n_groups` mã.
+- **Thị trường VN nhỏ**: hạn chế universe ở rổ thanh khoản (**VN30 / VN100 / HOSE thanh khoản cao**); tránh UPCOM/penny mỏng (giá nhiễu, khó khớp).
 
-### Insufficient Sample Size
-- Each cross-section should contain at least 5 valid instruments to compute meaningful IC
-- Quantile backtests require at least `n_groups` instruments
-- When the universe is too small, IC is noisy and IR becomes unreliable
+### Biên độ giá (đặc thù VN)
+- Trần/sàn ngày (HOSE ±7%, HNX ±10%, UPCOM ±15%) **chặn** lợi suất ngày → biến dạng đuôi phân phối; nhân tố reversal/momentum ngắn hạn bị ảnh hưởng. Cân nhắc lợi suất nhiều ngày.
 
-### Factor Crowding
-- Classic factors (momentum, value) may see diminished excess returns after becoming widely used
-- Regularly inspect the time-series evolution of factor IC to see whether decay is occurring
-- Consider factor innovation or factor timing
+### Đông đúc nhân tố (crowding)
+- Nhân tố kinh điển (momentum, value) có thể mất alpha khi quá phổ biến → soi IC theo thời gian xem có suy giảm.
 
-### Survivorship Bias
-- Backtesting only on stocks that still survive today will overestimate factor performance
-- Use full-sample data including delisted stocks
+### Thiên kiến sống sót
+- Chỉ backtest trên mã còn niêm yết hôm nay → thổi phồng hiệu suất. Dùng full-sample gồm mã đã hủy niêm yết/chuyển sàn (UPCOM).
 
-## Dependencies
+## Nguồn dữ liệu (VN)
+
+| Đầu vào nhân tố | Nguồn |
+|------|------|
+| Giá / khối lượng / **dòng tiền khối ngoại** (factor flow) | **DataPro** (`source="datapro"`, mã `.VN`; `FRN_BUY_VOL/FRN_SELL_VOL`) |
+| Cơ bản (ROE, biên, tăng trưởng, P/E, P/B...) | **vnstock KBS** (`ratio`, `income`/`balancesheet`) — point-in-time qua `fundamental_fields` |
+| Phân ngành (trung lập ngành) | **vnstock** `Listing.symbols_by_industries()` (ICB); `Company.overview().is_bank/icb_code_lv2` |
+| Lợi suất forward (return CSV) | **DataPro** giá đóng cửa điều chỉnh, dịch N ngày |
+
+## Phụ thuộc
 
 ```bash
 pip install pandas numpy scipy
 ```
 
-## Calling Zoo Factors
+## Dùng nhân tố từ Alpha Zoo
 
-Rather than recompute factors from raw OHLCV every research iteration, prefer reusing the 450+ pre-built alphas in the Alpha Zoo registry. Each alpha is metadata-validated (`AlphaMeta` schema with `theme`, `universe`, `columns_required`, `decay_horizon`, `min_warmup_bars`), shape-checked against `panel["close"]`, and rejected if it emits `+/- inf` or >95% NaN — so the factor CSV you feed to `factor_analysis` is already sanity-checked.
+Thay vì tính lại nhân tố từ OHLCV mỗi lần, ưu tiên tái dùng 450+ alpha dựng sẵn trong Alpha Zoo (alpha101/gtja191/qlib158/academic). Mỗi alpha đã được kiểm metadata (`AlphaMeta`), kiểm shape theo `panel["close"]`, loại nếu phát sinh `±inf` hoặc >95% NaN — nên factor CSV đưa vào `factor_analysis` đã được kiểm sơ bộ.
 
 ```python
 from src.factors.registry import Registry
 
 registry = Registry()
-ids = registry.list(theme="momentum", universe="equity_cn")  # filter the catalogue
-factor_panel = registry.compute("alpha101_001", panel)        # wide DataFrame, same shape as panel["close"]
-factor_panel.to_csv("factor_alpha101_001.csv")                # ready for factor_analysis tool
+ids = registry.list(theme="momentum")          # duyệt danh mục theo chủ đề
+# Công thức alpha là MATH thuần (tương thích mọi OHLCV) → áp được cho panel .VN dựng từ DataPro,
+# dù tag universe gốc là CN/US. Tự kiểm warmup_bars + NaN trên dữ liệu VN trước khi dùng.
+factor_panel = registry.compute("alpha101_001", panel)   # panel = DataFrame .VN từ DataPro
+factor_panel.to_csv("factor_alpha101_001.csv")
 ```
 
-For combining several validated alphas into one composite signal, see the `multi-factor` skill's `ZooSignalEngine` (it z-scores, weights, and ranks alphas for you, with per-alpha skip isolation). For browsing the catalogue and inspecting individual `__alpha_meta__` records, see the `alpha-zoo` skill.
-
+Để kết hợp nhiều alpha đã kiểm định thành một tín hiệu, xem `ZooSignalEngine` của skill `multi-factor`. Để duyệt danh mục + xem `__alpha_meta__`, xem skill `alpha-zoo`.
