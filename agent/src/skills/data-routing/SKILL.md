@@ -13,6 +13,14 @@ description: Data source selection decision tree. Load this skill BEFORE any bac
 | yfinance | US stocks, HK stocks, ETFs | No | Needs Yahoo Finance access | yfinance |
 | okx | Crypto (OKX exchange) | No | Needs okx.com access | okx-market |
 | ccxt | Crypto (100+ exchanges) | No | Needs exchange access | ccxt |
+| datapro | **Vietnam equities** (HOSE/HNX/UPCOM) — OHLCV, foreign flow | No (localhost) | Needs DataPro desktop on `localhost:6789` | — |
+| vnstock | **Vietnam fundamentals** (income/balancesheet/cashflow) | No | Needs internet | — |
+
+> **Vietnam (HOSE/HNX/UPCOM):** use `source: "datapro"` for price and write
+> symbols with a `.VN` suffix (e.g. `VCB.VN`, `FPT.VN`). The runner then applies
+> VN trading rules (T+2, ±7/10/15% bands, no short) and auto-attaches vnstock
+> financial statements when `fundamental_fields` is set. This is the DEFAULT
+> choice for any Vietnamese stock.
 
 ## Decision Tree
 
@@ -27,6 +35,7 @@ You do NOT need to specify a concrete data source in config.json unless the user
 1. Identify the market type from the user's request
 2. Pick the source by priority:
 
+**Vietnam stocks (HOSE/HNX/UPCOM)**: datapro (price) + vnstock (fundamentals) — always; write symbols as `TICKER.VN`
 **A-shares**: tushare (if TUSHARE_TOKEN is set) > akshare (free fallback)
 **US stocks**: yfinance > akshare
 **HK stocks**: yfinance > akshare
@@ -40,6 +49,8 @@ You do NOT need to specify a concrete data source in config.json unless the user
 ### Availability Check
 
 - **tushare**: check if `TUSHARE_TOKEN` environment variable exists
+- **datapro**: requires the DataPro desktop app running with its API on `localhost:6789` (set `DATAPRO_URL` / `DATAPRO_API_KEY` for a remote host)
+- **vnstock**: free; needs internet (community tier returns ~4 most-recent annual periods)
 - **yfinance / okx / ccxt / akshare**: free but may have network restrictions
 - If the user reports "connection timeout" or "cannot access", switch to the same-market fallback
 
@@ -47,6 +58,7 @@ You do NOT need to specify a concrete data source in config.json unless the user
 
 | Market | Format | Examples |
 |--------|--------|---------|
+| **Vietnam** | `TICKER.VN` | VCB.VN, FPT.VN, VNINDEX.VN |
 | A-shares | `NNNNNN.SZ/SH/BJ` | 000001.SZ, 600000.SH |
 | US stocks | `TICKER.US` | AAPL.US, MSFT.US |
 | HK stocks | `NNN(N).HK` | 700.HK, 9988.HK |
