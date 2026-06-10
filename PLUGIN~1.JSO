@@ -1,0 +1,11 @@
+{
+  "name": "MatthewTrading",
+  "version": "0.2.0",
+  "description": "Vietnam stock market trading agent with vnstock + datapro data sources",
+  "skills": [
+    {
+      "path": "agent/SKILL.md",
+      "name": "vibe-trading"
+    }
+  ]
+}
