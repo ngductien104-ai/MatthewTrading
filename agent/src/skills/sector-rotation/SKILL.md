@@ -1,192 +1,189 @@
 ---
 name: sector-rotation
-description: 行业轮动分析——申万行业景气度评分、行业动量排名、产业链传导、估值/盈利/资金流多维比较框架
+description: "Phân tích xoay vòng ngành thị trường VN — phân ngành ICB, chấm điểm sức khỏe ngành (prosperity), xếp hạng momentum, truyền dẫn chuỗi ngành, so sánh đa chiều định giá/lợi nhuận/dòng tiền (khối ngoại). Nguồn: vnstock (phân ngành + chỉ số) + DataPro (giá + dòng tiền ngoại)."
 category: asset-class
 ---
 
-# 行业轮动分析
+# Phân tích xoay vòng ngành (Việt Nam)
 
-## 概述
+## Tổng quan
 
-基于A股申万行业分类体系，通过景气度评分、动量排名、估值比较、资金流向四个维度进行行业轮动分析，输出行业超配/低配建议。
+Dựa trên hệ phân ngành **ICB** (vnstock dùng), phân tích xoay vòng ngành qua 4 chiều — sức khỏe ngành (prosperity), momentum, định giá, dòng tiền — để đưa khuyến nghị **tăng tỷ trọng / giảm tỷ trọng** ngành.
 
-## 申万行业分类体系
+## Hệ phân ngành ICB (thị trường VN)
 
-### 一级行业（31个）
-
-| 大类 | 行业 | 代码示例 |
+| Nhóm | Ngành (ICB) | Mã đại diện |
 |------|------|---------|
-| 上游周期 | 煤炭、有色、石油石化、钢铁、基础化工 | 煤炭ETF: 515220 |
-| 中游制造 | 电力设备、机械设备、国防军工、汽车 | 新能源ETF: 516160 |
-| 下游消费 | 食品饮料、家用电器、医药生物、美容护理 | 消费ETF: 510150 |
-| TMT | 电子、计算机、通信、传媒 | 科技ETF: 515000 |
-| 金融地产 | 银行、非银金融、房地产 | 金融ETF: 510230 |
-| 公用事业 | 公用事业、交通运输、环保 | 红利ETF: 510880 |
+| Thượng nguồn / chu kỳ | Thép & Vật liệu (Basic Resources), Hóa chất, Dầu khí | HPG, HSG, DGC, GAS, BSR |
+| Sản xuất / công nghiệp | Hàng & DV công nghiệp, Logistics/Cảng, Xây dựng | GMD, VCG, HHV |
+| Tiêu dùng | Thực phẩm & đồ uống, Bán lẻ | VNM, SAB, MWG, PNJ |
+| Công nghệ | Công nghệ thông tin | FPT, CMG |
+| Tài chính | Ngân hàng, Chứng khoán, Bảo hiểm | VCB, TCB, SSI, BVH |
+| Bất động sản | Nhà ở, Khu công nghiệp | VHM, NLG, KBC, BCM |
+| Tiện ích / phòng thủ | Điện, Nước, Khí, Dược | POW, REE, DHG |
 
-### 行业周期属性
+> Lấy thành viên ngành: `Listing(source="VCI").symbols_by_industries()` → cột `icb_name`. Nhận diện ngân hàng nhanh: `Company.overview().is_bank` (xem `valuation-model/classify_valuation.py`).
 
-| 类型 | 行业 | 特征 | 驱动因子 |
+### Thuộc tính chu kỳ ngành
+
+| Loại | Ngành | Đặc điểm | Động lực |
 |------|------|------|---------|
-| 强周期 | 煤炭/有色/钢铁/化工 | 盈利波动大，跟宏观紧密 | PPI、PMI、商品价格 |
-| 弱周期 | 食品饮料/医药/公用 | 盈利稳定，防御属性 | CPI、消费数据 |
-| 成长型 | 电子/计算机/电力设备 | 高PE高增速，政策敏感 | 产业政策、渗透率 |
-| 金融 | 银行/非银/保险 | 利差驱动，与利率正相关 | 利率、社融、信贷 |
+| Chu kỳ mạnh | Thép/Vật liệu, Hóa chất, Dầu khí | LN biến động lớn, bám vĩ mô | PMI, giá hàng hóa, đầu tư công, giá dầu |
+| Phòng thủ | Thực phẩm&ĐU, Dược, Điện/Nước | LN ổn định, thủ thế | CPI, tiêu dùng thiết yếu, cổ tức |
+| Tăng trưởng | Công nghệ, Bán lẻ | PE cao, tăng trưởng nhanh | Tăng trưởng DT, thị phần, sức mua |
+| Tài chính | Ngân hàng/Chứng khoán/Bảo hiểm | Bám lãi suất & thanh khoản | Tăng trưởng tín dụng, lãi suất SBV, thanh khoản TT |
+| Bất động sản | Nhà ở, KCN | Chu kỳ pháp lý & tín dụng | Lãi suất, chính sách gỡ vướng, FDI (KCN) |
 
-## 景气度评分框架
+## Khung chấm điểm sức khỏe ngành (prosperity)
 
-### 评分维度（满分100）
+### Các chiều (tối đa 100)
 
-| 维度 | 权重 | 指标 | 评分规则 |
+| Chiều | Trọng số | Chỉ tiêu | Quy tắc chấm |
 |------|------|------|---------|
-| 盈利增速 | 30% | 净利润同比增速 | >30%=30分, 15-30%=22分, 0-15%=15分, <0%=5分 |
-| 盈利趋势 | 20% | 连续N季加速 | 加速3季+=20分, 2季=14分, 减速=-5分 |
-| 景气指标 | 20% | PMI/开工率/价格 | 高位+上行=20分, 高位回落=12分, 低位=5分 |
-| 政策支持 | 15% | 产业政策力度 | 明确利好=15分, 中性=8分, 利空=2分 |
-| 估值安全 | 15% | PE历史分位 | <30%分位=15分, 30-50%=10分, >70%=3分 |
+| Tăng trưởng LN | 30% | LN sau thuế YoY (rổ ngành) | >30%=30đ, 15-30%=22đ, 0-15%=15đ, <0%=5đ |
+| Xu hướng LN | 20% | Số quý tăng tốc liên tiếp | tăng tốc ≥3 quý=20đ, 2 quý=14đ, giảm tốc=−5đ |
+| Chỉ báo cảnh báo sớm | 20% | PMI/công suất/giá sản phẩm | cao + đi lên=20đ, cao + chững=12đ, thấp=5đ |
+| Chính sách hỗ trợ | 15% | Lực chính sách ngành | rõ ràng tích cực=15đ, trung tính=8đ, siết=2đ |
+| Định giá an toàn | 15% | PE phân vị lịch sử (rổ ngành) | <30% phân vị=15đ, 30-50%=10đ, >70%=3đ |
 
-### 景气度变化信号
+### Tín hiệu sức khỏe ngành
 
 ```
-景气度上行信号（超配）:
-1. 行业PMI连续2个月>50且环比改善
-2. 龙头公司订单/收入同比加速
-3. 产品价格上行（涨价周期）
-4. 产能利用率>80%且在提升
-5. 政策催化（补贴/准入/国产替代）
+Đi LÊN (tăng tỷ trọng):
+1. PMI sản xuất VN >50 và cải thiện 2 tháng liên tiếp
+2. Đơn hàng/doanh thu DN đầu ngành tăng tốc YoY
+3. Giá sản phẩm đi lên (chu kỳ tăng giá)
+4. Công suất >80% và đang tăng
+5. Chính sách xúc tác (đầu tư công, nới room tín dụng, gỡ vướng BĐS, ưu đãi)
 
-景气度下行信号（低配）:
-1. 行业PMI连续2个月<50
-2. 存货周转天数上升（库存积压）
-3. 产品价格下行
-4. 产能过剩（利用率<60%）
-5. 政策收紧（环保/反垄断/集采）
+Đi XUỐNG (giảm tỷ trọng):
+1. PMI <50 hai tháng liên tiếp
+2. Số ngày tồn kho tăng (hàng ứ)
+3. Giá sản phẩm giảm
+4. Dư cung (công suất <60%)
+5. Chính sách siết (thuế/môi trường/tín dụng)
 ```
 
-## 行业动量排名方法
+## Xếp hạng momentum ngành
 
-### 价格动量
+### Momentum giá
 
 ```python
 def sector_momentum(sector_returns: pd.DataFrame, lookback: int = 60, skip: int = 5) -> pd.Series:
-    """
+    """Xếp hạng momentum ngành.
+
     Args:
-        sector_returns: 行业日收益率，columns=行业名
-        lookback: 回看窗口（交易日）
-        skip: 跳过最近N天（避免短期反转）
-    Returns:
-        行业动量得分排名
+        sector_returns: lợi suất ngày theo ngành, columns = tên ngành (rổ .VN)
+        lookback: cửa sổ nhìn lại (phiên)
+        skip: bỏ N phiên gần nhất (tránh đảo chiều ngắn hạn)
     """
     cum_return = (1 + sector_returns).rolling(lookback).apply(lambda x: x[:-skip].prod() - 1)
     return cum_return.iloc[-1].rank(ascending=False)
 ```
 
-### 盈利动量
+### Momentum lợi nhuận
 
 ```
-盈利动量 = 当季ROE同比变化 - 上季ROE同比变化
-正值 = 盈利加速（超配信号）
-负值 = 盈利减速（减配信号）
+Momentum LN = (ROE YoY quý này) − (ROE YoY quý trước)
+> 0 = LN tăng tốc (tăng tỷ trọng) · < 0 = giảm tốc (giảm tỷ trọng)
 ```
 
-### 综合动量排名
+### Xếp hạng tổng hợp
 
 ```
-综合得分 = 0.4 × 价格动量排名 + 0.3 × 盈利动量排名 + 0.3 × 资金流排名
-取 Top 5 行业超配，Bottom 5 行业低配
+Điểm = 0,4 × hạng momentum giá + 0,3 × hạng momentum LN + 0,3 × hạng dòng tiền ngoại
+→ Top 5 tăng tỷ trọng, Bottom 5 giảm tỷ trọng
 ```
 
-## 产业链上下游传导
-
-### 典型传导链条
+## Truyền dẫn chuỗi ngành (thượng → hạ nguồn)
 
 ```
-上游（原材料）→ 中游（制造加工）→ 下游（消费/应用）
-
-示例1: 锂电产业链
-  碳酸锂（上游）→ 正极材料（中游）→ 电池（中游）→ 新能源车（下游）
-  传导：锂价↑ → 正极成本↑ → 电池价格↑ → 车企毛利率↓
-
-示例2: 半导体产业链
-  设备/材料（上游）→ 晶圆制造（中游）→ 封测（中游）→ 消费电子（下游）
-  传导：手机需求↑ → 封测订单↑ → 晶圆产能紧 → 设备资本开支↑
-
-示例3: 地产产业链
-  土地/融资（上游）→ 开发建设（中游）→ 销售/物业（下游）
-  传导：政策宽松 → 销售回暖(下游先) → 新开工↑(中游) → 拿地↑(上游)
+Đầu tư công: giải ngân hạ tầng → nhà thầu xây dựng (VCG/HHV/C4G/LCG) → đá/nhựa đường/thép
+Thép:        quặng-than (nhập) → thép (HPG/HSG/NKG) → BĐS/xây dựng/xuất khẩu HRC
+Điện:        than/khí/thủy điện → phát điện (POW/NT2/REE/PC1) → tiêu thụ (El Niño/La Niña tác động thủy điện)
+Xuất khẩu:   nguyên liệu → sản xuất (dệt may TNG/MSH; thủy sản VHC/ANV; gỗ) → đơn hàng Mỹ/EU + tỷ giá USD/VND
+BĐS:         tín dụng/pháp lý → phát triển dự án → bán hàng (presales) → vật liệu (thép, xi măng HT1/BCC), nội thất
+Ngân hàng:   tăng trưởng tín dụng → NIM → LN ngân hàng (dẫn dắt thanh khoản toàn thị trường)
 ```
 
-### 传导规律
+### Quy luật truyền dẫn
 
-| 规律 | 说明 | 投资含义 |
+| Quy luật | Diễn giải | Hàm ý đầu tư |
 |------|------|---------|
-| 需求驱动自下而上 | 下游需求 → 中游订单 → 上游原材料 | 需求拐点看下游先动 |
-| 成本传导自上而下 | 上游涨价 → 中游成本 → 下游提价 | 上游涨价利好上游，利空中游 |
-| 库存周期传导 | 主动补库→被动补库→主动去库→被动去库 | 被动去库是买入点 |
-| 领先滞后 | 上游领先中游1-2季度，中游领先下游1-2季度 | 提前布局下一环节 |
+| Cầu kéo từ dưới lên | Cầu hạ nguồn → đơn hàng trung nguồn → nguyên liệu thượng nguồn | Điểm đảo cầu nhìn hạ nguồn động trước |
+| Chi phí đẩy từ trên xuống | Thượng nguồn tăng giá → chi phí trung nguồn → hạ nguồn tăng giá bán | Tăng giá lợi thượng nguồn, hại trung nguồn |
+| Chu kỳ tồn kho | Chủ động tích → bị động tích → chủ động xả → bị động xả | "Bị động xả" là điểm mua |
+| Dẫn/trễ | Thượng nguồn dẫn trung nguồn ~1-2 quý, trung dẫn hạ ~1-2 quý | Bố trí trước mắt xích kế tiếp |
 
-## 行业比较框架
+## Khung so sánh ngành
 
-### 估值比较
+### So sánh định giá (rổ ngành — vnstock KBS `ratio`)
 
-| 指标 | 用途 | 注意事项 |
+| Chỉ tiêu | Dùng | Lưu ý |
 |------|------|---------|
-| PE(TTM) | 盈利估值 | 周期股PE失真（低PE可能是顶） |
-| PB | 资产估值 | 银行/地产/周期股用PB更合理 |
-| PE历史分位 | 估值位置 | 看5年分位数 |
-| PEG | 成长估值 | <1为低估，>2为高估 |
-| 股息率 | 收益率 | 高股息=防御配置 |
+| PE (`pe_ratio`) | Định giá theo LN | Cổ phiếu chu kỳ PE méo (PE thấp = đỉnh) |
+| PB (`pb_ratio`) | Định giá theo tài sản | Ngân hàng/BĐS/chu kỳ dùng PB hợp lý hơn |
+| PE phân vị 5 năm | Vị trí định giá | Đối chiếu lịch sử |
+| Tỷ suất cổ tức (`dividend_yield`) | Lợi suất | Cổ tức cao = phòng thủ |
 
-### 盈利比较
+### So sánh lợi nhuận
 
-| 指标 | 含义 |
+| Chỉ tiêu (KBS ratio) | Ý nghĩa |
 |------|------|
-| ROE | 盈利能力 |
-| ROE变化 | 盈利趋势 |
-| 毛利率 | 竞争格局 |
-| 净利润增速 | 成长性 |
-| 现金流/净利润 | 盈利质量 |
+| `roe` | Khả năng sinh lời |
+| ΔROE | Xu hướng lợi nhuận |
+| `gross_margin` | Cục diện cạnh tranh |
+| tăng trưởng `net_revenue`/LN | Tăng trưởng |
+| CFO/LN ròng | Chất lượng lợi nhuận |
 
-### 资金流比较
+### So sánh dòng tiền (đặc thù VN)
 
-| 指标 | 数据源 | 信号 |
-|------|--------|------|
-| 北向资金净流入 | 沪深港通 | 外资偏好，领先1-3个月 |
-| 融资余额变化 | 融资融券 | 杠杆资金方向 |
-| ETF净申购 | 基金数据 | 机构配置方向 |
-| 大宗交易 | 交易所 | 机构调仓信号 |
+| Chỉ báo | Nguồn | Tín hiệu |
+|------|------|------|
+| **Khối ngoại mua/bán ròng** | **DataPro** (`FRN_BUY_VOL/FRN_SELL_VOL`) tổng hợp theo ngành | Khẩu vị ngoại, dẫn dắt 1-3 tháng *(lưu ý regime: nhiều giai đoạn ngoại bán ròng)* |
+| Dư nợ ký quỹ (margin) | HOSE/CTCK công bố | Dòng tiền đòn bẩy |
+| Tự doanh CTCK | HOSE | Tín hiệu tổ chức |
+| ETF (E1VFVN30, Diamond FUEVFVND, Finlead, Fubon/VanEck) | Quỹ | Phân bổ tổ chức/ngoại |
 
-## 输出格式
+## Mẫu output
 
 ```markdown
-## 行业轮动分析
+## Phân tích xoay vòng ngành
 
-### 景气度排名 Top 10
-| 排名 | 行业 | 景气度 | 变化 | 核心逻辑 |
-|------|------|--------|------|---------|
-| 1 | 电子 | 85 | ↑+8 | AI算力需求爆发 |
-| 2 | 汽车 | 80 | ↑+5 | 出口+新能源双轮驱动 |
-| ... | ... | ... | ... | ... |
+### Xếp hạng sức khỏe Top 10
+| Hạng | Ngành | Điểm | Thay đổi | Logic cốt lõi |
+|------|------|------|------|---------|
+| 1 | Ngân hàng | 82 | ↑+6 | Tín dụng tăng tốc, NIM tạo đáy |
+| 2 | Thép | 78 | ↑+5 | Đầu tư công + xuất khẩu HRC |
 
-### 行业配置建议
-| 配置 | 行业 | 权重建议 | 核心逻辑 |
+### Khuyến nghị phân bổ
+| Phân bổ | Ngành | Tỷ trọng | Logic |
 |------|------|---------|---------|
-| 超配 | 电子、汽车、通信 | 各10-15% | 景气上行+政策催化 |
-| 标配 | 食品饮料、医药 | 各5-8% | 防御属性，估值合理 |
-| 低配 | 地产、建材 | 各0-3% | 景气下行，政策效果待观察 |
+| Tăng tỷ trọng | Ngân hàng, Thép, Đầu tư công | 10-15% mỗi | Sức khỏe lên + chính sách |
+| Trung lập | Tiêu dùng, Dược | 5-8% mỗi | Phòng thủ, định giá hợp lý |
+| Giảm tỷ trọng | BĐS nhà ở | 0-3% | Pháp lý/tín dụng chờ cải thiện |
 
-### 产业链机会
-- **AI产业链**: 算力(上游)→模型(中游)→应用(下游)，当前上游最确定
-- **新能源车**: 碳酸锂价格见底，电池环节盈利修复预期
+### Cơ hội chuỗi ngành
+- **Đầu tư công**: giải ngân → nhà thầu (trung nguồn) → thép/đá (thượng nguồn)
 
-### 风险提示
+### Rủi ro
 - ...
 ```
 
-## 注意事项
+## Lưu ý
 
-1. **周期股估值陷阱**：低PE可能是盈利顶点（如2021年煤炭PE仅5x但是顶部），用PB更安全
-2. **政策变量权重大**：A股行业轮动受政策驱动明显（集采、碳中和、AI），政策拐点>基本面拐点
-3. **主题投资干扰**：短期主题炒作（如AI概念）会扭曲行业动量信号，注意区分主题 vs 景气
-4. **数据滞后**：财报数据滞后1-2个月，高频数据（PMI/开工率/价格）更及时
-5. **行业ETF替代**：建议用行业ETF代码而非个股实现行业配置，降低个股风险
-6. **轮动频率**：行业轮动不宜太频繁，月度/季度调仓为宜
+1. **Bẫy định giá cổ phiếu chu kỳ**: PE thấp có thể là đỉnh lợi nhuận (thép 2021-2022 PE rất thấp tại đỉnh) → dùng PB an toàn hơn.
+2. **Trọng số chính sách rất lớn**: xoay vòng ngành VN bị dẫn dắt mạnh bởi chính sách (đầu tư công, nới room tín dụng, gỡ vướng BĐS, quy hoạch điện VIII) — điểm đảo chính sách > điểm đảo cơ bản.
+3. **Nhiễu đầu cơ theo sóng**: sóng chủ đề ngắn hạn bóp méo momentum ngành — phân biệt "sóng" vs "sức khỏe thật".
+4. **Dòng tiền ngoại dẫn dắt NHƯNG tùy regime**: nhiều giai đoạn ngoại bán ròng kéo dài → đọc dòng tiền ngoại theo bối cảnh, không máy móc.
+5. **ETF ngành VN hạn chế**: ít ETF đơn ngành như TQ → phân bổ ngành chủ yếu bằng RỔ CỔ PHIẾU đầu ngành.
+6. **Tần suất**: xoay vòng không nên quá dày — đảo danh mục theo tháng/quý.
+7. **Độ trễ dữ liệu**: BCTC trễ ~1-3 tháng; dữ liệu tần suất cao (PMI/giá hàng hóa/dòng tiền ngoại) kịp thời hơn.
+
+## Nguồn dữ liệu
+
+- **Phân ngành + thành viên → vnstock** `Listing(source="VCI").symbols_by_industries()` (`icb_name`); `Company.overview().is_bank/sector/icb_code_lv2`.
+- **Chỉ số ngành (PE/PB/ROE/biên/tăng trưởng) → vnstock KBS `ratio`** tổng hợp theo rổ thành viên.
+- **Momentum giá ngành → DataPro** (`source="datapro"`, mã `.VN`): lợi suất rổ ngành.
+- **Dòng tiền khối ngoại theo ngành → DataPro** (`FRN_BUY_VOL/FRN_SELL_VOL` cộng dồn theo ngành) — lợi thế: có sẵn theo ngày.
+- **Vĩ mô (PMI VN, tăng trưởng tín dụng, lãi suất SBV, đầu tư công, FDI, giá hàng hóa) → firecrawl/`web-reader`**: GSO, SBV, S&P Global Vietnam PMI.
