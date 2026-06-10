@@ -33,13 +33,13 @@ Simplified version:
 FCFF ≈ operating cash flow - capex
 ```
 
-| Year | Revenue (100m RMB) | EBIT (100m RMB) | FCFF (100m RMB) | Growth |
+| Year | Revenue (1B VND) | EBIT (1B VND) | FCFF (1B VND) | Growth |
 |------|---------|---------|---------|------|
-| 2026E | 120 | 24 | 18 | +15% |
-| 2027E | 138 | 28 | 21 | +15% |
-| 2028E | 155 | 31 | 24 | +12% |
-| 2029E | 170 | 34 | 26 | +10% |
-| 2030E | 182 | 36 | 28 | +7% |
+| 2026F | 120 | 24 | 18 | +15% |
+| 2027F | 138 | 28 | 21 | +15% |
+| 2028F | 155 | 31 | 24 | +12% |
+| 2029F | 170 | 34 | 26 | +10% |
+| 2030F | 182 | 36 | 28 | +7% |
 
 #### Step 2: Calculate WACC
 
@@ -47,15 +47,15 @@ FCFF ≈ operating cash flow - capex
 WACC = E/(D+E) × Ke + D/(D+E) × Kd × (1-T)
 
 Ke (cost of equity) = Rf + β × (Rm - Rf)
-  - Rf: 10-year government bond yield (about 2.5% for China A-shares)
+  - Rf: 10-year government bond yield (about 3.6% for VietNam Stock Market)
   - β: industry average or company beta (1.0-1.5)
-  - Rm-Rf: equity risk premium (about 5-7% for China A-shares)
+  - Rm-Rf: equity risk premium (about 8.7% for VietNam Stock Market)
 
-Kd: cost of debt (loan rate, about 4-5%)
-T: income tax rate (25%)
+Kd: cost of debt (loan rate, about 4-5% nếu vay có tài sản thế chấp ngân hàng, 9-12% dưới hình thức trái phiếu doanh nghiệp và 14-16% dưới dạng vay khác. Nên tìm đọc bảng thuyết minh báo cáo tài chính hoặc tính toán dựa trên lãi vay và nợ để ra kết quả )
+T: income tax rate ( about 14-20% tùy vào đặc thù và ngành nghề của doanh nghiệp)
 ```
 
-**Reference WACC ranges for China A-shares**:
+**Reference WACC ranges for Vietnam Stock Market**:
 
 | Industry | WACC Range | Reference β |
 |------|---------|------|
@@ -69,7 +69,7 @@ T: income tax rate (25%)
 
 ```
 Perpetual-growth method: TV = FCF_n × (1+g) / (WACC - g)
-  - g: perpetual growth rate (usually 2-3%, should not exceed GDP growth)
+  - g: perpetual growth rate (usually 3-4%, should not exceed GDP growth)
 
 Exit-multiple method: TV = EBITDA_n × EV/EBITDA multiple
   - Reference the industry average or historical median
@@ -78,9 +78,9 @@ Exit-multiple method: TV = EBITDA_n × EV/EBITDA multiple
 #### Step 4: Sensitivity Analysis
 
 ```markdown
-### DCF Sensitivity Analysis (per-share value, RMB)
+### DCF Sensitivity Analysis (per-share value, VNĐ)
 
-| WACC \ g | 2.0% | 2.5% | 3.0% |
+| WACC \ g | 3.0% | 3.5% | 4.0% |
 |----------|------|------|------|
 | 9.0% | 32.5 | 35.8 | 40.2 |
 | 9.5% | 28.3 | 30.8 | 34.0 |
@@ -115,7 +115,7 @@ P = D_1 / (Ke - g)
 Group value = Σ valuation of each business segment + net cash - holding-company discount
 
 Example (a group company):
-| Segment | Revenue (100m RMB) | Valuation Method | Valuation (100m RMB) |
+| Segment | Revenue (1B VNĐ) | Valuation Method | Valuation (1B VNĐ) |
 |------|---------|---------|---------|
 | Baijiu | 80 | 30x PE | 600 |
 | Real estate | 50 | 0.6x PB | 120 |
@@ -170,7 +170,7 @@ Advantages:
 - Removes depreciation-policy differences
 - Suitable for asset-heavy industries (telecom / energy / infrastructure)
 
-Reference EV/EBITDA ranges by China A-share industry:
+Reference EV/EBITDA ranges by VietNam Stock Market industry:
 | Industry | Median | Undervalued | Overvalued |
 |------|--------|------|------|
 | Consumer | 15-20x | <12x | >25x |
@@ -232,10 +232,10 @@ Use at least 2 valuation methods and take the middle value:
 ### Valuation Summary
 | Method | Per-Share Value | Weight | Notes |
 |------|---------|------|------|
-| DCF | ¥32.5 | 50% | WACC=10%, g=2.5% |
-| Comparable PE | ¥28.0 | 30% | Industry average 22x, EPS=1.27 |
-| PB-ROE | ¥30.0 | 20% | Fair PB=2.5x |
-| **Composite Target Price** | **¥30.8** | | Current price 25.0, upside +23% |
+| DCF | VNĐ32.5 | 50% | WACC=10%, g=2.5% |
+| Comparable PE | VNĐ28.0 | 30% | Industry average 22x, EPS=1.27 |
+| PB-ROE | VNĐ30.0 | 20% | Fair PB=2.5x |
+| **Composite Target Price** | **VNĐ30.8** | | Current price 25.0, upside +23% |
 
 ### Sensitivity Analysis
 [WACC vs growth-rate matrix]
@@ -254,7 +254,7 @@ Target price ¥30.8, current price ¥25.0, upside 23%
 
 1. **DCF is highly sensitive to assumptions**: a 1% change in WACC can move valuation by 20%+, so sensitivity analysis is mandatory
 2. **Comparable companies must truly be comparable**: same industry + same scale + same stage; do not apply leader PE multiples to small companies
-3. **China A-share valuation system is unique**: shell value / liquidity premium / policy premium mean US-equity standards cannot be copied directly
+3. **Vietnam stocks valuation system is unique**: shell value / liquidity premium / policy premium mean US-equity standards cannot be copied directly
 4. **Valuation is not a target price**: markets can remain irrational for a long time, and valuation is an anchor, not a trading signal
 5. **Special handling for cyclicals**: use normalized earnings (mid-cycle earnings), not current earnings
 6. **Not suitable for cryptocurrencies**: traditional valuation frameworks do not apply to BTC / ETH; use on-chain metrics instead (see `onchain-analysis`)
