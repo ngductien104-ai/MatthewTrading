@@ -1,196 +1,167 @@
 ---
 name: dividend-analysis
-description: Dividend stock analysis for income, dividend-growth, and shareholder-return strategies, including yield quality, payout sustainability, ex-dividend mechanics, and yield-trap checks.
+description: "Phân tích cổ tức cổ phiếu VN cho chiến lược thu nhập/tăng trưởng cổ tức — chất lượng & tính bền của cổ tức, độ bao phủ, cơ chế ngày GDKHQ, phân biệt cổ tức tiền mặt vs cổ phiếu, bẫy lợi suất. Nguồn: vnstock (events/ratio/BCTC) + DataPro (giá)."
 category: analysis
 ---
 
-# Dividend Analysis
+# Phân tích cổ tức (Việt Nam)
 
-## Purpose
+## Mục đích
 
-Use this skill when the user asks about dividend stocks, income portfolios, dividend growth, high-yield screening, payout safety, ex-dividend dates, or whether a dividend is sustainable. The goal is to separate durable shareholder returns from yield traps.
+Dùng khi người dùng hỏi về cổ phiếu cổ tức, danh mục thu nhập, tăng trưởng cổ tức, lọc lợi suất cao, độ an toàn chi trả, ngày GDKHQ, hay cổ tức có bền không. Mục tiêu: **tách lợi suất bền vững khỏi bẫy lợi suất**.
 
-Dividend analysis should never stop at headline yield. A good answer explains how the dividend is funded, how stable the underlying business is, whether management has room to keep paying, and how valuation changes the expected total return.
+Đừng dừng ở con số lợi suất bề mặt. Câu trả lời tốt giải thích cổ tức được tài trợ bằng gì, nền tảng kinh doanh ổn định ra sao, ban lãnh đạo còn dư địa trả không, và định giá ảnh hưởng thế nào tới tổng lợi nhuận.
 
-## Core Questions
+## ⚠️ Đặc thù cổ tức Việt Nam (đọc TRƯỚC)
 
-1. What is the current cash yield, and is it normal for this company or sector?
-2. Is the payout covered by earnings, operating cash flow, and free cash flow?
-3. Is the balance sheet strong enough to absorb a down cycle?
-4. Has management grown, held, cut, or suspended the dividend across cycles?
-5. Does the valuation still leave room for total return after taxes and reinvestment assumptions?
+1. **Cổ tức công bố theo % MỆNH GIÁ (10.000đ), KHÔNG phải theo giá.** "Cổ tức 30%" = **30% × 10.000 = 3.000đ/cp**. Lợi suất thực = DPS / giá thị trường. Đây là nhầm lẫn phổ biến nhất.
+2. **Hai loại — phải phân biệt:**
+   - **Cổ tức TIỀN MẶT** (cash): thu nhập thật.
+   - **Cổ tức bằng CỔ PHIẾU / cổ phiếu thưởng** (stock dividend/bonus): phát hành thêm CP → **pha loãng**, giá điều chỉnh giảm ngày GDKHQ → KHÔNG phải thu nhập, gần giống chia tách. Đừng tính vào lợi suất tiền mặt.
+3. **Thuế TNCN**: cổ tức tiền mặt bị khấu trừ **5% tại nguồn**; cổ tức bằng cổ phiếu chịu thuế 5% **khi bán**.
+4. **Ngày quan trọng**: **GDKHQ** (giao dịch không hưởng quyền — giá tham chiếu tự điều chỉnh giảm) → **ngày đăng ký cuối cùng** (T+2 sau GDKHQ) → **ngày thanh toán**.
+5. **Ngân hàng**: chính sách cổ tức bị **NHNN ràng buộc/chấp thuận**; nhiều giai đoạn NHNN yêu cầu trả cổ tức bằng CỔ PHIẾU để giữ vốn (tăng CAR) → đừng kỳ vọng cổ tức tiền mặt cao ở ngân hàng đang cần tăng vốn.
 
-## Key Metrics
+## Câu hỏi cốt lõi
 
-| Metric | Formula | Healthy Signal | Warning Signal |
+1. Lợi suất tiền mặt hiện tại bao nhiêu, có bình thường so với chính DN/ngành không?
+2. Cổ tức có được bao phủ bởi LN, dòng tiền HĐKD (CFO) và dòng tiền tự do (FCF) không?
+3. Bảng cân đối có đủ khỏe để vượt chu kỳ đi xuống không?
+4. Ban lãnh đạo đã tăng/giữ/cắt/ngừng cổ tức qua các chu kỳ ra sao? (có hay chuyển sang trả cổ phiếu?)
+5. Định giá còn dư địa tổng lợi nhuận sau thuế 5% và giả định tái đầu tư không?
+
+## Chỉ tiêu then chốt
+
+| Chỉ tiêu | Công thức | Tín hiệu khỏe | Cảnh báo |
 |--------|---------|----------------|----------------|
-| Dividend yield | annual DPS / current price | Above peer median with stable coverage | Extremely high vs history or peers |
-| Earnings payout ratio | dividends / net income, or DPS / EPS | 30-70% for mature non-financials | Above 90%, negative earnings |
-| Free-cash-flow payout | dividends / FCF | Below 70% through a cycle | Dividend exceeds FCF for 2+ years |
-| CFO coverage | operating cash flow / dividends paid | Above 1.5x | Below 1.0x |
-| Dividend CAGR | DPS growth over 3/5/10 years | Positive and below EPS/FCF growth | Growth funded by leverage |
-| Net debt / EBITDA | net debt / EBITDA | Sector-appropriate leverage | Leverage rising while payout rises |
-| Buyback plus dividend yield | (dividends + net buybacks) / market cap | Balanced capital return | Buybacks funded by debt at high valuation |
+| Lợi suất cổ tức (tiền mặt) | DPS tiền mặt năm / giá | Trên trung vị ngành + bao phủ ổn định | Cao bất thường vs lịch sử/ngành |
+| Tỷ lệ chi trả từ LN | Cổ tức / LN sau thuế (DPS/EPS) | 30-70% (phi tài chính trưởng thành) | >90%, hoặc LN âm |
+| Chi trả từ FCF | Cổ tức / FCF | <70% xuyên chu kỳ | Cổ tức > FCF ≥2 năm |
+| Bao phủ bằng CFO | CFO / cổ tức đã trả | >1,5x | <1,0x |
+| CAGR cổ tức | Tăng trưởng DPS 3/5/10 năm | Dương và thấp hơn tăng EPS/FCF | Tăng nhờ vay nợ |
+| Nợ ròng / EBITDA | | Đòn bẩy phù hợp ngành | Đòn bẩy tăng trong khi cổ tức tăng |
 
-For REITs, utilities, banks, MLPs, and insurers, adapt the payout metric to the sector. For example, use AFFO payout for REITs, distributable cash flow for MLPs, and regulatory capital ratios for banks and insurers.
+> Theo ngành: ngân hàng/CK/bảo hiểm — coi cổ tức trong ràng buộc vốn (CAR/an toàn vốn); BĐS — cổ tức giật cục, hay trả cổ phiếu; tiện ích/KCN/dầu khí — trả tiền mặt cao & ổn định.
 
-## Analysis Workflow
+## Quy trình phân tích
 
-### Step 1: Normalize the Dividend
+### Bước 1: Chuẩn hóa cổ tức
 
-- Use forward indicated dividend for recurring payments.
-- Separate ordinary dividends from special dividends.
-- Check whether the latest declared dividend is annual, semiannual, quarterly, monthly, or irregular.
-- For ADRs and cross-listed shares, account for depositary ratios, withholding tax, and FX conversion.
-
-```python
-annual_dividend = regular_dividend_per_period * payments_per_year
-dividend_yield = annual_dividend / current_price
-```
-
-### Step 2: Check Coverage
-
-Start with earnings coverage, then confirm with cash coverage.
+- Tách **cổ tức tiền mặt** khỏi **cổ tức cổ phiếu/cổ phiếu thưởng** (chỉ tiền mặt mới là thu nhập).
+- Tách cổ tức thường xuyên khỏi cổ tức đặc biệt/bất thường.
+- Xác định tần suất (1 lần/năm, theo đợt, tạm ứng + còn lại).
+- Quy DPS theo % mệnh giá ra đồng: `DPS = ty_le_phan_tram × 10000`.
 
 ```python
-earnings_payout = dividends_paid / net_income
-fcf_payout = dividends_paid / free_cash_flow
-cfo_coverage = operating_cash_flow / dividends_paid
+dps_tien_mat = ty_le_co_tuc_tien_mat * 10000      # % mệnh giá → đồng
+loi_suat = dps_tien_mat / gia_thi_truong
 ```
 
-Interpretation:
-
-- Good: net income, CFO, and FCF all cover dividends across multiple years.
-- Watch: earnings cover dividends but FCF does not, especially during capex-heavy periods.
-- Avoid: dividends are paid while both earnings and FCF are negative, unless there is a clear one-time reason and a strong balance sheet.
-
-### Step 3: Diagnose Dividend Growth Quality
-
-Dividend growth is high quality when it follows business growth.
+### Bước 2: Kiểm tra độ bao phủ
 
 ```python
-dividend_cagr = (dps_end / dps_start) ** (1 / years) - 1
-eps_cagr = (eps_end / eps_start) ** (1 / years) - 1
-fcf_cagr = (fcf_end / fcf_start) ** (1 / years) - 1
+payout_LN = co_tuc_da_tra / loi_nhuan_sau_thue
+payout_FCF = co_tuc_da_tra / fcf
+bao_phu_CFO = cfo / co_tuc_da_tra
 ```
 
-Quality rules:
+- **Tốt**: LN, CFO, FCF đều phủ cổ tức qua nhiều năm.
+- **Theo dõi**: LN phủ nhưng FCF không (giai đoạn capex lớn).
+- **Tránh**: trả cổ tức khi cả LN và FCF âm, trừ khi có lý do một lần rõ ràng + bảng CĐKT mạnh.
 
-- Dividend CAGR below EPS and FCF CAGR usually leaves room for future increases.
-- Dividend CAGR above EPS/FCF CAGR means payout ratio is expanding.
-- Flat dividend with rising FCF may imply hidden capacity or conservative management.
-- Repeated small increases can still be fragile if leverage is rising.
+### Bước 3: Chất lượng tăng trưởng cổ tức
 
-### Step 4: Check Balance Sheet Flexibility
+```python
+dividend_cagr = (dps_cuoi / dps_dau) ** (1/so_nam) - 1
+eps_cagr = (eps_cuoi / eps_dau) ** (1/so_nam) - 1
+```
 
-Look for the ability to maintain dividends during stress.
+- CAGR cổ tức < CAGR EPS/FCF → còn dư địa tăng.
+- CAGR cổ tức > EPS/FCF → tỷ lệ chi trả đang phình (rủi ro).
+- Cổ tức đi ngang trong khi FCF tăng → dư địa ẩn / ban lãnh đạo thận trọng.
 
-| Item | Why It Matters |
+### Bước 4: Độ linh hoạt bảng cân đối
+
+| Khoản | Vì sao quan trọng |
 |------|----------------|
-| Cash and short-term investments | Near-term cushion |
-| Net debt / EBITDA | Debt burden against operating earnings |
-| Interest coverage | Ability to service debt before shareholder returns |
-| Debt maturity wall | Refinancing risk in high-rate environments |
-| Credit rating or covenant language | External constraints on payout policy |
+| Tiền & tương đương tiền | Đệm ngắn hạn |
+| Nợ ròng / EBITDA | Gánh nặng nợ so với LN hoạt động |
+| Khả năng trả lãi (ICR) | Trả nợ trước khi trả cổ đông |
+| Lịch đáo hạn nợ | Rủi ro tái cấp vốn khi lãi suất cao |
 
-### Step 5: Separate Dividend Yield from Total Return
+### Bước 5: Tách lợi suất khỏi tổng lợi nhuận
 
-Dividend stocks can underperform if the yield comes from a falling price. Always connect income to valuation and growth.
-
-```python
-expected_total_return = dividend_yield + expected_eps_growth + valuation_rerating
-```
-
-Do not present this as a guarantee. Use it as a scenario framework.
-
-## Yield-Trap Checklist
-
-Flag a potential yield trap when several of these are true:
-
-- Dividend yield is more than 2x the company's 5-year median or sector median.
-- Payout ratio is above 90%, or FCF payout is above 100%.
-- Revenue, EPS, or FCF has declined for 2+ years.
-- Net debt / EBITDA is rising while interest coverage is falling.
-- Management has recently issued equity or debt while maintaining dividends.
-- The stock price fell before the yield became attractive.
-- Dividend history includes cuts, suspensions, or frequent special dividends labeled as ordinary income.
-- Sector faces structural pressure, regulation risk, or commodity down-cycle exposure.
-
-## Strategy Types
-
-### Dividend Growth
-
-Prioritize moderate yield, strong dividend CAGR, low payout ratio, and durable business quality.
-
-Good for users seeking compounding and lower cut risk.
-
-### High-Yield Quality
-
-Prioritize yield, but require cash coverage, balance sheet resilience, and sector-aware payout norms.
-
-Good for users seeking current income, but the answer must discuss cut risk.
-
-### Shareholder Yield
-
-Combine dividends, net buybacks, and debt reduction.
-
-Useful when companies return capital mostly through buybacks rather than cash dividends.
+Cổ phiếu cổ tức vẫn thua nếu lợi suất đến từ giá rơi. Luôn gắn thu nhập với định giá & tăng trưởng.
 
 ```python
-shareholder_yield = dividend_yield + net_buyback_yield + debt_paydown_yield
+tong_loi_nhuan_ky_vong = loi_suat_co_tuc + tang_truong_eps_ky_vong + tai_dinh_gia
 ```
+Đây là khung kịch bản, không phải cam kết.
 
-### Dividend Capture
+## Checklist bẫy lợi suất (yield trap)
 
-Buying before the ex-dividend date only to collect the dividend is not a free-money strategy. Prices usually adjust around the ex-dividend date, and taxes, spreads, and slippage can erase the gross dividend.
+Cảnh báo khi nhiều điều sau đúng:
 
-Use this only as an event-risk analysis, not as a default recommendation.
+- Lợi suất > 2x trung vị 5 năm của DN hoặc trung vị ngành.
+- Tỷ lệ chi trả > 90%, hoặc payout FCF > 100%.
+- Doanh thu/EPS/FCF giảm ≥2 năm.
+- Nợ ròng/EBITDA tăng trong khi ICR giảm.
+- DN vừa phát hành cổ phiếu/vay nợ trong khi vẫn duy trì cổ tức.
+- Giá đã rơi TRƯỚC khi lợi suất trở nên hấp dẫn.
+- Lịch sử có cắt/ngừng cổ tức, hoặc liên tục **chuyển từ trả tiền mặt sang trả cổ phiếu** (che giấu thiếu tiền).
+- Ngành chịu áp lực cấu trúc/pháp lý/chu kỳ hàng hóa đi xuống.
 
-## Data Sources
+## Các chiến lược
 
-| Market | Useful Fields |
-|--------|---------------|
-| A-shares | Tushare `dividend`, `daily_basic.dv_ttm`, `fina_indicator`, `cashflow` |
-| US/HK | yfinance `Ticker.dividends`, `Ticker.info`, financial statements, cash flow |
-| ETFs | distribution yield, SEC yield, holdings yield, expense ratio, distribution history |
-| REITs | FFO, AFFO, occupancy, debt maturities, AFFO payout |
+### Tăng trưởng cổ tức
+Ưu tiên lợi suất vừa phải, CAGR cổ tức mạnh, tỷ lệ chi trả thấp, chất lượng DN bền → cho người muốn lãi kép + ít rủi ro cắt.
 
-When live data is unavailable, state the limitation and provide the analysis template instead of inventing dividend figures.
+### Lợi suất cao chất lượng
+Ưu tiên lợi suất NHƯNG yêu cầu bao phủ bằng tiền, bảng CĐKT vững, chuẩn chi trả theo ngành → cho người cần thu nhập hiện tại; phải bàn rủi ro cắt. Ứng viên VN điển hình: **tiện ích/điện (POW, NT2, REE), KCN (IDC, BCM), dầu khí (GAS, PVS), bảo hiểm**.
 
-## Output Template
+### Bắt cổ tức (dividend capture)
+Mua trước GDKHQ chỉ để hưởng cổ tức **KHÔNG phải tiền miễn phí**: giá tham chiếu **tự điều chỉnh giảm** đúng ngày GDKHQ, cộng **thuế 5%** + phí + trượt giá → thường xóa hết phần cổ tức gộp. Chỉ dùng như phân tích rủi ro sự kiện.
+
+## Nguồn dữ liệu
+
+| Việc cần | Nguồn |
+|------|------|
+| **Lịch sử/lịch cổ tức, ngày GDKHQ, tỷ lệ, loại (tiền/cổ phiếu)** | **vnstock `Company.events()`** → lọc `category=="DIVIDEND"`; xem `event_title_vi` (phân biệt tiền vs cổ phiếu), `exright_date` (GDKHQ), `record_date`, `exercise_ratio`, `value_per_share`, `payout_date` |
+| Lợi suất cổ tức | vnstock KBS `ratio` (`dividend_yield`); `Company.overview()` (`dividend_per_share_tsr`) |
+| Cổ tức đã trả (bao phủ) | BCTC LCTT — phần tài chính (CFF), vnstock KBS `cashflow` |
+| LN/CFO/FCF cho bao phủ | vnstock KBS `income` (`net_profit_loss_after_tax`), `cashflow` (CFO), capex |
+| Lịch sử tăng vốn / pha loãng (cổ tức CP) | vnstock `Company.capital_history()`; `issue_share` từ `Company.overview()` |
+| Giá để tính lợi suất | **DataPro** (`source="datapro"`, mã `.VN`) |
+
+Khi không có dữ liệu trực tiếp: nêu hạn chế và đưa khung phân tích, KHÔNG bịa số cổ tức.
+
+## Mẫu output
 
 ```markdown
-### Dividend Analysis: [ticker/company]
+### Phân tích cổ tức: [Mã .VN / DN]
 
-**Verdict:** [sustainable / watchlist / yield-trap risk]
+**Kết luận:** [bền vững / theo dõi / rủi ro bẫy lợi suất]
 
-| Metric | Value | Interpretation |
+| Chỉ tiêu | Giá trị | Diễn giải |
 |--------|-------|----------------|
-| Dividend yield | ... | ... |
-| Earnings payout | ... | ... |
-| FCF payout | ... | ... |
-| Dividend growth | ... | ... |
-| Balance sheet | ... | ... |
+| Lợi suất cổ tức tiền mặt | ... | (DPS = X% mệnh giá = Y đồng) |
+| Tỷ lệ chi trả từ LN | ... | ... |
+| Payout FCF | ... | ... |
+| Tăng trưởng cổ tức | ... | (tiền mặt vs cổ phiếu) |
+| Bảng cân đối | ... | ... |
 
-**What supports the dividend**
-- ...
+**Điều giữ vững cổ tức:** ...
+**Điều có thể phá vỡ cổ tức:** ...
+**Kịch bản:** Cơ sở / Xấu / Tốt
 
-**What could break the dividend**
-- ...
-
-**Scenario view**
-- Base: ...
-- Downside: ...
-- Upside: ...
-
-**Research note:** This is investment research, not live trading advice.
+**Lưu ý:** Đây là nghiên cứu, không phải khuyến nghị giao dịch.
 ```
 
-## Common Mistakes
+## Sai lầm thường gặp
 
-- Treating high yield as cheap valuation without checking why the price fell.
-- Mixing special dividends with regular dividends.
-- Comparing REIT payout ratios to ordinary industrial companies.
-- Ignoring withholding tax, ADR ratios, currency conversion, or ETF expense drag.
-- Forgetting that ex-dividend capture is usually offset by price adjustment and transaction costs.
-- Recommending a dividend stock without discussing total return and dividend-cut risk.
+- Coi lợi suất cao là định giá rẻ mà không hỏi vì sao giá rơi.
+- **Nhầm % cổ tức là % trên giá** (thực ra trên mệnh giá 10.000đ).
+- **Gộp cổ tức cổ phiếu vào lợi suất tiền mặt** (cổ phiếu = pha loãng, không phải thu nhập).
+- Bỏ qua **thuế TNCN 5%** và điều chỉnh giá ngày GDKHQ khi tính "bắt cổ tức".
+- So tỷ lệ chi trả ngân hàng (bị NHNN ràng buộc) với DN sản xuất thông thường.
+- Khuyến nghị cổ phiếu cổ tức mà không bàn tổng lợi nhuận & rủi ro cắt cổ tức.
