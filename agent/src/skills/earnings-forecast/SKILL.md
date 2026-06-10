@@ -1,199 +1,199 @@
 ---
 name: earnings-forecast
-description: 盈利预测与一致预期分析（自上而下/自下而上预测法/SUE/PEAD/分析师预期修正），捕捉业绩超预期交易机会。
+description: "Dự phóng lợi nhuận & phân tích kỳ vọng thị trường VN (top-down/bottom-up, SUE, PEAD, % hoàn thành kế hoạch ĐHCĐ, momentum điều chỉnh dự phóng) để bắt cơ hội vượt/hụt kỳ vọng. Nguồn: vnstock (EPS thực) + DataPro (phản ứng giá) + báo cáo phân tích."
 category: analysis
 ---
-# 盈利预测与一致预期
+# Dự phóng lợi nhuận & kỳ vọng thị trường (Việt Nam)
 
-## 概述
+## Tổng quan
 
-围绕企业盈利预测和市场一致预期偏差构建交易信号。核心逻辑：股价短期由盈利预期差驱动，捕捉「预期差」比预测绝对盈利更有价值。两条主线：① 自主预测 vs 一致预期对比寻找偏差；② 跟踪分析师预期修正动量。
+Xây tín hiệu giao dịch quanh **chênh lệch giữa lợi nhuận thực và kỳ vọng thị trường**. Logic cốt lõi: giá ngắn hạn bị dẫn dắt bởi "chênh kỳ vọng" (expectation gap) — bắt được CHÊNH KỲ VỌNG có giá trị hơn dự báo con số tuyệt đối. Hai trục: ① tự dự phóng vs kỳ vọng để tìm chênh lệch; ② bám momentum điều chỉnh dự phóng của giới phân tích.
 
-## 核心概念
+> ⚠️ **Trước khi tính (Karpathy):** bóc khoản một lần (lãi tỷ giá/thanh lý/đánh giá lại/hoàn nhập dự phòng) → dùng **LN cốt lõi** trước khi đo SUE; số CP lưu hành từ `Company.overview().issue_share` (không suy từ EPS); EPS thực từ vnstock, đừng đoán.
 
-### 1. 自上而下预测法（Top-Down）
+## Khái niệm cốt lõi
 
-**预测链条：**
+### 1. Dự phóng từ trên xuống (Top-Down)
+
+**Chuỗi dự phóng:**
 
 ```
-GDP增速预测 → 行业增加值增速 → 行业收入增速 → 龙头公司收入增速 → 利润率假设 → EPS预测
+Tăng trưởng GDP → giá trị gia tăng ngành → tăng trưởng doanh thu ngành → DT công ty đầu ngành → giả định biên LN → dự phóng EPS
 ```
 
-**A股实战示例（以白酒行业为例）：**
+**Ví dụ VN (ngành thép):**
 
-| 层级 | 指标 | 预测逻辑 |
+| Lớp | Chỉ tiêu | Logic dự phóng |
 |------|------|---------|
-| 宏观 | GDP +5.0% | 消费占GDP比重65%，消费增速约+6% |
-| 行业 | 白酒收入 +8% | 高端白酒量价齐升，结构升级 |
-| 公司 | 贵州茅台(600519.SH) | 出厂价+10%，销量+2%，收入约+12% |
-| 盈利 | 净利润率55% | 提价传导，费用率稳定 |
-| EPS | 约62元 | 净利润/总股本 |
+| Vĩ mô | GDP +6,5% | Đầu tư công + BĐS hồi phục → cầu thép xây dựng |
+| Ngành | Sản lượng thép +8% | Giải ngân hạ tầng, xuất khẩu HRC |
+| Công ty | HPG.VN | Sản lượng +10%, giá bán đi ngang → DT ~+10% |
+| Biên LN | Biên gộp 13% | Biên thép − quặng/than cải thiện |
+| EPS | ~X đồng | LN ròng / issue_share |
 
-**适用场景：** 行业beta判断、大盘盈利周期定位、宏观策略配合
+**Dùng cho:** định vị chu kỳ LN toàn thị trường, beta ngành, phối hợp chiến lược vĩ mô.
 
-### 2. 自下而上预测法（Bottom-Up）
+### 2. Dự phóng từ dưới lên (Bottom-Up)
 
-**收入拆解三板斧：**
+**Ba cách tách doanh thu:**
 
 ```python
-# 方法1：量价拆解
+# Cách 1: tách lượng × giá
 revenue = volume * price
-# 例：中国神华(601088.SH) = 煤炭销量(亿吨) × 煤价(元/吨) + 电力收入
+# vd HPG = sản lượng thép (triệu tấn) × giá bán (đồng/tấn)
 
-# 方法2：客户/产品拆解
+# Cách 2: tách theo mảng/khách hàng
 revenue = sum(segment_revenue for segment in business_lines)
-# 例：美的集团(000333.SZ) = 暖通空调 + 消费电器 + 机器人及自动化
+# vd FPT = CNTT (xuất khẩu + trong nước) + Viễn thông + Giáo dục/đầu tư
 
-# 方法3：门店/用户拆解
-revenue = stores * revenue_per_store  # 或 users * ARPU
-# 例：海底捞(6862.HK) = 门店数 × 翻台率 × 客单价 × 营业天数
+# Cách 3: tách theo cửa hàng/người dùng
+revenue = stores * revenue_per_store        # hoặc users * ARPU
+# vd MWG = số cửa hàng × doanh thu/cửa hàng; ngân hàng = dư nợ tín dụng × NIM
 ```
 
-**利润率假设关键点：**
-- 毛利率：原材料成本占比变动、产品结构升级
-- 费用率：规模效应（收入增、费用率降）、研发投入变动
-- 税率：高新技术企业15% vs 普通25%，是否有税收优惠到期
+**Điểm then chốt về biên LN:**
+- Biên gộp: biến động giá nguyên liệu, nâng cấp cơ cấu sản phẩm
+- Tỷ lệ chi phí: hiệu ứng quy mô (DT tăng → tỷ lệ chi phí giảm), đầu tư R&D
+- Thuế suất: CIT phổ thông 20%, ưu đãi (công nghệ cao/KCN/dự án mới) thấp hơn — coi chừng ưu đãi hết hạn
 
-### 3. 标准化未预期盈利（SUE）
+### 3. % Hoàn thành kế hoạch ĐHCĐ (đặc thù VN — dùng khi consensus mỏng)
 
-**公式：**
+Ở VN, dữ liệu consensus phân tích thường mỏng (nhất là mid/small-cap). **Thay thế bằng KẾ HOẠCH lợi nhuận do ĐHCĐ thông qua** (công bố mùa ĐHCĐ tháng 3-4):
 
 ```python
-SUE = (actual_EPS - consensus_EPS) / std(actual_EPS - consensus_EPS)
-# consensus_EPS = 分析师一致预期EPS（取中位数）
-# std = 过去8个季度预测偏差的标准差
+ty_le_hoan_thanh = LN_luy_ke / KH_LN_nam        # so với tiến độ thời gian
+# Q1 lý tưởng ~25%, 6T ~50%, 9T ~75%. 
+# Vượt tiến độ nhiều → khả năng vượt KH → dư địa điều chỉnh tăng kỳ vọng
+# Tụt xa tiến độ → rủi ro hụt KH (lưu ý mùa vụ: nhiều DN dồn LN nửa cuối năm)
 ```
 
-**信号阈值（A股实证参考）：**
+→ Theo dõi "% hoàn thành kế hoạch" mỗi quý là chỉ báo kỳ vọng phổ biến nhất trên TTCK VN.
 
-| SUE范围 | 含义 | 交易动作 |
+### 4. Lợi nhuận bất ngờ chuẩn hóa (SUE)
+
+```python
+SUE = (EPS_thuc - EPS_ky_vong) / std(EPS_thuc - EPS_ky_vong)
+# EPS_ky_vong = consensus phân tích (trung vị) HOẶC KH ĐHCĐ quy về quý khi thiếu consensus
+# std = độ lệch chuẩn chênh lệch dự phóng ~8 quý gần nhất
+# EPS_thuc dùng LN CỐT LÕI (đã bóc one-off)
+```
+
+| Khoảng SUE | Ý nghĩa | Hành động |
 |---------|------|---------|
-| SUE > +2.0 | 大幅超预期 | 强买入信号 |
-| SUE +1.0~+2.0 | 温和超预期 | 买入信号 |
-| SUE -1.0~+1.0 | 符合预期 | 无信号 |
-| SUE -2.0~-1.0 | 温和低于预期 | 卖出信号 |
-| SUE < -2.0 | 大幅低于预期 | 强卖出信号 |
+| SUE > +2,0 | Vượt mạnh | Tín hiệu mua mạnh |
+| +1,0 ~ +2,0 | Vượt nhẹ | Tín hiệu mua |
+| −1,0 ~ +1,0 | Đúng kỳ vọng | Không tín hiệu |
+| −2,0 ~ −1,0 | Hụt nhẹ | Tín hiệu bán/giảm |
+| < −2,0 | Hụt mạnh | Tín hiệu bán mạnh |
 
-### 4. 盈余公告后漂移（PEAD）
+### 5. Trôi giá sau công bố KQKD (PEAD)
 
-**现象：** 业绩公告后，超预期方向的股价漂移可持续30-60个交易日。
-
-**A股PEAD策略实现：**
+**Hiện tượng:** sau khi công bố BCTC, giá tiếp tục trôi theo hướng vượt/hụt kỳ vọng trong ~30-60 phiên.
 
 ```python
-# 策略逻辑
-# 1. 业绩公告日（年报4/30前，中报8/31前，季报各截止日）
-# 2. 计算SUE
-# 3. SUE > +1.5 的股票买入持有 40 个交易日
-# 4. SUE < -1.5 的股票卖出/做空（如果可以）
-
-# 关键参数
-holding_period = 40      # 持有交易日数
-sue_threshold = 1.5      # SUE阈值
-max_positions = 10       # 最大持仓数
-rebalance_on = "earnings_date"  # 在业绩公告日调仓
+# Logic chiến lược (chỉ LONG — NĐT lẻ VN không bán khống được, T+2)
+holding_period = 40       # số phiên nắm giữ
+sue_threshold = 1.5       # ngưỡng SUE
+max_positions = 10
+rebalance_on = "earnings_date"   # đảo danh mục quanh ngày công bố
 ```
 
-**A股PEAD注意事项：**
-- A股做空受限（融券），PEAD策略通常只做多头
-- 业绩预告（1月底/7月中旬）比正式报告更早，抢先反应
-- 年报4/30截止，集中在4月发布，信息拥挤期需分散
+**Lưu ý PEAD ở VN:**
+- **Chỉ làm phía MUA** — NĐT lẻ không bán khống; mã hụt mạnh thì TRÁNH/giảm, không short.
+- Mùa BCTC dồn dập (cuối tháng 4 & tháng 7) → tín hiệu PEAD nhiễu lẫn nhau, cần phân tán.
+- **Chậm/không nộp BCTC đúng hạn = cờ ĐỎ** (rủi ro cảnh báo/đình chỉ giao dịch).
 
-### 5. 分析师预期修正动量
-
-**三个关键指标：**
+### 6. Momentum điều chỉnh dự phóng của giới phân tích
 
 ```python
-# 1. 预期修正比率（ERM）
-ERM = (上调家数 - 下调家数) / 总覆盖家数
-# ERM > 0.3 = 正面动量, ERM < -0.3 = 负面动量
+# 1. Tỷ lệ điều chỉnh kỳ vọng (ERM)
+ERM = (so_bao_cao_nang - so_bao_cao_ha) / tong_bao_cao_phu_song
+# ERM > +0,3 = momentum dương; < −0,3 = âm
 
-# 2. 预期变化幅度
-eps_change_pct = (new_consensus - old_consensus_30d_ago) / abs(old_consensus_30d_ago)
-# 变化 > +5% = 显著上调
+# 2. Mức thay đổi kỳ vọng
+eps_change_pct = (consensus_moi - consensus_30d_truoc) / abs(consensus_30d_truoc)
 
-# 3. 预期离散度
-dispersion = std(all_analyst_EPS) / mean(all_analyst_EPS)
-# 离散度 > 0.3 = 分歧大, 不确定性高
-# 离散度 < 0.1 = 共识强, 确定性高
+# 3. Độ phân tán kỳ vọng
+dispersion = std(EPS_cac_analyst) / mean(EPS_cac_analyst)
+# > 0,3 = phân hóa cao (bất định); < 0,1 = đồng thuận mạnh
 ```
 
-**预期修正动量策略：**
-- 买入：ERM > +0.3 且 eps_change_pct > +5% 且 dispersion < 0.25
-- 卖出：ERM < -0.3 且 eps_change_pct < -5%
-- 信号有效期：约 60-90 个交易日（预期修正动量衰减）
+**Chiến lược:** Mua khi ERM > +0,3 và eps_change_pct > +5% và dispersion < 0,25. Hiệu lực ~60-90 phiên (momentum suy giảm dần). Lưu ý hiệu ứng bầy đàn của analyst → nhận diện ĐIỂM ĐẢO có giá hơn bám xu hướng.
 
-## 分析框架
+## Khung phân tích
 
-### 盈利分析四步法
+### Bốn bước
+1. **Dựng dự phóng:** chọn Top-Down hoặc Bottom-Up → xuất EPS dự phóng.
+2. **Lấy kỳ vọng:** consensus phân tích (nếu có) HOẶC KH LN của ĐHCĐ + % hoàn thành.
+3. **Tính chênh lệch:** SUE hoặc % lệch; xác định hướng vượt/hụt (dùng LN cốt lõi).
+4. **Sinh tín hiệu:** theo ngưỡng SUE; quản vị thế theo cửa sổ PEAD.
 
-1. **构建预测**：选择Top-Down或Bottom-Up方法，输出EPS预测值
-2. **获取一致预期**：从Wind/东方财富/同花顺获取分析师一致预期EPS
-3. **计算偏差**：SUE或简单百分比偏差，判断超预期/低于预期方向
-4. **信号生成**：根据SUE阈值生成交易信号，结合PEAD持有期管理仓位
+### Lịch BCTC Việt Nam (mốc quan trọng)
 
-### 财报日历（A股关键时间节点）
-
-| 时间 | 事件 | 策略动作 |
+| Thời điểm | Sự kiện | Hành động |
 |------|------|---------|
-| 1月中旬 | 年报业绩预告披露高峰 | 抢先捕捉预期差 |
-| 3-4月 | 年报正式发布 | 确认SUE，PEAD建仓 |
-| 4月30日 | 年报截止日 | 未披露 = 利空信号 |
-| 7月中旬 | 中报业绩预告 | 半年度预期修正 |
-| 8月31日 | 中报截止日 | 同上 |
-| 10月31日 | 三季报截止日 | Q3数据验证全年预期 |
+| ~30/1 | BCTC quý 4 (chưa kiểm toán) | KQKD cả năm sơ bộ → SUE năm |
+| ~31/3 | BCTC năm KIỂM TOÁN (hạn 90 ngày) | Xác nhận SUE, soát chênh kiểm toán & one-off |
+| Tháng 3-4 | Mùa ĐHCĐ: công bố **KẾ HOẠCH LN năm** + cổ tức | Lập mốc kỳ vọng cả năm |
+| ~30/4 | BCTC quý 1 | SUE Q1, % hoàn thành KH, PEAD |
+| ~30/7 | BCTC quý 2 | SUE Q2, % hoàn thành 6T |
+| Cuối T8 | BCTC bán niên SOÁT XÉT (hạn 60 ngày) | Điều chỉnh sau soát xét |
+| ~30/10 | BCTC quý 3 | Q3 xác nhận kỳ vọng cả năm |
 
-### 预期差交易组合构建
+> Mã chậm/không nộp đúng hạn → **cờ đỏ** (HOSE/HNX có thể đưa vào diện cảnh báo/kiểm soát).
+
+### Tham số danh mục chênh kỳ vọng
 
 ```python
-# 组合构建参数
 config = {
-    "universe": "沪深300成分股",          # 流动性保障
-    "signal": "SUE > +1.5 或 ERM > +0.3", # 超预期信号
-    "max_positions": 20,                  # 最大持仓
-    "position_weight": "equal",           # 等权
-    "holding_period": 40,                 # 交易日
-    "rebalance": "earnings_calendar",     # 按财报日历调仓
-    "stop_loss": -0.08,                   # 8%止损
+    "universe": "VN30 / VNINDEX large-cap",   # thanh khoản + phủ sóng phân tích tốt hơn
+    "signal": "SUE > +1.5 hoặc ERM > +0.3 hoặc vượt tiến độ KH mạnh",
+    "max_positions": 20,
+    "position_weight": "equal",
+    "holding_period": 40,                       # phiên
+    "rebalance": "earnings_calendar",
+    "stop_loss": -0.08,
+    "long_only": True,                          # NĐT lẻ VN không short
 }
 ```
 
-## 输出格式
+## Mẫu output
 
-```
-## 盈利预测分析 — [标的代码] [公司名称]
+```markdown
+## Dự phóng lợi nhuận — [Mã .VN] [Tên DN]
 
-### 盈利预测
-- 预测方法：[Top-Down / Bottom-Up]
-- 预测EPS：[X元]
-- 预测依据：[收入增速X%，利润率X%，关键假设]
+### Dự phóng
+- Phương pháp: [Top-Down / Bottom-Up]
+- EPS dự phóng: [X đồng] (LN cốt lõi)
+- Cơ sở: [DT +X%, biên LN X%, giả định then chốt]
 
-### 一致预期对比
-- 一致预期EPS：[X元]（来源：[Wind/东财]，覆盖[N]家）
-- 预期偏差：[+X% / -X%]
-- SUE：[+X.X]
-- 预期离散度：[X.X]（[高分歧/低分歧]）
+### So với kỳ vọng
+- Kỳ vọng: [consensus EPS X đồng (N báo cáo)] HOẶC [KH LN năm + % hoàn thành lũy kế]
+- Chênh lệch: [+X% / −X%] · SUE: [+X,X] · Phân tán: [X,X]
 
-### 分析师动量
-- ERM（预期修正比率）：[+X.X]（过去30日[N]家上调/[M]家下调）
-- 预期变化幅度：[+X%]
+### Momentum phân tích
+- ERM: [+X,X] (30 ngày: N nâng / M hạ) · Δ kỳ vọng: [+X%]
 
-### 信号判断
-- SUE信号：[强买入/买入/无/卖出/强卖出]
-- 动量信号：[正面/中性/负面]
-- PEAD建仓窗口：[是/否]（距财报发布[X]日）
+### Tín hiệu
+- SUE: [mua mạnh/mua/không/bán/bán mạnh] · Momentum: [+/0/−] · Cửa sổ PEAD: [có/không]
 
-### 风险提示
-- [具体风险：如一次性收益、会计政策变更、商誉减值等]
+### Rủi ro
+- [one-off bóp méo EPS, thay đổi chính sách KT, pha loãng, chậm nộp BCTC...]
 ```
 
-## 注意事项
+## Lưu ý
 
-- 一致预期数据需要Wind/Choice等付费终端，免费数据源（东方财富网页版）可能不够及时
-- SUE计算需要至少8个季度的历史预测偏差数据来估计标准差
-- 业绩预告和业绩快报是比正式财报更早的信号源，但精度较低
-- A股财报季信息拥挤（4月/8月），PEAD信号可能互相干扰
-- 一次性损益（资产处置/政府补贴/投资收益）会扭曲EPS，需剔除非经常性损益用扣非EPS
-- 预期修正动量有自我实现倾向（分析师羊群效应），拐点识别比趋势跟踪更有价值
-- 小市值股票分析师覆盖少（< 3家），一致预期统计意义弱，优先选择沪深300/中证500成分股
-- 本框架仅用于研究回测，不构成投资建议
+- **Dùng LN cốt lõi**: bóc one-off (thanh lý tài sản, lãi tỷ giá, hoàn nhập dự phòng, lãi tài chính bất thường) trước khi tính SUE — xem skill `financial-statement`.
+- **Consensus VN mỏng**: mid/small-cap ít báo cáo phủ sóng (<3) → ý nghĩa thống kê yếu; ưu tiên VN30/large-cap, hoặc thay bằng KH ĐHCĐ + % hoàn thành.
+- **Mùa vụ**: nhiều DN dồn LN nửa cuối năm (BĐS bàn giao Q4, bán lẻ cao điểm) → đừng ngoại suy quý-trên-quý; xem cùng kỳ.
+- **PEAD chỉ LONG**: không bán khống ở VN; tín hiệu hụt → tránh/giảm.
+- **Chậm nộp BCTC** là cờ đỏ độc lập (rủi ro cảnh báo/đình chỉ).
+- Khung này phục vụ nghiên cứu/backtest, không phải khuyến nghị đầu tư.
+
+## Nguồn dữ liệu
+
+- **EPS/LN THỰC → vnstock nguồn KBS**: `eps` (`earnings_per_share_vnd`) & `net_profit_loss_after_tax` / `attributable_to_parent_company` (bảng `income`); `trailing_eps`, tăng trưởng `profit_before_tax`/`net_revenue` (bảng `ratio`).
+- **Phản ứng giá sau công bố / drift PEAD → DataPro** (`source="datapro"`, mã `.VN`): so giá từ ngày công bố qua 40 phiên.
+- **Kế hoạch LN ĐHCĐ + consensus/báo cáo phân tích → firecrawl/`web-reader`**: nghị quyết ĐHCĐ, báo cáo SSI/HSC/VCSC/VND, Vietstock, Wichart/FiinPro (consensus + ngày công bố KQKD).
+- **issue_share → `Company.overview().issue_share`** (không suy từ EPS).
+- ⚠️ vnstock cho EPS THỰC, KHÔNG cho consensus dự phóng — phần kỳ vọng phải lấy từ báo cáo phân tích/KH ĐHCĐ.
