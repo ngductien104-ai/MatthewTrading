@@ -1,37 +1,28 @@
 ---
 name: fundamental-filter
-description: "Lọc cổ phiếu theo yếu tố cơ bản (ROE/biên LN/tăng trưởng/P-B) cho thị trường Việt Nam — dùng BCTC vnstock qua fundamental_fields + giá DataPro, tính tỷ số trong signal engine. Hỗ trợ value/growth screen cho backtest."
+description: "Lọc cổ phiếu theo yếu tố cơ bản (ROE/biên LN/định giá) cho thị trường Việt Nam — TRUY VẤN TRỰC TIẾP chỉ số từ vnstock (bảng ratio, nguồn KBS) qua fundamental_fields, không cần tự tính. Hỗ trợ value/growth screen cho backtest."
 category: flow
 ---
 # Lọc cổ phiếu theo yếu tố cơ bản (Việt Nam)
 
 ## Mục đích
 
-Lọc cổ phiếu bằng dữ liệu cơ bản (ROE, biên lợi nhuận, tăng trưởng, P/B...) để tạo tín hiệu value/growth cho backtest. Trọng tâm thị trường Việt Nam.
+Lọc cổ phiếu bằng dữ liệu cơ bản (ROE, biên lợi nhuận, định giá...) để tạo tín hiệu value/growth cho backtest. Trọng tâm thị trường Việt Nam.
 
-## Đặc thù dữ liệu Việt Nam
+## Đặc thù dữ liệu Việt Nam — chỉ số có SẴN, không cần tự tính
 
 | Việc cần | Nguồn | Cách lấy |
 |------|------|------|
-| BCTC (doanh thu, LN, vốn chủ, CFO) | **vnstock** | `fundamental_fields` trong config.json (an toàn point-in-time) |
-| Giá / vốn hoá | **DataPro** | cột `close` (nghìn đồng) × `issue_share` |
-| Số CP lưu hành | **vnstock** | `Company.overview().issue_share` — truyền vào engine, KHÔNG suy từ EPS |
+| **Chỉ số tài chính** (ROE, ROA, P/E, P/B, biên LN, EV/EBITDA, beta, tăng trưởng) | **vnstock — bảng `ratio` (nguồn KBS)** | `fundamental_fields: {"ratio": [...]}` — gắn sẵn point-in-time |
+| BCTC thô (doanh thu, LN, vốn chủ, CFO) | **vnstock — `income/balancesheet/cashflow`** | `fundamental_fields` |
+| Giá / khối lượng / khối ngoại | **DataPro** | cột `close` (nghìn đồng), `volume`... |
 
-> ⚠️ Khác Tushare/A-share: DataPro **KHÔNG** cấp sẵn `pe/pb/roe` theo ngày. Với VN phải **tự tính tỷ số** trong signal engine từ BCTC + giá. Endpoint `ratio()` của vnstock community không ổn định → đừng lấy trực tiếp.
+> ✅ vnstock **nguồn KBS** trả chỉ số SẠCH theo `item_id` (vd `roe`, `pe_ratio`, `pb_ratio`, `net_margin`, `ev_ebitda`, `beta`; ngân hàng có `net_interest_margin_nim`). KHÔNG cần tự tính như trước. *(Lưu ý: nguồn VCI cho `ratio()` trả layout kỳ lỗi — loader đã tự chuyển bảng `ratio` sang KBS.)*
 
-## Logic tín hiệu
+## item_id chỉ số thường dùng (bảng `ratio`, KBS)
 
-### Bộ lọc giá trị (mặc định) — tính từ BCTC, KHÔNG cần số CP
-1. LN sau thuế > 0 (loại DN lỗ)
-2. Doanh thu thuần > 0
-3. **ROE = LN sau thuế / Vốn chủ × 100 > roe_min**
-4. (tuỳ chọn) Biên ròng = LN sau thuế / Doanh thu thuần > margin_min
-5. Đủ điều kiện → long (1/N), không thì flat (0)
-
-### Bộ lọc định giá (tuỳ chọn) — cần `issue_share`
-6. **P/B = (close × 1000 × issue_share) / Vốn chủ < pb_max**
-   *(close DataPro tính bằng NGHÌN đồng nên ×1000 để ra đồng, khớp đơn vị BCTC)*
-7. **P/E = (close × 1000 × issue_share) / LN sau thuế (TTM) < pe_max** và > 0
+`roe`, `roa`, `roce` (return on capital employed) · `pe_ratio`, `pb_ratio`, `ps_ratio`, `ev_ebit`, `ev_ebitda` · `gross_margin`, `ebit_margin`, `net_margin` · `beta`, `dividend_yield` · tăng trưởng: `net_revenue`, `profit_before_tax`, `owners_equity` · thanh khoản: `cash_ratio`, `quick_ratio`. Ngân hàng còn có `net_interest_margin_nim`, `net_interest_income`.
+*(Xem toàn bộ: `Finance(source="kbs", symbol="X").ratio(period="year")["item_id"]`.)*
 
 ## Cách dùng cho VN (config.json)
 
@@ -42,64 +33,52 @@ Lọc cổ phiếu bằng dữ liệu cơ bản (ROE, biên lợi nhuận, tăng
   "start_date": "2023-01-01",
   "end_date": "2025-12-31",
   "fundamental_fields": {
-    "income": ["net_sales", "net_profit_loss_after_tax"],
-    "balancesheet": ["owners_equity"]
+    "ratio": ["roe", "pe_ratio", "pb_ratio", "net_margin"]
   },
   "initial_cash": 1000000000,
   "commission": 0.0015
 }
 ```
 
-Runner sẽ truy vấn các bảng BCTC qua `VNStockFundamentalProvider` và gắn mỗi kỳ vào nến ngày **chỉ sau ngày công bố ước tính** (point-in-time). Cột BCTC được tiền tố theo tên bảng:
+Runner gắn mỗi kỳ vào nến ngày **chỉ sau ngày công bố ước tính** (point-in-time). Cột được tiền tố theo tên bảng:
 
 | Field yêu cầu | Cột trong SignalEngine |
 |-----------------|---------------------|
-| `income.net_sales` | `income_net_sales` |
-| `income.net_profit_loss_after_tax` | `income_net_profit_loss_after_tax` |
-| `balancesheet.owners_equity` | `balancesheet_owners_equity` |
+| `ratio.roe` | `ratio_roe` |
+| `ratio.pe_ratio` | `ratio_pe_ratio` |
+| `ratio.pb_ratio` | `ratio_pb_ratio` |
+| `ratio.net_margin` | `ratio_net_margin` |
 
-Bộ lọc chất lượng cơ bản tiêu biểu:
+## Logic tín hiệu — query trực tiếp
 
 ```python
-revenue = row.get("income_net_sales")
-profit = row.get("income_net_profit_loss_after_tax")
-equity = row.get("balancesheet_owners_equity")
+roe = row.get("ratio_roe")          # %, vd 23.59
+pe  = row.get("ratio_pe_ratio")     # vd 15.91
+pb  = row.get("ratio_pb_ratio")     # vd 3.73
 
 passes = (
-    revenue is not None and revenue > 0
-    and profit is not None and profit > 0
-    and equity is not None and equity > 0
-    and (profit / equity * 100) >= 8.0   # ROE >= 8%
+    roe is not None and roe >= roe_min          # vd ROE >= 8%
+    and pe is not None and 0 < pe < pe_max
+    and pb is not None and pb < pb_max
 )
-```
-
-### Thêm bộ lọc P/B (cần issue_share)
-
-```python
-# shares: số CP lưu hành (issue_share) truyền vào engine theo từng mã
-market_cap = row["close"] * 1000 * shares          # close (nghìn đồng) → đồng
-pb = market_cap / equity                            # equity (đồng) từ BCTC
-passes_pb = 0 < pb < pb_max
 ```
 
 ## Tham số
 
 | Tham số | Mặc định | Mô tả |
 |-----------|---------|------|
-| roe_min | 8.0 | Sàn ROE (%), loại DN sinh lời thấp |
+| roe_min | 8.0 | Sàn ROE (%) |
+| pe_max | 20.0 | Trần P/E (>0) |
 | pb_max | 3.0 | Trần P/B |
-| pe_max | 20.0 | Trần P/E (loại định giá cao) |
-| margin_min | 0.0 | Sàn biên ròng (%) (tuỳ chọn) |
-| shares_map | {} | `{mã: issue_share}` — cần cho lọc P/B, P/E |
+| margin_min | 0.0 | Sàn biên ròng (%) (`ratio_net_margin`) |
 
-## Lỗi thường gặp
+## Lưu ý
 
-- Cột `fundamental_fields` bị NaN trước khi BCTC đầu tiên được công bố trong cửa sổ backtest → phải `dropna`/bỏ qua, KHÔNG forward-fill thủ công (loader đã đảm bảo point-in-time).
-- **Đơn vị giá DataPro là NGHÌN đồng** (vd 61.7 = 61.700đ); BCTC vnstock là **đồng**. Tính vốn hoá phải ×1000 — đây là lỗi sai đơn vị phổ biến nhất.
-- ROE tự tính = LN/Vốn chủ ×100; đừng kỳ vọng có cột `roe` sẵn như Tushare.
-- `issue_share` thay đổi khi pha loãng (tăng vốn, cổ tức cổ phiếu) — lý tưởng là cập nhật theo kỳ; nếu dùng hằng số, nêu rõ giả định.
-- Ngân hàng: `net_sales` thường rỗng (mẫu BCTC riêng) → lọc bằng ROE/LN sau thuế, không lọc bằng doanh thu/biên.
-- Bản community vnstock chỉ ~4 kỳ năm gần nhất → mã backtest dài sẽ thiếu BCTC năm cũ.
+- **P/E, P/B từ bảng `ratio` là tại NGÀY BÁO CÁO** (giá cuối kỳ), không phải giá realtime — phù hợp lọc cơ bản PIT. Nếu cần định giá theo giá hiện tại, tính từ `close` (DataPro, **đơn vị nghìn đồng → ×1000**) × `issue_share` (`Company.overview().issue_share`).
+- Chỉ số chất lượng/tăng trưởng (ROE, biên, growth) ổn định theo kỳ → dùng trực tiếp tốt nhất.
+- Cột `fundamental_fields` bị NaN trước kỳ công bố đầu tiên trong cửa sổ backtest → `dropna`/bỏ qua, KHÔNG forward-fill (loader đã đảm bảo point-in-time).
+- Ngân hàng: dùng `roe`, `net_interest_margin_nim`, `pb_ratio` (không dùng biên doanh thu kiểu phi tài chính).
+- vnstock KBS trả ~4 kỳ năm gần nhất (bản community) → mã backtest dài thiếu chỉ số năm cũ.
 - Danh mục N mã đạt lọc → mỗi mã trọng số 1/N.
 
 ## Phụ thuộc
@@ -112,4 +91,4 @@ pip install pandas numpy vnstock
 
 - `1/N` = được chọn long (N = số mã đạt lọc), `0` = không chọn.
 
-> Ghi chú: bộ khung A-share (tushare `extra_fields`/`fundamental_fields`) và HK/US (yfinance `Ticker.info`) vẫn còn trong `example_signal_engine.py` để tương thích đa thị trường; với VN dùng nhánh BCTC vnstock ở trên.
+> Ghi chú: `example_signal_engine.py` ưu tiên cột `ratio_*` (query trực tiếp), tự lùi về tính tay từ BCTC (`income_*`/`balancesheet_*`) hoặc cột pe/pb/roe (A-share tushare / US-HK yfinance) để tương thích đa thị trường.

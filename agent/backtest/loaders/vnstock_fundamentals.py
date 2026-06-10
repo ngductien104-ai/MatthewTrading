@@ -50,7 +50,14 @@ _TABLE_METHODS = {
     "income": "income_statement",
     "balancesheet": "balance_sheet",
     "cashflow": "cash_flow",
+    "ratio": "ratio",
 }
+
+# Data source per table. Statements use VCI (item_id đã kiểm thử PIT). Ratios use
+# KBS — nguồn KBS trả chỉ số SẠCH theo đặc thù ngành (roe/pe_ratio/pb_ratio/
+# net_margin/ev_ebitda/beta..., ngân hàng có net_interest_margin_nim); VCI ratio()
+# trả layout kỳ lỗi nên không dùng cho chỉ số.
+_TABLE_SOURCES = {"ratio": "kbs"}
 
 _SCHEMAS = {
     table: TableSchema(
@@ -62,7 +69,8 @@ _SCHEMAS = {
     for table, method in _TABLE_METHODS.items()
 }
 
-_YEAR_RE = re.compile(r"^\d{4}$")
+# Khớp cả "2024" (VCI statements) lẫn "2024-Năm" (KBS ratio) — bắt 4 số năm đầu.
+_YEAR_RE = re.compile(r"^(\d{4})")
 
 
 class VNStockFundamentalProvider:
@@ -81,7 +89,10 @@ class VNStockFundamentalProvider:
         """
         os.environ.setdefault("PYTHONIOENCODING", "utf-8")
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            from vnstock.api.financial import Finance
+            try:
+                from vnstock import Finance              # API mới (v3.4.0+)
+            except Exception:  # noqa: BLE001 - tương thích ngược bản cũ
+                from vnstock.api.financial import Finance
         return Finance
 
     def list_tables(self) -> list[str]:
@@ -115,7 +126,7 @@ class VNStockFundamentalProvider:
         for original in codes:
             symbol = self._bare(original)
             try:
-                statement = self._fetch_statement(symbol, method_name)
+                statement = self._fetch_statement(symbol, table, method_name)
             except Exception as exc:  # noqa: BLE001 - one bad symbol must not abort
                 print(f"[WARN] vnstock {table} for {symbol} failed: {exc}")
                 continue
@@ -124,8 +135,12 @@ class VNStockFundamentalProvider:
 
             year_cols = [c for c in statement.columns if _YEAR_RE.match(str(c))]
             by_id = statement.set_index("item_id")
-            for year in year_cols:
-                year_str = str(year)
+            seen_years: set[str] = set()
+            for col in year_cols:
+                year_str = _YEAR_RE.match(str(col)).group(1)
+                if year_str in seen_years:  # KBS có thể lặp cột năm — lấy lần đầu
+                    continue
+                seen_years.add(year_str)
                 if requested_periods and year_str not in requested_periods:
                     continue
                 ann_date = pd.Timestamp(f"{year_str}-12-31") + pd.Timedelta(days=DISCLOSURE_LAG_DAYS)
@@ -137,7 +152,7 @@ class VNStockFundamentalProvider:
                     "ann_date": ann_date,
                 }
                 for field in field_list:
-                    row[field] = self._value(by_id, field, year)
+                    row[field] = self._value(by_id, field, col)
                 records.append(row)
 
         if not records:
@@ -148,13 +163,20 @@ class VNStockFundamentalProvider:
 
     # ── internals ──
 
-    def _fetch_statement(self, symbol: str, method_name: str) -> pd.DataFrame | None:
-        """Call the vnstock Finance method for one symbol (stdout suppressed)."""
+    def _fetch_statement(self, symbol: str, table: str, method_name: str) -> pd.DataFrame | None:
+        """Call the vnstock Finance method for one symbol (stdout suppressed).
+
+        Ratios use the KBS source (clean industry-aware metrics); statements use
+        the configured source (VCI).
+        """
+        source = _TABLE_SOURCES.get(table, self.source)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            finance = self._finance_cls(symbol=symbol, source=self.source)
+            finance = self._finance_cls(symbol=symbol, source=source)
             method = getattr(finance, method_name, None)
             if method is None:
                 raise DataProviderError(f"vnstock Finance has no method: {method_name}")
+            if table == "ratio":
+                return method(period=self.period)  # KBS ratio: item_id sẵn, không cần lang
             return method(period=self.period, lang="en")
 
     @staticmethod

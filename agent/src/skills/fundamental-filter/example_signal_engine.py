@@ -56,11 +56,28 @@ class SignalEngine:
         self.shares_map = shares_map or {}
 
     def _passes_statement_filter(self, code: str, row: pd.Series) -> Optional[bool]:
-        """Quyết định lọc theo BCTC, hoặc None khi không có dữ liệu BCTC.
+        """Quyết định lọc theo cơ bản, hoặc None khi không có dữ liệu cơ bản.
 
-        Ưu tiên cột vnstock (VN); lùi về cột tushare (A-share) để tương thích.
+        Ưu tiên cột chỉ số SẴN ``ratio_*`` (vnstock KBS) → lùi về tính tay từ
+        BCTC ``income_*``/``balancesheet_*`` (VN/A-share) cho tương thích.
         """
-        # --- Việt Nam (vnstock) ---
+        # --- Việt Nam: chỉ số CÓ SẴN (bảng ratio, KBS) — ưu tiên cao nhất ---
+        roe_r = _first_number(row, ["ratio_roe"])
+        pe_r = _first_number(row, ["ratio_pe_ratio"])
+        pb_r = _first_number(row, ["ratio_pb_ratio"])
+        nm_r = _first_number(row, ["ratio_net_margin"])
+        if not all(pd.isna(v) for v in (roe_r, pe_r, pb_r)):
+            if pd.isna(roe_r) or roe_r < self.roe_min:
+                return False
+            if not pd.isna(pe_r) and not (0 < pe_r < self.pe_max):
+                return False
+            if not pd.isna(pb_r) and not (0 < pb_r < self.pb_max):
+                return False
+            if self.margin_min > 0 and not pd.isna(nm_r) and nm_r < self.margin_min:
+                return False
+            return True
+
+        # --- Lùi về tính tay từ BCTC thô (vnstock statement / tushare) ---
         revenue = _first_number(row, ["income_net_sales"])
         profit = _first_number(
             row, ["income_net_profit_loss_after_tax", "income_attributable_to_parent_company"]
@@ -162,27 +179,27 @@ def _first_number(row: pd.Series, columns: List[str]) -> float:
 
 
 if __name__ == "__main__":
-    # Demo: mô phỏng lọc cơ bản bằng cột BCTC vnstock (đơn vị đồng)
+    # Demo: lọc bằng chỉ số CÓ SẴN (cột ratio_*, query trực tiếp từ vnstock KBS)
     np.random.seed(42)
     dates = pd.bdate_range("2024-01-01", "2024-12-31")
 
-    def _mock(profit, equity, revenue, close):
+    def _mock(roe, pe, pb):
         n = len(dates)
         return pd.DataFrame({
-            "close": np.full(n, close),
+            "close": np.random.uniform(10, 120, n),
             "volume": np.random.uniform(1e6, 1e7, n),
-            "income_net_sales": np.full(n, revenue),
-            "income_net_profit_loss_after_tax": np.full(n, profit),
-            "balancesheet_owners_equity": np.full(n, equity),
+            "ratio_roe": np.full(n, roe),
+            "ratio_pe_ratio": np.full(n, pe),
+            "ratio_pb_ratio": np.full(n, pb),
         }, index=dates)
 
     data_map = {
-        "FPT.VN": _mock(profit=9_000e9, equity=35_000e9, revenue=62_000e9, close=120.0),  # ROE ~25,7% → đạt
-        "HPG.VN": _mock(profit=12_000e9, equity=110_000e9, revenue=140_000e9, close=27.0),  # ROE ~10,9% → đạt
-        "XYZ.VN": _mock(profit=100e9, equity=20_000e9, revenue=5_000e9, close=15.0),        # ROE ~0,5% → loại
+        "FPT.VN": _mock(roe=23.9, pe=15.9, pb=3.7),   # ROE cao, P/E hợp lý → đạt
+        "VCB.VN": _mock(roe=16.7, pe=12.7, pb=2.1),   # → đạt
+        "XYZ.VN": _mock(roe=0.5, pe=80.0, pb=9.0),    # ROE thấp, định giá cao → loại
     }
 
-    engine = SignalEngine(roe_min=8.0)
+    engine = SignalEngine(roe_min=8.0, pe_max=20.0, pb_max=4.0)
     signals = engine.generate(data_map)
     for code in data_map:
         sig = signals[code]

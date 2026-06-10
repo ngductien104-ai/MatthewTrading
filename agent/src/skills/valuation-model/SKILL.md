@@ -169,7 +169,8 @@ Ví dụ: mảng ngân hàng → RIM; mảng BĐS → RNAV; mảng bán lẻ →
 
 - **Phân loại ngành → vnstock** `Company.overview()`: `is_bank`, `sector`, `icb_code_lv2/lv4`; hoặc `Listing.symbols_by_industries()` → `icb_name`.
 - **BCTC → vnstock** (`lang="vi"`): `net_sales`, `gross_profit`, `net_profit_loss_after_tax`, `attributable_to_parent_company`, `owners_equity` (B0/RIM), `total_assets`, `short_term_borrowings`, `long_term_borrowings`, `cash_and_cash_equivalents` (nợ ròng), CFO.
-- **Giá / vốn hóa / β → DataPro** (`source="datapro"`, mã `.VN`); β regress vs VNINDEX full-history, nêu cửa sổ + R².
+- **Chỉ số định giá/sinh lời → vnstock bảng `ratio` (nguồn KBS)**: `from vnstock import Finance; Finance(source="kbs", symbol="X").ratio(period="year")` → SẴN `pe_ratio`, `pb_ratio`, `ps_ratio`, `ev_ebit`, `ev_ebitda`, `roe`, `roa`, `net_margin`, `beta`, `dividend_yield`, tăng trưởng...; ngân hàng có `net_interest_margin_nim`. *(Dùng KBS, KHÔNG dùng VCI cho ratio — VCI trả layout kỳ lỗi.)*
+- **Giá / vốn hóa / β → DataPro** (`source="datapro"`, mã `.VN`); **β tự tính regress vs VNINDEX full-history** (nêu cửa sổ + R²) cho WACC; `ratio.beta` của KBS chỉ dùng kiểm chứng nhanh.
 - **issue_share / market_cap / target_price → `Company.overview()`.**
 - **RNAV / quỹ đất / presales / backlog → báo cáo thường niên + `web-reader`/firecrawl** (BCTC chỉ cho số sổ sách giá vốn).
-- ⚠️ `ratio()` vnstock community layout không ổn định → tự tính P/E, P/B, ROE từ giá + BCTC. Community chỉ ~4 kỳ năm gần nhất.
+- ⚠️ vnstock KBS bản community trả ~4 kỳ năm gần nhất.
