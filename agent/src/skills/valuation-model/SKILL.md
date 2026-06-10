@@ -247,7 +247,7 @@ Use at least 2 valuation methods and take the middle value:
 - [ ] Gap in recurring net profit -> 15% difference, subsidy dependence worth attention
 
 ### Investment Rating: Buy
-Target price ¥30.8, current price ¥25.0, upside 23%
+Target price 30.8 nghìn VNĐ, current price 25.0 nghìn VNĐ, upside 23%
 ```
 
 ## Notes
