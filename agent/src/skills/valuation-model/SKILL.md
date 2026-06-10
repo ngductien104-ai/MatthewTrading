@@ -1,310 +1,179 @@
 ---
 name: valuation-model
-description: "Định giá cổ phiếu Việt Nam — định giá tuyệt đối (DCF, DDM, RIM cho ngân hàng, SOTP) và tương đối (PE-Band, PB-ROE, EV/EBITDA), phân tích độ nhạy và nhận diện bẫy định giá. Nguồn dữ liệu vnstock (BCTC) + DataPro (giá/beta)."
+description: "Định giá cổ phiếu Việt Nam THEO NGÀNH — phân loại ngành trước, rồi chọn bộ phương pháp phù hợp (ngân hàng→RIM, BĐS→RNAV, chu kỳ→EV/EBITDA chuẩn hóa, sản xuất/tiêu dùng→DCF, holdings→SOTP). Kèm thư viện phương pháp, độ nhạy, bẫy định giá. Nguồn: vnstock + DataPro."
 category: analysis
 ---
 
-# Phương pháp định giá cổ phiếu Việt Nam
+# Định giá cổ phiếu Việt Nam (theo ngành)
 
 ## Tổng quan
 
-Khung định giá doanh nghiệp có hệ thống, gồm định giá tuyệt đối (`DCF / DDM / RIM / SOTP`) và tương đối (`PE / PB / EV-EBITDA`), kèm phân tích độ nhạy và checklist nhận diện bẫy định giá. Áp cho thị trường Việt Nam.
+**Không có phương pháp định giá vạn năng.** Nguyên tắc cốt lõi: **phân loại ngành trước → chọn bộ phương pháp phù hợp với mô hình kinh doanh và bản chất tài sản của ngành đó**, rồi kiểm chứng chéo ≥2 phương pháp. Ngân hàng định giá khác sản xuất; bất động sản khác hàng tiêu dùng; DN chu kỳ khác DN tăng trưởng ổn định.
 
-> ⚠️ **Trước khi tính (checklist Karpathy):** số CP lưu hành = `Company.overview().issue_share` (KHÔNG suy từ EPS); β **tự tính từ DataPro full-history**, nêu cửa sổ + R² (không lấy số cũ trong memory); bóc khoản một lần (lãi tỷ giá/thanh lý/đánh giá lại) trước khi annualize; tính ≥2 cách khi nhạy cảm (ROIC, WACC, Ke).
+> ⚠️ **Trước khi tính (checklist Karpathy):** số CP lưu hành = `Company.overview().issue_share` (KHÔNG suy từ EPS); β **tự tính từ DataPro full-history**, nêu cửa sổ + R²; bóc khoản một lần trước khi annualize; tính ≥2 cách khi nhạy cảm (ROIC, WACC, Ke).
 
-## Định giá tuyệt đối
+## Bước 0 — Phân loại ngành (quyết định phương pháp)
 
-### 1. DCF (Chiết khấu dòng tiền tự do)
+Xác định ngành TRƯỚC khi định giá, dùng dữ liệu thật:
 
-**Công thức lõi:**
-
-```
-Giá trị doanh nghiệp (EV) = Σ FCFF_t / (1+WACC)^t + TV / (1+WACC)^n
-Giá trị vốn chủ = EV − Nợ ròng
-Giá trị mỗi cổ phần = Giá trị vốn chủ / Số CP lưu hành (issue_share)
-```
-
-**Bước 1 — Dự phóng dòng tiền tự do (thường 5 năm):**
-
-```
-FCFF = EBIT × (1 − thuế suất) + Khấu hao − Capex − Tăng vốn lưu động
-Đơn giản: FCFF ≈ Dòng tiền HĐKD (CFO) − Capex
+```python
+from vnstock.api.company import Company
+ov = Company(symbol="FPT", source="VCI").overview()
+is_bank   = ov["is_bank"].iloc[0]          # True → ngân hàng
+sector    = ov["sector"].iloc[0]           # tên ngành
+icb_lv2   = ov["icb_code_lv2"].iloc[0]     # mã ICB cấp 2
+# hoặc: Listing(source="VCI").symbols_by_industries() → cột icb_name
 ```
 
-| Năm | Doanh thu (tỷ) | EBIT (tỷ) | FCFF (tỷ) | Tăng trưởng |
-|------|---------|---------|---------|------|
-| N+1 | 120 | 24 | 18 | +15% |
-| N+2 | 138 | 28 | 21 | +15% |
-| N+3 | 155 | 31 | 24 | +12% |
-| N+4 | 170 | 34 | 26 | +10% |
-| N+5 | 182 | 36 | 28 | +7% |
+- `is_bank=True` → đi thẳng nhánh **Ngân hàng (RIM/PB-ROE/DDM)**.
+- Còn lại: tra `sector` / `icb_name` để vào đúng dòng bản đồ bên dưới.
+- Tập đoàn đa ngành (nhiều mảng lớn) → **SOTP**, định giá từng mảng theo ngành của nó.
 
-**Bước 2 — Tính WACC:**
+## Bản đồ Ngành → Phương pháp định giá
 
-```
-WACC = E/(D+E) × Ke + D/(D+E) × Kd × (1−T)
+| Ngành (ICB) | Phương pháp CHÍNH | Kiểm chứng chéo | TRÁNH | Động lực giá trị / lưu ý |
+|------|---------|------|------|------|
+| **Ngân hàng** | **RIM**, P/B–ROE | DDM | DCF/FCFF, EV/EBITDA | ROE, NIM, NPL/LLR, CASA, CAR (TT41), tăng trưởng tín dụng |
+| **Chứng khoán** | P/B, **SOTP** (môi giới + cho vay margin + tự doanh) | RIM | DCF, EV/EBITDA | ROE chuẩn hóa, dư nợ margin, phụ thuộc tự doanh (FVTPL) — LN rất biến động |
+| **Bảo hiểm** | P/B–ROE (nhân thọ: Embedded Value) | P/E | DCF | LN đầu tư + kỹ thuật (combined ratio) |
+| **BĐS nhà ở** | **RNAV** | P/B (cẩn trọng), presales | **P/E** (LN giật cục theo bàn giao), EV/EBITDA | Quỹ đất, pháp lý dự án, presales (người mua trả tiền trước), đòn bẩy |
+| **BĐS Khu công nghiệp** | **RNAV** + DCF dòng cho thuê | P/B | P/E | Quỹ đất cho thuê còn lại, giá thuê, tỷ lệ lấp đầy, đáo hạn thuê đất |
+| **BĐS cho thuê / TTTM** | NAV theo cap rate (NOI/cap rate), EV/EBITDA | DCF | P/E | NOI, tỷ lệ lấp đầy, cap rate |
+| **Thép / Vật liệu (chu kỳ)** | EV/EBITDA, P/B, **P/E chuẩn hóa giữa chu kỳ** | ROIC vs WACC | P/E hiện tại (bẫy đỉnh chu kỳ) | Công suất, biên (giá bán − giá nguyên liệu), chu kỳ hàng hóa |
+| **Xây dựng** | P/E điều chỉnh backlog, EV/EBIT | P/B | EV/EBITDA thuần | Backlog hợp đồng, vòng quay vốn lưu động, rủi ro phải thu |
+| **Sản xuất / Công nghiệp** | **DCF (FCFF)**, EV/EBITDA | P/E, ROIC vs WACC | — | ROIC vs WACC, công suất, biên |
+| **Hàng tiêu dùng (TP&ĐU)** | **DCF**, P/E | EV/EBITDA, DDM | — | Thương hiệu, biên gộp, tăng trưởng sản lượng |
+| **Bán lẻ** | EV/EBITDA, P/E | EV/Sales (giai đoạn tăng trưởng) | — | LFL sales, store economics, vòng quay tồn kho |
+| **Công nghệ / CNTT** | DCF, P/E, **PEG** | EV/EBITDA, EV/Sales (SaaS) | — | Tăng trưởng, biên, backlog dịch vụ |
+| **Tiện ích (Điện/Nước/Khí)** | DCF, **DDM** | EV/EBITDA | — | Dòng tiền ổn định/điều tiết, cổ tức, hợp đồng PPA |
+| **Dầu khí** | EV/EBITDA, EV/trữ lượng | DCF, NAV | P/E | Giá dầu, trữ lượng (1P/2P), sản lượng |
+| **Logistics / Cảng** | EV/EBITDA, DCF | P/E | — | Sản lượng thông qua, công suất, phí dịch vụ |
+| **Dược / Y tế** | DCF, P/E | EV/EBITDA | — | Danh mục sản phẩm, kênh ETC/OTC |
+| **Nông nghiệp / Thủy sản** | P/E chuẩn hóa, EV/EBITDA | P/B | P/E hiện tại | Giá hàng hóa, chu kỳ, tỷ giá xuất khẩu |
+| **Holdings / Đa ngành** | **SOTP** | RNAV/PB từng mảng | bội số gộp toàn tập đoàn | Định giá từng mảng − chiết khấu holding |
+| **DN đang lỗ / early-stage** | P/S, EV/Sales, EV/GMV | — | P/E | Tăng trưởng doanh thu, đường tới hòa vốn |
 
-Ke (chi phí vốn chủ) = Rf + β × ERP
-  - Rf: lợi suất TPCP 10 năm hiện hành (tra cứu; VN ~3-5%)
-  - β: TỰ TÍNH từ DataPro full-history (nêu cửa sổ + R²)
-  - ERP: phần bù rủi ro VCSH thị trường VN (~7-9%, kiểm chứng)
+---
 
-Kd (chi phí nợ): lãi vay bình quân — đọc thuyết minh BCTC hoặc = chi phí lãi vay / nợ vay bình quân
-  (vay ngân hàng có TSĐB ~7-9%, trái phiếu DN ~9-12%, vay khác cao hơn)
-T: thuế suất TNDN (phổ thông 20%)
-```
+# Thư viện phương pháp
 
-**Khoảng WACC tham chiếu theo ngành VN** (kiểm chứng bằng số thật):
-
-| Ngành | Khoảng WACC | β tham chiếu |
-|------|---------|------|
-| Tiêu dùng | 9-11% | 0,7-1,0 |
-| Công nghệ | 11-14% | 1,1-1,4 |
-| Bất động sản | 12-15% | 1,1-1,5 |
-| Tiện ích (điện/nước) | 8-10% | 0,5-0,8 |
-| Thép/Vật liệu (chu kỳ) | 11-14% | 1,0-1,4 |
-
-> Ngân hàng / Chứng khoán / Bảo hiểm: **KHÔNG dùng FCFF/DCF** (lãi vay là đầu vào kinh doanh cốt lõi, FCFF không định nghĩa được) → dùng **RIM / DDM / PB-ROE** (xem mục 3).
-
-**Bước 3 — Giá trị cuối kỳ (Terminal Value):**
+## A. DCF — Chiết khấu dòng tiền (sản xuất / tiêu dùng / công nghệ / tiện ích)
 
 ```
-Tăng trưởng đều (Gordon): TV = FCF_n × (1+g) / (WACC − g)
-  - g: tăng trưởng dài hạn (thường 2-4%, không vượt tăng trưởng GDP danh nghĩa)
-Bội số thoát: TV = EBITDA_n × bội số EV/EBITDA ngành
+EV = Σ FCFF_t / (1+WACC)^t + TV/(1+WACC)^n ;  Giá trị vốn chủ = EV − Nợ ròng
+Giá/cổ phần = Giá trị vốn chủ / issue_share
+FCFF = EBIT×(1−T) + Khấu hao − Capex − Tăng vốn lưu động   (≈ CFO − Capex)
+
+WACC = E/(D+E)×Ke + D/(D+E)×Kd×(1−T)
+Ke = Rf + β×ERP   (Rf = TPCP 10 năm ~3-5%; β tự tính DataPro; ERP VN ~7-9%)
+Kd = chi phí lãi vay/nợ vay bình quân ; T = 20%
+TV = FCF_n×(1+g)/(WACC−g)   (g 2-4%, ≤ tăng trưởng GDP danh nghĩa)
 ```
+Độ nhạy bắt buộc: ma trận WACC × g (mỗi 1% WACC dịch định giá ~20%).
 
-**Bước 4 — Phân tích độ nhạy:**
-
-```markdown
-### Độ nhạy DCF (giá/cổ phần, nghìn đồng)
-
-| WACC \ g | 3,0% | 3,5% | 4,0% |
-|----------|------|------|------|
-| 11,0% | 32,5 | 35,8 | 40,2 |
-| 11,5% | 28,3 | 30,8 | 34,0 |
-| 12,0% | 24,8 | 26,7 | 29,1 |
-| 12,5% | 22,0 | 23,5 | 25,3 |
-| 13,0% | 19,6 | 20,8 | 22,2 |
-```
-
-### 2. DDM (Chiết khấu cổ tức)
-
-**Áp dụng:** cổ phiếu cổ tức cao, ổn định (ngân hàng, tiện ích, tiêu dùng trưởng thành).
+## B. DDM — Chiết khấu cổ tức (tiện ích, ngân hàng cổ tức cao, tiêu dùng trưởng thành)
 
 ```
-DDM hai giai đoạn:
-P = Σ D_t / (1+Ke)^t + D_n × (1+g) / [(Ke−g) × (1+Ke)^n]
-
-Gordon (một giai đoạn): P = D_1 / (Ke − g)
+Hai giai đoạn: P = Σ D_t/(1+Ke)^t + D_n(1+g)/[(Ke−g)(1+Ke)^n]
+Gordon: P = D_1/(Ke−g)
 ```
+Điều kiện: cổ tức tiền mặt đều >3 năm, payout ổn định >30%.
 
-**Checklist áp dụng:**
-- [x] Trả cổ tức tiền mặt đều >3 năm
-- [x] Tỷ lệ chi trả ổn định (>30%)
-- [x] Lợi nhuận dễ dự báo
-- [ ] Thường không hợp cổ phiếu tăng trưởng cao (không/ít cổ tức)
+## C. RIM — Thu nhập thặng dư (NGÂN HÀNG / tài chính)
 
-### 3. RIM (Mô hình Thu nhập Thặng dư) — chuẩn cho NGÂN HÀNG
-
-**Vì sao ngân hàng VN dùng RIM thay vì DCF:** với ngân hàng/CTCK/bảo hiểm, lãi vay (huy động) là **đầu vào kinh doanh cốt lõi** nên FCFF không định nghĩa được; vốn bị ràng buộc bởi **CAR (Thông tư 41 — Basel II, tối thiểu 8%)**; và giá trị sổ sách vốn chủ là thước đo kinh tế đáng tin. RIM định giá phần lợi nhuận tạo ra **vượt trên chi phí vốn chủ**.
-
-**Trực giác:** Giá trị vốn chủ = Vốn chủ sổ sách hiện tại + Hiện giá thu nhập thặng dư tương lai.
-
-**Công thức:**
+**Vì sao ngân hàng không dùng DCF:** lãi vay (huy động) là đầu vào kinh doanh cốt lõi → FCFF không định nghĩa được; vốn bị ràng buộc bởi **CAR (TT41, Basel II, ≥8%)**; giá trị sổ sách vốn chủ là thước đo kinh tế đáng tin.
 
 ```
-V0 = B0 + Σ_{t=1}^{n} RI_t / (1+Ke)^t + TV / (1+Ke)^n
+V0 = B0 + Σ RI_t/(1+Ke)^t + TV/(1+Ke)^n
+RI_t = NI_t − Ke×B_{t-1} = (ROE_t − Ke)×B_{t-1}
+B_t = B_{t-1} + NI_t − Div_t          (clean surplus)
+TV = RI_{n+1}/(Ke−g)  hoặc (Ohlson) RI_n×ω/(1+Ke−ω), ω = hệ số duy trì
 
-RI_t (thu nhập thặng dư) = NI_t − Ke × B_{t-1} = (ROE_t − Ke) × B_{t-1}
-B_t = B_{t-1} + NI_t − Div_t        (quan hệ "clean surplus": vốn chủ tăng = LN giữ lại)
-
-Terminal:  TV = RI_{n+1} / (Ke − g)              (RI tăng trưởng đều g)
-   hoặc (Ohlson, hệ số duy trì ω∈[0,1]):  TV = RI_n × ω / (1 + Ke − ω)
+→ P/B hợp lý (một giai đoạn) = (ROE − g)/(Ke − g)   ← cầu nối với PB-ROE
 ```
 
-**Liên hệ P/B hợp lý (một giai đoạn) — cầu nối với ma trận PB-ROE:**
+**Ví dụ (số giả định):** ROE bền vững 15%, Ke 13%, g 4% → P/B hợp lý = (0,15−0,04)/(0,13−0,04) = **1,22x**.
+
+**Đặc thù ngân hàng VN:** B0 = `owners_equity`; NI = `net_profit_loss_after_tax`; **chuẩn hóa chi phí tín dụng** (bóc trích lập/hoàn nhập dự phòng bất thường); g bền vững bị giới hạn bởi **CAR**; chú ý **pha loãng** (tăng vốn, cổ tức cổ phiếu → issue_share thật); soi **NPL/LLR** (B "ảo" nếu dự phòng thiếu).
+
+## D. RNAV — Giá trị tài sản ròng đánh giá lại (BẤT ĐỘNG SẢN)
+
+**Vì sao BĐS nhà ở không dùng P/E:** doanh thu ghi nhận khi **bàn giao** (VAS) → lợi nhuận giật cục theo dự án, P/E hiện tại vô nghĩa. **P/B cũng là bẫy:** hàng tồn kho/quỹ đất ghi theo **giá vốn**, thấp xa giá thị trường → book bị định giá thấp.
 
 ```
-P/B hợp lý = (ROE − g) / (Ke − g)
+RNAV = Σ Giá trị thị trường (đánh giá lại) từng dự án/quỹ đất
+       + Tài sản khác theo giá thị trường − Nợ ròng − thuế/chi phí tiềm ẩn khi hiện thực hóa
+
+Giá trị mỗi dự án = NPV dòng tiền dự án (DCF từng dự án)
+   hoặc = Diện tích thương phẩm × (giá bán kỳ vọng − chi phí phát triển còn lại) × xác suất triển khai
+Giá mục tiêu = (RNAV / issue_share) × (1 ± premium/discount)
+   discount theo: pháp lý chưa hoàn thiện, quản trị, đòn bẩy cao, thanh khoản quỹ đất
 ```
 
-→ RIM là phiên bản nghiêm ngặt, nhiều giai đoạn của PB-ROE.
+**Động lực & dữ liệu cần (ngoài BCTC):** quỹ đất & pháp lý từng dự án, tiến độ bán hàng (**presales** = "Người mua trả tiền trước"/"Doanh thu chưa thực hiện" trên CĐKT = backlog đã chốt), giá bán khu vực. → Cần bổ sung từ báo cáo thường niên / bản cáo bạch (dùng skill `web-reader`/firecrawl); BCTC vnstock chỉ cho số sổ sách (giá vốn).
 
-**Ví dụ minh hoạ (ngân hàng, số giả định):** B0 = 100 (chỉ số), ROE bền vững 15%, Ke 13%, g 4%
+**Biến thể KCN:** RNAV quỹ đất cho thuê còn lại + DCF dòng tiền cho thuê định kỳ. **Cho thuê/TTTM:** NAV = NOI / cap rate.
 
-| Năm | B đầu kỳ | RI = (ROE−Ke)×B | Hệ số chiết khấu (1/1,13ᵗ) | PV(RI) |
-|------|------|------|------|------|
-| 1 | 100,0 | 2,00 | 0,885 | 1,77 |
-| 2 | 104,0 | 2,08 | 0,783 | 1,63 |
-| 3 | 108,2 | 2,16 | 0,693 | 1,50 |
-| TV (cuối năm 3) | — | RI₄/(Ke−g) = 2,25/0,09 = 25,0 | 0,693 | 17,33 |
-| **Tổng PV thặng dư** | | | | **22,2** |
-
-→ V0 = B0 + 22,2 = **122,2** → **P/B hợp lý ≈ 1,22x** (khớp công thức (ROE−g)/(Ke−g) = (0,15−0,04)/(0,13−0,04)).
-*Đọc: ngân hàng ROE bền vững 15%, Ke 13%, g 4% xứng đáng giao dịch quanh 1,22x P/B; cao hơn nhiều = đắt, thấp hơn = rẻ (nếu ROE thật bền).*
-
-**Đặc thù ngân hàng VN khi áp RIM:**
-1. **B0 = `owners_equity`** (vnstock CĐKT); NI = `net_profit_loss_after_tax` (hoặc `attributable_to_parent_company` cho phần cổ đông mẹ).
-2. **Chuẩn hoá chi phí tín dụng:** ROE hiện tại dễ bị bóp méo bởi trích lập/hoàn nhập dự phòng bất thường → dùng **ROE chuẩn hoá** (bóc one-off trước khi đưa vào RI).
-3. **Ràng buộc CAR (TT41):** tăng trưởng vốn chủ g·B bị giới hạn bởi CAR tối thiểu; tốc độ tăng tài sản có rủi ro (RWA) → nhu cầu vốn → giới hạn khả năng chia cổ tức và g bền vững.
-4. **Pha loãng:** ngân hàng VN hay tăng vốn (phát hành, cổ tức cổ phiếu) → B và số CP đổi liên tục; dùng `issue_share` THẬT, không suy từ EPS.
-5. **Chất lượng tài sản:** NPL (nợ xấu) và LLR (bao phủ nợ xấu) quyết định độ tin của B và NI — B "ảo" nếu dự phòng thiếu. Soi cùng skill `financial-statement`.
-
-### 4. SOTP (Định giá từng phần)
-
-**Áp dụng:** tập đoàn đa ngành (vd Masan, Vingroup, FPT-đa mảng).
+## E. SOTP — Định giá từng phần (HOLDINGS / đa ngành)
 
 ```
-Giá trị tập đoàn = Σ định giá từng mảng + tiền ròng − chiết khấu holding
-
-Ví dụ (tập đoàn đa ngành):
-| Mảng | Doanh thu (tỷ) | Phương pháp | Định giá (tỷ) |
-|------|---------|---------|---------|
-| Bán lẻ tiêu dùng | 80 | 18x P/E | 600 |
-| Bất động sản | 50 | 0,8x P/B | 120 |
-| Tài chính/ngân hàng | 30 | RIM / 1,2x P/B | 200 |
-| Tổng | | | 920 |
-| Chiết khấu holding | | −15% | −138 |
-| Định giá tập đoàn | | | 782 |
+Giá trị tập đoàn = Σ định giá từng mảng (THEO PHƯƠNG PHÁP CỦA NGÀNH mảng đó)
+                 + tiền ròng − chiết khấu holding (10-20%)
 ```
+Ví dụ: mảng ngân hàng → RIM; mảng BĐS → RNAV; mảng bán lẻ → EV/EBITDA; rồi cộng lại, trừ chiết khấu.
 
-## Định giá tương đối
+## F. Định giá tương đối
 
-### 1. PE Band
-
-```
-Phân vị PE lịch sử 5 năm (PE_TTM): tính phân vị 10/25/50/75/90%
-Đối chiếu PE hiện tại với phân vị để đánh giá đắt/rẻ
-
-| Phân vị | PE | Giá hàm ý | Diễn giải |
-|------|-----|---------|------|
-| 90% | 35x | 52,5 | Rất đắt |
-| 75% | 28x | 42,0 | Đắt |
-| 50% | 22x | 33,0 | Hợp lý |
-| 25% | 16x | 24,0 | Rẻ |
-| 10% | 12x | 18,0 | Rất rẻ |
-| Hiện tại | 18x | 27,0 | Rẻ (phân vị ~30%) |
-```
-
-### 2. Ma trận PB-ROE
-
-```
-Quan hệ lý thuyết: P/B = (ROE − g) / (Ke − g)   (chính là RIM một giai đoạn)
-Thực hành: vẽ các DN cùng ngành lên đồ thị PB (trục tung) vs ROE (trục hoành)
-
-| Góc phần tư | PB | ROE | Diễn giải |
-|------|-----|-----|------|
-| Dưới-phải | PB thấp | ROE cao | Định giá thấp (vùng mua tốt nhất) |
-| Trên-phải | PB cao | ROE cao | Hợp lý (phần bù chất lượng) |
-| Dưới-trái | PB thấp | ROE thấp | Bẫy giá trị hoặc đang tái cấu trúc |
-| Trên-trái | PB cao | ROE thấp | Định giá cao (tránh) |
-```
-
-### 3. EV/EBITDA
-
-```
-EV = Vốn hoá + Nợ ròng (nợ vay có lãi − tiền & tương đương tiền)
-EBITDA = LN hoạt động + Khấu hao
-
-Ưu điểm: loại khác biệt cấu trúc vốn (vs PE), loại khác biệt chính sách khấu hao
-Hợp DN tài sản nặng (điện/dầu khí/hạ tầng). KHÔNG dùng cho ngân hàng.
-
-Khoảng EV/EBITDA tham chiếu theo ngành VN:
-| Ngành | Trung vị | Rẻ | Đắt |
-|------|--------|------|------|
-| Tiêu dùng | 10-15x | <8x | >20x |
-| Công nghệ | 10-16x | <8x | >20x |
-| Năng lượng/Điện | 6-10x | <5x | >12x |
-| Tiện ích | 7-11x | <6x | >14x |
-```
+- **PE Band:** phân vị PE_TTM 5 năm (10/25/50/75/90%) so với hiện tại. Tránh cho DN chu kỳ/BĐS.
+- **PB-ROE:** `P/B hợp lý = (ROE−g)/(Ke−g)`; đồ thị PB (tung) vs ROE (hoành), vùng "PB thấp + ROE cao" = mua tốt. Chuẩn cho ngân hàng/tài chính.
+- **EV/EBITDA:** `EV = vốn hóa + nợ ròng`. Loại khác biệt cấu trúc vốn & khấu hao; hợp tài sản nặng. **KHÔNG dùng cho ngân hàng.**
+- **P/S, EV/Sales:** DN đang lỗ / tăng trưởng cao chưa có lợi nhuận.
 
 ## Nhận diện bẫy định giá
 
-### 10 bẫy định giá phổ biến
+| # | Bẫy | Phát hiện |
+|---|------|---------|
+| 1 | P/E thấp đỉnh chu kỳ | P/E thấp nhất khi LN đỉnh sắp đảo (thép, hóa chất) → dùng LN chuẩn hóa |
+| 2 | P/B thấp BĐS là BẪY | Tồn kho/quỹ đất ghi giá vốn → dùng RNAV, không phải P/B |
+| 3 | P/B thấp huỷ hoại giá trị | `ROE < Ke` kéo dài → huỷ hoại giá trị cổ đông |
+| 4 | PE cao có thể hợp lý | `PEG < 1` = tăng trưởng đỡ được định giá |
+| 5 | Bom lợi thế thương mại | LTTM/vốn CSH >30% → rủi ro tổn thất |
+| 6 | Lãi một lần | Chênh LN cốt lõi vs báo cáo (thanh lý/đánh giá lại/tỷ giá) |
+| 7 | Pha loãng | ESOP/CB/tăng vốn → dùng EPS pha loãng & issue_share thật |
+| 8 | Bẫy phải thu | Phải thu/doanh thu tăng = chất lượng doanh thu kém |
+| 9 | Giao dịch bên liên quan | Chuyển lợi nhuận ra ngoài DN niêm yết |
+| 10 | Tỷ giá | Tỷ trọng doanh thu/nợ ngoại tệ cao |
 
-| # | Bẫy | Cách phát hiện | Ví dụ điển hình |
-|---|------|---------|---------|
-| 1 | PE thấp đỉnh chu kỳ | PE thấp nhất khi LN cao nhất sắp đảo chiều | Thép/hoá chất P/E 5x ở đỉnh chu kỳ |
-| 2 | PE cao có thể hợp lý | `PEG < 1` nghĩa là tăng trưởng đỡ được định giá | P/E 30x + tăng 40% = PEG 0,75 |
-| 3 | PB thấp huỷ hoại giá trị | `ROE < Ke` kéo dài = huỷ hoại giá trị cổ đông | DN tài sản nặng lỗ triền miên |
-| 4 | Bom lợi thế thương mại | Lợi thế TM/vốn CSH >30% → rủi ro tổn thất | Thâu tóm giá cao rồi dưới kỳ vọng |
-| 5 | Bẫy phải thu | Phải thu/doanh thu tăng = chất lượng doanh thu kém | Phải thu Nhà nước + tập trung khách hàng |
-| 6 | Bẫy vốn hoá chi phí | Vốn hoá lãi vay/chi phí PT thổi lợi nhuận | PE tăng gấp đôi sau khi ghi nhận đúng |
-| 7 | Lãi một lần | Chênh lớn giữa LN cốt lõi và LN báo cáo | Thanh lý tài sản/đánh giá lại/tỷ giá |
-| 8 | Pha loãng cổ phiếu | ESOP/trái phiếu chuyển đổi/tăng vốn bào EPS | PE nên tính trên EPS pha loãng & issue_share thật |
-| 9 | Giao dịch bên liên quan | Mua rẻ/bán đắt với bên liên quan | Chuyển lợi nhuận ra ngoài DN niêm yết |
-| 10 | Biến động tỷ giá | Tỷ trọng doanh thu/nợ ngoại tệ cao | VND mất giá bào lợi nhuận DN nhập khẩu/vay USD |
-
-## Khung phân tích
-
-### Cây quyết định chọn phương pháp
-
-```
-DN thuộc loại nào?
-├── Ngân hàng / Chứng khoán / Bảo hiểm
-│   └── RIM + PB-ROE + DDM   (KHÔNG dùng DCF/EV-EBITDA)
-├── Trưởng thành, ổn định (tiêu dùng / tiện ích)
-│   ├── Cổ tức cao → DDM
-│   └── Cổ tức thấp → DCF + PE Band
-├── Tăng trưởng cao (công nghệ / bán lẻ mới)
-│   └── DCF (giai đoạn tăng trưởng) + PEG + P/S
-├── Chu kỳ (thép / hoá chất / BĐS)
-│   └── PB + EV/EBITDA (tránh PE) + LN chuẩn hoá giữa chu kỳ
-├── Tập đoàn đa ngành
-│   └── SOTP
-└── DN đang lỗ
-    └── P/S + EV/Sales
-```
-
-### Kiểm chứng chéo
-
-```
-Dùng ít nhất 2 phương pháp và lấy vùng giá trị giữa:
-1. DCF/RIM → giá trị nội tại
-2. So sánh PE/PB ngành → định giá thị trường
-3. Lệch >30% → soát lại tính hợp lý của giả định
-```
-
-## Mẫu output
+## Kiểm chứng chéo & mẫu output
 
 ```markdown
-## Phân tích định giá: [Tên DN / Mã .VN]
+## Phân tích định giá: [Tên DN / Mã .VN]  — Ngành: [ICB], is_bank=[T/F]
 
-### Tóm tắt định giá
+### Phương pháp áp dụng (theo ngành): [vd BĐS → RNAV + presales]
+
+### Tổng hợp định giá
 | Phương pháp | Giá/cổ phần | Trọng số | Ghi chú |
 |------|---------|------|------|
-| DCF / RIM | 32,5 | 50% | WACC=12%, g=3% (hoặc Ke=13%, ROE=15%) |
-| So sánh PE | 28,0 | 30% | PE ngành 18x, EPS=1,55 |
-| PB-ROE | 30,0 | 20% | PB hợp lý 1,5x |
-| **Giá mục tiêu tổng hợp** | **30,8** | | Giá hiện tại 25,0, tiềm năng +23% |
+| [Chính theo ngành] | ... | 50-60% | giả định lõi |
+| [Kiểm chứng chéo] | ... | 30-40% | |
+| **Giá mục tiêu** | **...** | | Giá hiện tại ..., tiềm năng ±..% |
 
-### Phân tích độ nhạy
-[ma trận WACC×g hoặc Ke×g]
+### Độ nhạy
+[ma trận WACC×g / Ke×g / cap rate]
 
 ### Soát bẫy định giá
-- [x] PE thấp giả tạo đỉnh chu kỳ → Không
-- [x] Lợi thế TM/vốn CSH → 12%, an toàn
-- [x] Phải thu/doanh thu → Ổn định
-- [!] Chênh LN cốt lõi vs báo cáo → 15%, lệ thuộc khoản một lần, cần lưu ý
+- [ ] (theo ngành) ...
 
-### Khuyến nghị: MUA
-Giá mục tiêu 30,8 nghìn đồng, giá hiện tại 25,0 nghìn đồng, tiềm năng +23%
+### Khuyến nghị: [MUA/NẮM GIỮ/BÁN], giá mục tiêu ..., tiềm năng ...%
 ```
 
-## Lưu ý
-
-1. **DCF/RIM rất nhạy với giả định:** WACC/Ke đổi 1% có thể dịch định giá 20%+ → phân tích độ nhạy là bắt buộc; tính ≥2 cách (checklist Karpathy).
-2. **DN so sánh phải thật sự so được:** cùng ngành + cùng quy mô + cùng giai đoạn; đừng áp bội số của DN đầu ngành cho DN nhỏ.
-3. **Định giá ≠ giá mục tiêu giao dịch:** thị trường có thể phi lý dài; định giá là điểm neo, không phải tín hiệu mua/bán tức thời.
-4. **DN chu kỳ:** dùng LN chuẩn hoá (giữa chu kỳ), không dùng LN hiện tại.
-5. **Ngân hàng:** ưu tiên RIM/PB-ROE; chú ý NPL/LLR/CAR và pha loãng; không dùng DCF/EV-EBITDA.
-6. **Không hợp tiền mã hoá:** dùng on-chain (xem `onchain-analysis`).
+**Quy tắc:** luôn ≥2 phương pháp; lệch >30% → soát lại giả định. Định giá là điểm neo, không phải tín hiệu giao dịch tức thời.
 
 ## Nguồn dữ liệu
 
-- **BCTC → vnstock** (`source="VCI"`, `lang="vi"`): `income_statement` / `balance_sheet` / `cash_flow`. Item_id thường dùng cho định giá: `net_sales`, `gross_profit`, `net_profit_loss_after_tax`, `attributable_to_parent_company`, `owners_equity` (B0 cho RIM), `total_assets`, `short_term_borrowings`, `long_term_borrowings`, `cash_and_cash_equivalents` (cho nợ ròng), `net_cash_inflows_outflows_from_operating_activities` (CFO cho FCFF).
-- **Giá / vốn hoá → DataPro** (`source="datapro"`, mã `.VN`): giá đóng cửa × `issue_share` = vốn hoá.
-- **β → tự tính từ DataPro full-history** (regress lợi suất cổ phiếu vs VNINDEX), nêu cửa sổ + R².
-- **Số CP lưu hành → `Company.overview().issue_share`** (không suy từ EPS).
-- ⚠️ Endpoint `ratio()` của vnstock community trả layout kỳ KHÔNG ổn định → tự tính P/E, P/B, ROE từ giá + BCTC thay vì lấy trực tiếp. Bản community chỉ ~4 kỳ năm gần nhất.
+- **Phân loại ngành → vnstock** `Company.overview()`: `is_bank`, `sector`, `icb_code_lv2/lv4`; hoặc `Listing.symbols_by_industries()` → `icb_name`.
+- **BCTC → vnstock** (`lang="vi"`): `net_sales`, `gross_profit`, `net_profit_loss_after_tax`, `attributable_to_parent_company`, `owners_equity` (B0/RIM), `total_assets`, `short_term_borrowings`, `long_term_borrowings`, `cash_and_cash_equivalents` (nợ ròng), CFO.
+- **Giá / vốn hóa / β → DataPro** (`source="datapro"`, mã `.VN`); β regress vs VNINDEX full-history, nêu cửa sổ + R².
+- **issue_share / market_cap / target_price → `Company.overview()`.**
+- **RNAV / quỹ đất / presales / backlog → báo cáo thường niên + `web-reader`/firecrawl** (BCTC chỉ cho số sổ sách giá vốn).
+- ⚠️ `ratio()` vnstock community layout không ổn định → tự tính P/E, P/B, ROE từ giá + BCTC. Community chỉ ~4 kỳ năm gần nhất.
