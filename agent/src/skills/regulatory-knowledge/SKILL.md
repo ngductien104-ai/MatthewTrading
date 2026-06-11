@@ -1,299 +1,154 @@
 ---
 name: regulatory-knowledge
-description: 金融监管知识库：A股涨跌停/ST退市新规/融券、港股T+0/做空机制、美股PDT/熔断、加密监管政策、跨境税务基础
+description: "Quy tắc giao dịch & pháp lý TTCK Việt Nam cho quant: biên độ HOSE/HNX/UPCOM, chu kỳ T+2, phiên ATO/ATC, cấm bán khống, ký quỹ (margin) & call/force-sell, room ngoại, phái sinh VN30F & chứng quyền (CW), thuế-phí. Kèm bảng so sánh nhanh đa thị trường (A股/HK/US/crypto) cho chiến lược xuyên thị trường."
 category: tool
 ---
 
-# 金融监管知识库
+# Kiến thức quy tắc & pháp lý (Việt Nam)
 
-## 概述
+## Mục đích
 
-量化交易必须理解的各市场监管规则。错误的交易规则假设会导致回测失真（如A股回测不考虑涨跌停限制）、实盘违规（如美股PDT限制）或税务损失。
+Quant phải hiểu đúng luật chơi của thị trường, nếu không backtest sẽ sai lệch (vd không tính biên độ trần/sàn, giả định bán khống được trong khi VN cấm) và thực chiến vi phạm/sai chi phí. Skill này lấy **TTCK Việt Nam** làm trung tâm; phần cuối có bảng so sánh đa thị trường cho chiến lược xuyên biên giới.
 
-适用场景：
-- 回测引擎中正确实现交易规则约束
-- 跨市场策略的规则差异处理
-- 合规风控参数设置
-- 税务影响纳入策略收益计算
+Khung pháp lý: **Luật Chứng khoán 2019**, **NĐ 155/2020/NĐ-CP**, các quy chế giao dịch của **HOSE/HNX**, quy định **UBCKNN**.
 
-## 核心概念
+## Quy tắc giao dịch TTCK Việt Nam
 
-### A股交易规则
+### Biên độ giá (trần/sàn)
 
-**涨跌停制度**：
-| 板块 | 涨跌停 | 新股首日 | ST涨跌停 |
-|------|--------|----------|----------|
-| 主板(沪深) | ±10% | +44%/-36% | ±5% |
-| 创业板 | ±20% | 前5日无限制 | ±20% |
-| 科创板 | ±20% | 前5日无限制 | ±20% |
-| 北交所 | ±30% | 前5日无限制 | ±30% |
+| Sàn | Biên độ thường | Ngày giao dịch đầu tiên / sau tạm ngừng dài |
+|------|------|------|
+| **HOSE** | ±7% | ±20% |
+| **HNX** | ±10% | ±30% |
+| **UPCOM** | ±15% | ±40% |
 
 ```
-回测影响:
-  涨停时买入可能无法成交（封板）→ 信号延迟
-  跌停时卖出可能无法成交（封板）→ 止损失效
-
-回测实现:
-  if daily_return >= limit_up:
-      buy_signal无法执行, 推迟到次日
-  if daily_return <= limit_down:
-      sell_signal可能无法执行, 用跌停价模拟成交
+Ảnh hưởng backtest/thực chiến:
+  Tin lớn → giá kịch TRẦN/SÀN nhiều phiên, "trắng bên mua/bán" → KHÔNG khớp được.
+    → lệnh mua khi trần / lệnh bán (cắt lỗ) khi sàn có thể không thực hiện được.
+  Mô hình hóa: nếu |return ngày| chạm biên → đánh dấu không khớp, đẩy sang phiên sau.
+  Đây là nguồn sai lệch lớn nhất với chiến lược momentum/sự kiện ở VN.
 ```
 
-**T+1制度**：
-```
-A股: T日买入 → T+1日才能卖出
-回测影响: 信号在T日产生 → T+1日开盘执行买入 → T+2日最早可卖出
-常见错误: 回测中T日信号T日就平仓 → 虚增收益
-
-例外:
-  - 融券做空: 可T+0(融券卖出当日买券还券)
-  - ETF套利: 一级市场申赎可实现T+0变相交易
-  - 可转债: 实行T+0交易
-```
-
-**融资融券/转融通**：
-```
-融资(杠杆做多):
-  保证金比例: ≥100% (即最大杠杆2倍)
-  维持担保比例: ≥130% (低于则追保; <110%强平)
-  标的范围: 约1600只(流动性好的主板/创业板股票)
-
-融券(做空):
-  券源: 证券公司自有+转融通借入
-  费率: 年化8-10%(远高于美股的1-2%)
-  限制: 2023年后限制融券T+0, 券源大幅收紧
-
-回测影响:
-  做空策略在A股成本极高, 需扣除8-10%/年的融券费用
-  实际可融券标的 < 理论标的 (券源有限)
-```
-
-**集合竞价与连续竞价**：
-```
-早盘集合竞价: 9:15-9:25 (9:15-9:20可撤单, 9:20-9:25不可撤单)
-  9:25 产生开盘价
-连续竞价: 9:30-11:30, 13:00-14:57
-尾盘集合竞价: 14:57-15:00 (不可撤单)
-
-回测影响:
-  - 日线回测默认用T+1开盘价成交
-  - 尾盘3分钟集合竞价: 大单集中, VWAP策略需注意
-  - 集合竞价期间的限价单可能影响开盘价
-```
-
-**大宗交易**：
-```
-时间: 15:00-15:30 (收盘后)
-折价: 通常折价3-8% (相对收盘价)
-限制: 买入后6个月内不能在二级市场卖出(大股东减持用)
-
-信号意义:
-  大宗交易频繁 + 折价大 → 可能有减持需求(利空)
-  大宗交易后6个月解禁 → 关注解禁日卖压
-```
-
-### 港股交易规则
+### Chu kỳ thanh toán T+2 & KHÔNG có T+0
 
 ```
-交易时间:
-  早盘竞价: 9:00-9:30
-  连续交易: 9:30-12:00, 13:00-16:00
-  收市竞价: 16:00-16:10
+Mua ngày T → cổ phiếu/tiền về tài khoản chiều T+2 → bán được từ T+2.
+  (VN rút ngắn từ T+3 về T+2 năm 2022; cổ phiếu về ~13h ngày T+2.)
+KHÔNG có giao dịch trong ngày (T+0) với cổ phiếu cơ sở.
+Sai lầm backtest kinh điển: tín hiệu ngày T, mua T rồi BÁN NGAY trong T → ảo lãi.
+  Đúng: tín hiệu T → khớp mua ~mở cửa T+1 → sớm nhất bán được T+3 (sau khi cổ phiếu T+1 về).
 
-核心差异(vs A股):
-  ✓ T+0交易 (当日买当日可卖)
-  ✓ 无涨跌停限制 (个股单日可涨跌50%+)
-  ✓ 做空机制完善 (融券成本低, 约1-3%/年)
-  ✓ 暗盘交易 (IPO上市前一晚的灰市交易)
-  ✗ 流动性差 (日成交额仅A股的1/10-1/5)
-  ✗ 仙股多 (大量股价<0.1港元的小票)
-
-做空规则:
-  - 只能以不低于最佳卖盘价做空 (uptick rule变体)
-  - 需先借入股份才能做空 (naked short prohibited)
-  - 做空头寸需每日报告 (达到0.02%阈值时)
-
-交收制度:
-  T+2交收 (买入T+2日才能提取股份)
-  但交易可T+0 (预付制度下)
-
-回测影响:
-  - 无涨跌停 → 极端波动大, 止损更重要
-  - T+0 → 日内策略可行
-  - 流动性低 → 小盘股滑点大, 冲击成本需纳入
+Ngoại lệ T+0: chỉ phái sinh (HĐTL VN30) đóng/mở trong ngày được; cổ phiếu thì không.
 ```
 
-### 美股交易规则
+### Phiên giao dịch & loại lệnh
 
 ```
-交易时间(北京时间):
-  夏令时: 21:30-04:00
-  冬令时: 22:30-05:00
-  盘前: 16:00-21:30 / 17:00-22:30
-  盘后: 04:00-08:00 / 05:00-09:00
+HOSE:  ATO 9:00–9:15 | Khớp liên tục 9:15–11:30 | nghỉ trưa |
+       13:00–14:30 | ATC 14:30–14:45 | Khớp lệnh sau giờ & thỏa thuận 14:45–15:00
+HNX:   Khớp liên tục 9:00–11:30, 13:00–14:30 | ATC 14:30–14:45 | PLO 14:45–15:00
+UPCOM: Khớp liên tục 9:00–11:30, 13:00–15:00 (KHÔNG có ATO/ATC)
 
-PDT规则(Pattern Day Trader):
-  条件: 5个交易日内日内交易(当日开平) ≥ 4次
-  触发后: 账户需维持 ≥ $25,000 余额
-  低于$25,000: 账户被限制90天只能平仓
+Loại lệnh:
+  LO  (giới hạn) — phổ biến nhất
+  ATO / ATC — khớp tại giá mở/đóng cửa (không ghi giá; ưu tiên khớp; không khớp thì hủy)
+  MP / MTL / MOK / MAK — lệnh thị trường (HOSE: MP; HNX: MTL/MOK/MAK)
+  PLO — lệnh khớp giá đóng cửa sau giờ (HNX)
 
-  规避方法:
-  - 使用现金账户(Cash Account, T+2交收, 无PDT限制但资金效率低)
-  - 账户维持 > $25,000
-  - 控制日内交易频率 < 4次/5日
-
-熔断机制:
-  Level 1: S&P 500下跌 7% → 暂停15分钟 (15:25后不触发)
-  Level 2: S&P 500下跌13% → 暂停15分钟 (15:25后不触发)
-  Level 3: S&P 500下跌20% → 当日停止交易
-
-  个股LULD(Limit Up-Limit Down):
-  涨跌幅超过参考价±5%(大盘股)/±10%(小盘股) → 暂停5分钟
-
-RegSHO(做空规则):
-  - Locate requirement: 做空前必须确认可借到股份
-  - Close-out: 连续13天无法交割 → 强制平仓
-  - Short Sale Circuit Breaker: 个股跌>10% → 当日+次日只能uptick做空
-
-回测影响:
-  - 美股无日常涨跌停 → 但有LULD暂停
-  - T+0交易(保证金账户) → 日内策略可行
-  - 盘前盘后交易量低, 滑点大
+Lưu ý backtest:
+  - Backtest ngày (daily) mặc định khớp tại GIÁ MỞ CỬA T+1.
+  - ATC quyết định giá đóng → chiến lược dùng giá đóng cần lưu ý lực kéo/đạp phiên ATC.
 ```
 
-### 加密货币监管
+### Bán khống & ký quỹ (margin)
 
 ```
-主要市场政策(截至2026):
-  中国大陆: 禁止交易所运营和ICO, 但持有不违法
-  香港: VASP牌照制度, 合规交易所(HashKey等)
-  美国: SEC/CFTC双重监管, BTC/ETH现货ETF已获批
-  欧盟: MiCA法规2024年全面生效
-  日本: FSA监管, 交易所需注册
-  新加坡: MAS监管, Payment Services Act
+BÁN KHỐNG: KHÔNG được phép cho NĐT (chưa có cơ chế vay & bán khống chính thức).
+  → Mọi tín hiệu "short" cổ phiếu KHÔNG thực thi được. Chỉ phòng hộ qua phái sinh VN30F
+    (short hợp đồng tương lai chỉ số) hoặc CW put (hạn chế).
 
-稳定币监管趋势:
-  - USDT: 储备金透明度争议, 部分地区限制
-  - USDC: 合规性更好, Circle受美国监管
-  - 各国推进央行数字货币(CBDC)可能替代
+KÝ QUỸ (margin):
+  - Chỉ áp dụng cổ phiếu ĐỦ ĐIỀU KIỆN (HOSE/HNX/UBCKNN công bố danh sách; loại trừ mã
+    mới niêm yết <6 tháng, diện cảnh báo/kiểm soát, biến động bất thường...).
+  - Tỷ lệ ký quỹ ban đầu tối thiểu 50% → đòn bẩy tối đa ~2x (1:1).
+  - Call margin / force-sell: khi tỷ lệ tài sản đảm bảo giảm dưới ngưỡng CTCK đặt
+    (thường call ~ mức ký quỹ duy trì, force-sell khi thủng ngưỡng) → CTCK bán giải chấp.
+  - Lãi margin ~ 9–14%/năm (tùy CTCK) → trừ vào lợi nhuận chiến lược dùng đòn bẩy.
 
-DeFi合规:
-  - 大部分DeFi协议目前处于监管灰色地带
-  - 趋势: 要求前端KYC, 链上交易仍自由
-  - 风险: 智能合约风险不受投资者保护法覆盖
-
-回测影响:
-  - 加密市场7×24交易, 无休市
-  - 无涨跌停限制, 极端波动可达50%+/日
-  - 交易所间价差可达1-3%(套利机会但也有风险)
-  - OKX等主流所杠杆最高125x(合约), 回测需正确计算爆仓价
+Ảnh hưởng: "bán giải chấp margin" hàng loạt khi thị trường giảm mạnh tạo VÒNG XOÁY
+  GIẢM (force-sell → giá sàn → call thêm) — rủi ro hệ thống đặc thù VN; nhóm cổ phiếu
+  bị dùng làm tài sản cầm cố/đòn bẩy cao dễ bị "đạp sàn" liên phiên.
 ```
 
-## 分析框架
-
-### 1. 回测规则约束矩阵
+### Room ngoại (giới hạn sở hữu nước ngoài)
 
 ```
-| 规则 | A股 | 港股 | 美股 | 加密(OKX) |
-|------|-----|------|------|-----------|
-| 涨跌停 | ±10/20/30% | 无 | LULD暂停 | 无 |
-| T+N | T+1 | T+0 | T+0(保证金) | T+0 |
-| 做空 | 融券(贵) | 容易 | 容易 | 永续合约 |
-| 交易时间 | 4h/日 | 5.5h/日 | 6.5h/日 | 24/7 |
-| 手续费 | 0.025%+印花税0.05% | 0.03%+印花税0.1% | $0(部分) | 0.02-0.05% |
-| 最小交易单位 | 100股 | 1手(不等) | 1股 | 0.001BTC |
+Trần sở hữu nước ngoài mặc định: ~49% (phần lớn ngành);
+  NGÂN HÀNG: 30%; ngành nghề kinh doanh có điều kiện: tỷ lệ riêng;
+  một số DN tự nới tới 100% (thường phi tài chính, đã bỏ ngành nghề điều kiện).
+Hết room → NĐT ngoại phải mua qua THỎA THUẬN giá premium, hoặc gián tiếp qua ETF VNDIAMOND.
+Tín hiệu: cổ phiếu kín room + cầu ngoại mạnh → giá thỏa thuận ngoại cao hơn sàn;
+  VNDIAMOND/FUEVFVND thường phụ trội (xem skill etf-analysis).
 ```
 
-### 2. 跨市场策略的合规检查
+### Phái sinh & chứng quyền
 
 ```
-检查清单:
-  □ 交易时间是否重叠(时区转换)
-  □ 各市场假期差异(A股春节/国庆 vs 美股圣诞/感恩节)
-  □ 汇率风险是否纳入(人民币/港币/美元/USDT)
-  □ 做空可行性(A股策略中做空信号能否执行)
-  □ 最小交易单位约束(A股100股整手 → 小资金可能无法精确配比)
-  □ 印花税/证管费等隐含成本是否纳入
-
-A股真实交易成本:
-  佣金: 0.025% (万2.5, 最低5元/笔)
-  印花税: 0.05% (卖出时, 2023年减半)
-  过户费: 0.001%
-  规费: 0.00687%
-  合计(单边): 约0.08%
-  合计(双边): 约0.16%
-
-  影响: 月换手1次 → 年化成本约1.9%
-         月换手4次 → 年化成本约7.7%
+HĐTL chỉ số VN30 (VN30F1M/2M/quý): thanh toán TIỀN MẶT, ký quỹ, T+0 (đóng trong ngày),
+  giao dịch trên HNX. Dùng để phòng hộ beta / đặt cược chỉ số / thay thế "short".
+  Theo dõi BASIS (chênh HĐTL − VN30 spot) làm chỉ báo tâm lý.
+HĐTL Trái phiếu Chính phủ: thanh khoản thấp, chủ yếu tổ chức.
+Chứng quyền có bảo đảm (CW): CTCK phát hành, niêm yết HOSE, dựa trên cổ phiếu cơ sở;
+  đòn bẩy cao, có giá trị thời gian/biến động → KHÔNG phải quyền chọn chuẩn, coi chừng
+  time decay và việc nhà phát hành tạo lập.
 ```
 
-### 3. 税务影响
+### Thuế & phí giao dịch
 
 ```
-A股:
-  股票买卖: 免个人所得税（2024年继续免征）
-  股息税: 持有>1年免税; 1个月-1年=10%; <1个月=20%
-  基金分红: 免个人所得税
+Thuế TNCN bán chứng khoán: 0,1% trên GIÁ TRỊ BÁN (đánh dù lãi hay LỖ — không phải thuế lãi vốn).
+Cổ tức TIỀN MẶT: 5% (khấu trừ tại nguồn). Cổ tức cổ phiếu: 5% khi bán.
+Phí giao dịch CTCK: ~0,1%–0,35%/lượt (cạnh tranh, nhiều CTCK ~0,15%).
+Phí lưu ký, phí chuyển nhượng: nhỏ.
 
-  回测影响: 高股息策略需考虑持有期的税务差异
-  年化股息5% × 20%税率 = 1%的税务拖累（短期持有时）
-
-港股(通过港股通):
-  股息税: 20%（H股）或 10%（红筹/民企）
-  资本利得: 免税
-  注意: 港股通股息税由中国结算代扣
-
-美股:
-  股息税: 10%(中美税收协定)
-  资本利得: 目前中国居民暂免, 但需关注政策变化
-  W-8BEN表格: 券商要求填写以享受协定税率
-
-加密货币:
-  中国: 暂无明确税收规定（但大额交易可能被追溯）
-  美国: 资本利得税(短期=普通收入税率, 长期=0/15/20%)
-
-  回测影响: 如计入税务, 频繁交易策略的净收益下降显著
+Chi phí vòng (mua+bán) thực tế ≈ 2× phí CTCK + 0,1% thuế bán ≈ ~0,3–0,5%.
+  → Quay vòng 1 lần/tháng ≈ ~4–6%/năm chi phí; chiến lược tần suất cao bị bào mạnh.
 ```
 
-## 输出格式
+### Lịch nghỉ & gián đoạn
 
-合规检查报告：
-```
-=== 策略合规检查 ===
-策略: A股+港股 多空配对交易
-标的: 600519.SH (贵州茅台) + 0700.HK (腾讯)
+Nghỉ **Tết Nguyên đán** dài (~1 tuần+), Giỗ Tổ (10/3 ÂL), 30/4–1/5, Quốc khánh 2/9 → tín hiệu bị ngắt quãng; thị trường phái sinh/quốc tế vẫn chạy → xử lý khoảng trống dữ liệu khi chạy chiến lược xuyên thị trường.
 
-=== 规则约束 ===
-A股做空: 需融券 → 600519融券费率约8%/年, 券源有限
-港股做空: 0700.HK做空成本约1.5%/年, 券源充足
-T+N差异: A股T+1 vs 港股T+0 → 配对信号执行有时差
-涨跌停: A股±10% 可能阻止止损执行
-交易时间: A股9:30-15:00 vs 港股9:30-16:00 → 14:57-16:00港股单边暴露
+## Ma trận ràng buộc cho backtest (VN làm chuẩn)
 
-=== 成本估算 ===
-A股交易成本: 0.16%/双边
-港股交易成本: 0.26%/双边 (含印花税0.1%)
-融券成本(A股): 8%/年
-融券成本(港股): 1.5%/年
-汇率对冲成本: 约1%/年
+| Quy tắc | **Việt Nam** | A股 | HK | US | Crypto |
+|------|------|------|------|------|------|
+| Biên độ | ±7/10/15% | ±10/20/30% | Không | LULD ngắt | Không |
+| Chu kỳ / T+0 | T+2, KHÔNG T+0 | T+1 | T+0 | T+0 (margin) | T+0 24/7 |
+| Bán khống | **Cấm** (chỉ VN30F) | Khó/đắt | Dễ | Dễ | Hợp đồng |
+| Đòn bẩy | Margin ~2x (mã đủ ĐK) | Margin | Margin | Margin/PDT | Tới 100x+ |
+| Lô | 100 cp (HOSE) | 100 cp | 1 lô | 1 cp | nhỏ |
+| Giờ/ngày | ~4,5h | ~4h | ~5,5h | ~6,5h | 24/7 |
+| Chi phí vòng | ~0,3–0,5% (gồm thuế bán 0,1%) | ~0,16% | ~0,26% | ~$0 | ~0,04–0,1% |
 
-=== 建议 ===
-1. A股端用股指期货替代融券做空 → 成本降至2-3%/年
-2. 配对交易信号在14:57前执行A股端, 港股端可延迟
-3. 汇率风险: 人民币/港币波动约±3%/年, 小于策略预期收益则可不对冲
-```
+> Chiến lược xuyên thị trường: đối chiếu lịch nghỉ (Tết VN ≠ nghỉ US), rủi ro tỷ giá (VND/USD), và việc tín hiệu "short" KHÔNG thực thi được ở chân VN — thay bằng VN30F.
 
-## 注意事项
+## Thuế khi NĐT VN đầu tư ra nước ngoài (tham khảo)
 
-1. **规则动态变化**：监管规则频繁调整（如2023年印花税减半、融券T+0限制），回测需按历史时点使用对应规则
-2. **回测 vs 实盘差距**：涨跌停封板无法成交是回测最大失真来源，高换手策略需严格建模
-3. **A股特殊时段**：集合竞价9:15-9:25和尾盘14:57-15:00规则与连续竞价不同，信号执行需区分
-4. **跨市场假期**：A股春节休市约10天，期间港美股和加密市场正常交易，需处理信号中断
-5. **监管风险溢价**：加密市场政策不确定性本身是风险因子，应在策略中纳入
-6. **券商差异**：不同券商的佣金率、融券费率、系统延迟差异显著，回测参数应取保守值
+- Cổ tức cổ phiếu Mỹ: khấu trừ tại nguồn 30% nếu không có/không nộp W-8BEN (VN chưa có hiệp định thuế song phương ưu đãi rộng với Mỹ như nhiều nước) → kiểm tra điều kiện thực tế của nền tảng.
+- Lãi vốn nước ngoài & quy đổi VND: tuân thủ quy định quản lý ngoại hối; nền tảng đầu tư quốc tế tại VN còn hạn chế pháp lý → nêu rõ cảnh báo tuân thủ khi tư vấn.
 
-## 依赖
+## Lưu ý quan trọng
+
+1. **Quy tắc thay đổi theo thời điểm**: T+3→T+2 (2022), quy định margin/danh sách ký quỹ cập nhật định kỳ; backtest theo đúng quy tắc của giai đoạn lịch sử.
+2. **Trần/sàn chặn lệnh** là sai lệch backtest lớn nhất ở VN — chiến lược quay vòng cao/đu trần phải mô hình hóa chuỗi không khớp.
+3. **Vòng xoáy giải chấp margin**: rủi ro hệ thống khi giảm mạnh; cổ phiếu đòn bẩy cao dễ "đạp sàn" liên phiên — đưa vào quản trị rủi ro.
+4. **Không bán khống**: mọi tín hiệu short cổ phiếu phải chuyển sang VN30F hoặc bỏ; đừng để backtest "ăn gian" phần short.
+5. **Phiên đặc biệt**: ATO/ATC và phiên sau giờ khác khớp lệnh liên tục — chiến lược theo giá mở/đóng cần phân biệt.
+6. **Chi phí thuế trên giá trị bán**: 0,1% đánh cả khi lỗ → tần suất cao bị bào; tính vào net return.
+
+## Phụ thuộc
 
 ```bash
 pip install pandas numpy
