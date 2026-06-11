@@ -46,6 +46,10 @@ agents:
       - EM assets: US rate direction drives EM capital flows
 
       Use load_skill for macro analysis and global macro frameworks.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, global-macro, credit-analysis]
     max_iterations: 50
@@ -91,6 +95,10 @@ agents:
       - EM FX risk assessment: which EM currencies are vulnerable to USD strength?
 
       Use load_skill for global macro and commodity analysis (commodity currencies).
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [global-macro, macro-analysis, yfinance]
     max_iterations: 50
@@ -130,6 +138,10 @@ agents:
       - Stagflation risk: favor gold, defensive equities; avoid cyclicals and bonds
 
       Use load_skill for commodity analysis frameworks.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [commodity-analysis, global-macro, seasonal]
     max_iterations: 50
@@ -182,6 +194,10 @@ agents:
       - Next scheduled review date / trigger for rebalancing
 
       Use load_skill for asset allocation and risk management frameworks.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest]
     skills: [asset-allocation, risk-analysis, hedging-strategy, strategy-generate]
     max_iterations: 50

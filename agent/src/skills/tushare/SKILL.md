@@ -286,3 +286,10 @@ print(df)
 | 114 | bo_weekly          | [电影周度票房](references/行业经济/TMT行业/电影周度票房.md)                                              | 行业经济,TMT行业                  | 获取周度票房数据                                                                                                                                                                                                                                                                                                     |
 | 265 | fund_sales_ratio   | [各渠道公募基金销售保有规模占比](references/财富管理/基金销售行业数据/各渠道公募基金销售保有规模占比.md) | 财富管理,基金销售行业数据         | 获取各渠道公募基金销售保有规模占比数据，年度更新                                                                                                                                                                                                                                                                     |
 | 266 | fund_sales_vol     | [销售机构公募基金销售保有规模](references/财富管理/基金销售行业数据/销售机构公募基金销售保有规模.md)     | 财富管理,基金销售行业数据         | 获取销售机构公募基金销售保有规模数据，本数据从2021年Q1开始公布，季度更新                                                                                                                                                                                                                                             |
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

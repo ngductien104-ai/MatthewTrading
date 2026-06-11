@@ -26,6 +26,10 @@ agents:
       5. **Bond-Floor Value Ranking** — Composite bond-floor score based on YTM, premium over floor, and credit quality; output Top 30 ranked list with scoring rationale
 
       Use load_skill("convertible-bond") for convertible bond analytical methodology; load_skill("fundamental-filter") to support credit assessment.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [convertible-bond, fundamental-filter, credit-analysis]
     max_iterations: 50
@@ -56,6 +60,10 @@ agents:
 
       Use load_skill("convertible-bond") for convertible equity analysis methodology; load_skill("technical-basic") for technical analysis; load_skill("valuation-model") for valuation.
       Use the factor_analysis tool for factor exposure analysis of underlying equities.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [convertible-bond, technical-basic, valuation-model]
     max_iterations: 50
@@ -86,6 +94,10 @@ agents:
 
       Use load_skill("options-strategy") for option analysis methodology; load_skill("volatility") for volatility analysis support; load_skill("convertible-bond") for convertible option pricing knowledge.
       Use the options_pricing tool for precise option pricing calculations.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, options_pricing]
     skills: [options-strategy, volatility, convertible-bond, options-payoff]
     max_iterations: 50
@@ -118,6 +130,10 @@ agents:
 
       Use load_skill("convertible-bond") to ensure the strategy is grounded in convertible market dynamics; load_skill("strategy-generate") for strategy code standards.
       Use the backtest tool to run historical backtests validating strategy robustness across different market environments.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest]
     skills: [convertible-bond, strategy-generate]
     max_iterations: 50

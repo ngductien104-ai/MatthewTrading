@@ -38,6 +38,10 @@ agents:
       - Long/short ratio (retail contrarian indicator)
 
       Use load_skill for funding rate analysis patterns and OKX data interfaces.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [perp-funding-basis, okx-market, crypto-derivatives]
     max_iterations: 50
@@ -79,6 +83,10 @@ agents:
       - Time-of-day liquidity patterns (Asian / European / US session differences)
 
       Use load_skill for liquidation analysis and market microstructure patterns.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [liquidation-heatmap, market-microstructure, execution-model]
     max_iterations: 50
@@ -115,6 +123,10 @@ agents:
       - ETF flows (BTC/ETH spot ETFs): institutional allocation trend
 
       Use load_skill for stablecoin flow, on-chain analysis, and token unlock patterns.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [stablecoin-flow, onchain-analysis, token-unlock-treasury, defi-yield]
     max_iterations: 50
@@ -164,6 +176,10 @@ agents:
       - Next review time / trigger for position reassessment
 
       Use load_skill for risk analysis and asset allocation frameworks.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [risk-analysis, asset-allocation, volatility, hedging-strategy]
     max_iterations: 50

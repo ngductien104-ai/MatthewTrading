@@ -318,3 +318,10 @@ Before saving the output file:
 - ArrayManager source: `vnpy/app/cta_strategy/base.py`
 - Official docs: https://www.vnpy.com/docs/cn/cta_strategy.html
 - Example strategies (official): `vnpy/app/cta_strategy/strategies/`
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

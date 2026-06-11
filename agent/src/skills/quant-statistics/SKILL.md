@@ -448,3 +448,10 @@ Rules of thumb:
 5. **GARCH forecast horizon is limited**: volatility-forecast accuracy declines rapidly beyond 5-10 days
 6. **Be careful with small samples**: financial datasets may look large, but the number of independent observations can still be small (for example, annual data)
 7. **p-hacking risk**: do not keep adjusting until p<0.05; predefine the testing plan
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

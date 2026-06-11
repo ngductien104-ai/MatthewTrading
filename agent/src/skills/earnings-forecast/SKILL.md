@@ -197,3 +197,10 @@ config = {
 - **Kế hoạch LN ĐHCĐ + consensus/báo cáo phân tích → firecrawl/`web-reader`**: nghị quyết ĐHCĐ, báo cáo SSI/HSC/VCSC/VND, Vietstock, Wichart/FiinPro (consensus + ngày công bố KQKD).
 - **issue_share → `Company.overview().issue_share`** (không suy từ EPS).
 - ⚠️ vnstock cho EPS THỰC, KHÔNG cho consensus dự phóng — phần kỳ vọng phải lấy từ báo cáo phân tích/KH ĐHCĐ.
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

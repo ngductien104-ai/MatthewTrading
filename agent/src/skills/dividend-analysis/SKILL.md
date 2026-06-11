@@ -165,3 +165,10 @@ Khi không có dữ liệu trực tiếp: nêu hạn chế và đưa khung phân
 - Bỏ qua **thuế TNCN 5%** và điều chỉnh giá ngày GDKHQ khi tính "bắt cổ tức".
 - So tỷ lệ chi trả ngân hàng (bị NHNN ràng buộc) với DN sản xuất thông thường.
 - Khuyến nghị cổ phiếu cổ tức mà không bàn tổng lợi nhuận & rủi ro cắt cổ tức.
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

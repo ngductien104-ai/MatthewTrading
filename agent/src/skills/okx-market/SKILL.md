@@ -68,3 +68,10 @@ print(f"BTC last price: {data['last']}  24h change: {float(data['last'])/float(d
 | 11 | /public/price-limit | [Price Limit](references/合约行情/限价.md) | Derivatives Market | Retrieve the current maximum and minimum price limits for derivatives |
 | 12 | /market/index-tickers | [Index Tickers](references/指数行情/指数行情.md) | Index Market | Retrieve index price market data |
 | 13 | /market/index-candles | [Index Candles](references/指数行情/指数K线.md) | Index Market | Retrieve index candlestick data |
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

@@ -47,6 +47,10 @@ agents:
       7. **Gray rhinos & black swans** — 2–3 major underpriced global risks
 
       Ground analysis in latest data; prefer read_url for timeliness.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [global-macro, web-reader, geopolitical-risk]
     max_iterations: 50
@@ -98,6 +102,10 @@ agents:
       7. **Policy surprise scenarios** — Upside/downside policy shock and elasticity of {market}
 
       Prefer fresh macro data via Tushare patterns; every judgment needs a data hook.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, tushare]
     max_iterations: 50
@@ -149,6 +157,10 @@ agents:
       7. **Policy watch-list** — Over {horizon}, signals and key meetings to track
 
       Prefer read_url with specific policy names and document references.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [regulatory-knowledge, sector-rotation, web-reader]
     max_iterations: 50
@@ -195,6 +207,10 @@ agents:
       7. **Monthly/quarterly playbook** — Staged actions (e.g., phase 1 build X; add on trigger Y)
 
       Use explicit numbers and dates; avoid vague “maybe”; attach confidence to each major call.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [asset-allocation, macro-analysis]
     max_iterations: 50

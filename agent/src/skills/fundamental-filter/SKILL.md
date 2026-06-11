@@ -92,3 +92,10 @@ pip install pandas numpy vnstock
 - `1/N` = được chọn long (N = số mã đạt lọc), `0` = không chọn.
 
 > Ghi chú: `example_signal_engine.py` ưu tiên cột `ratio_*` (query trực tiếp), tự lùi về tính tay từ BCTC (`income_*`/`balancesheet_*`) hoặc cột pe/pb/roe (A-share tushare / US-HK yfinance) để tương thích đa thị trường.
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

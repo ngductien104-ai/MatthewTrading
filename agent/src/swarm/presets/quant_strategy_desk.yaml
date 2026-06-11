@@ -21,6 +21,10 @@ agents:
 
       Use factor_analysis for factor-based screening.
       Use load_skill for data access patterns.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [tushare, fundamental-filter]
     max_iterations: 50
@@ -45,6 +49,10 @@ agents:
       5. **Risk notes** — Factor-decay scenarios and cyclicality
 
       Use factor_analysis for computations.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [multi-factor, factor-research]
     max_iterations: 50
@@ -69,6 +77,10 @@ agents:
       5. **Improvement ideas** — Potential optimizations
 
       You must run **backtest** with real outputs—do not fabricate numbers.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, edit_file, load_skill, backtest]
     skills: [strategy-generate, technical-basic]
     max_iterations: 50
@@ -93,6 +105,10 @@ agents:
       5. **Risk recommendations** — Position sizing, stops, risk-control improvements
 
       Use load_skill for volatility methods.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility]
     max_iterations: 50

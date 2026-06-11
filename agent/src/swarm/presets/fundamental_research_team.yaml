@@ -47,6 +47,10 @@ agents:
       4. **Key Financial Metrics Table** — ROE / ROIC / gross margin / net margin / FCF margin / debt ratio and other core metrics, 3-year trend
       5. **Improvement / Deterioration Signals** — Significant changes in the past 1–2 years, trend direction assessment
       6. **Peer Comparison** — Key financial metrics vs industry average / sector leaders
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [financial-statement, fundamental-filter, data-routing]
     max_iterations: 50
@@ -98,6 +102,10 @@ agents:
       4. **Historical Valuation Percentile** — Current P/E and P/B vs historical percentile, interpreted alongside fundamental changes
       5. **Target Price Calculation** — Weighted multi-method target price with 12-month upside/downside range
       6. **Valuation Catalysts** — 3–5 positive and negative catalysts that could drive re-rating
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [valuation-model, earnings-forecast, data-routing]
     max_iterations: 50
@@ -150,6 +158,10 @@ agents:
       4. **Competitive Landscape Analysis** — Current market position, market share trend, primary competitive threats
       5. **Moat Change Signals** — Whether the moat has strengthened or eroded in the past 1–2 years, with specific evidence
       6. **Long-Term Holding Viability Conclusion** — Based on moat + management + competitive landscape: "Recommended for long-term hold / medium-term hold / not suitable for long-term"
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [fundamental-filter, web-reader]
     max_iterations: 50
@@ -184,6 +196,10 @@ agents:
       5. **Moat and Growth Summary** — Integrate quality analyst conclusions, assessing long-term investment value
       6. **Key Risk Factors** — Aggregate risks from all three dimensions, ranked by severity; each risk with estimated impact magnitude
       7. **Catalysts and Time Windows** — Potential positive/negative catalysts in the next 3–6 months to help identify optimal entry timing
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [report-generate]
     max_iterations: 50

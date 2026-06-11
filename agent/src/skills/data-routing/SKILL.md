@@ -14,13 +14,18 @@ description: Data source selection decision tree. Load this skill BEFORE any bac
 | okx | Crypto (OKX exchange) | No | Needs okx.com access | okx-market |
 | ccxt | Crypto (100+ exchanges) | No | Needs exchange access | ccxt |
 | datapro | **Vietnam equities** (HOSE/HNX/UPCOM) — OHLCV, foreign flow | No (localhost) | Needs DataPro desktop on `localhost:6789` | — |
-| vnstock | **Vietnam fundamentals** (income/balancesheet/cashflow) | No | Needs internet | — |
+| vnstock | **Vietnam equities** — OHLCV (internet, no desktop) + fundamentals (income/balancesheet/cashflow) | No | Needs internet | — |
 
-> **Vietnam (HOSE/HNX/UPCOM):** use `source: "datapro"` for price and write
-> symbols with a `.VN` suffix (e.g. `VCB.VN`, `FPT.VN`). The runner then applies
-> VN trading rules (T+2, ±7/10/15% bands, no short) and auto-attaches vnstock
-> financial statements when `fundamental_fields` is set. This is the DEFAULT
-> choice for any Vietnamese stock.
+> **Vietnam (HOSE/HNX/UPCOM):** write symbols with a `.VN` suffix (e.g.
+> `VCB.VN`, `FPT.VN`) and the runner applies VN trading rules (T+2, ±7/10/15%
+> bands, no short) and auto-attaches vnstock financial statements when
+> `fundamental_fields` is set. Two price sources back this market:
+> `datapro` (preferred — richest bars incl. foreign flow + the official
+> reference price, but needs the DataPro desktop on `localhost:6789`) and
+> `vnstock` (internet, no desktop; reference price approximated from the prior
+> close). With `source: "auto"` the runner uses DataPro when its desktop is up
+> and **falls back to vnstock automatically** otherwise, so VN data loads with
+> zero setup. This is the DEFAULT choice for any Vietnamese stock.
 
 ## Decision Tree
 
@@ -35,7 +40,7 @@ You do NOT need to specify a concrete data source in config.json unless the user
 1. Identify the market type from the user's request
 2. Pick the source by priority:
 
-**Vietnam stocks (HOSE/HNX/UPCOM)**: datapro (price) + vnstock (fundamentals) — always; write symbols as `TICKER.VN`
+**Vietnam stocks (HOSE/HNX/UPCOM)**: datapro (price, if DataPro desktop up) > vnstock (price, internet fallback) + vnstock (fundamentals) — always; write symbols as `TICKER.VN`
 **A-shares**: tushare (if TUSHARE_TOKEN is set) > akshare (free fallback)
 **US stocks**: yfinance > akshare
 **HK stocks**: yfinance > akshare
@@ -50,7 +55,7 @@ You do NOT need to specify a concrete data source in config.json unless the user
 
 - **tushare**: check if `TUSHARE_TOKEN` environment variable exists
 - **datapro**: requires the DataPro desktop app running with its API on `localhost:6789` (set `DATAPRO_URL` / `DATAPRO_API_KEY` for a remote host)
-- **vnstock**: free; needs internet (community tier returns ~4 most-recent annual periods)
+- **vnstock**: free; needs internet. Serves VN **price** (OHLCV — the fallback when DataPro's desktop is off; set `VNSTOCK_PRICE_SOURCE` to `vci`/`kbs`, default `vci`) and **fundamentals** (community tier returns ~4 most-recent annual periods)
 - **yfinance / okx / ccxt / akshare**: free but may have network restrictions
 - If the user reports "connection timeout" or "cannot access", switch to the same-market fallback
 
@@ -79,3 +84,10 @@ User requests 000001.SZ (A-share)
 ```
 
 This is transparent to the user — they just see results.
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

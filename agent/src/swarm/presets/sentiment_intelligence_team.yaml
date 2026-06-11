@@ -27,6 +27,10 @@ agents:
       6. **Tail-risk news** — items that could crater sentiment (geo / financial-system / black-swan watch)
 
       Use load_skill("web-reader"), load_skill("sentiment-analysis"), read_url.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [web-reader, sentiment-analysis, social-media-intelligence]
     max_iterations: 50
@@ -57,6 +61,10 @@ agents:
       6. **Retail flow inflection** — forecast when retail flows may turn within {timeframe}
 
       Use load_skill("behavioral-finance"), load_skill("sentiment-analysis"), read_url.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [behavioral-finance, sentiment-analysis, social-media-intelligence]
     max_iterations: 50
@@ -87,6 +95,10 @@ agents:
       6. **Reliability caveats** — lags, data limits, misread risks
 
       Use load_skill("tushare"), load_skill("sentiment-analysis").
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [tushare, sentiment-analysis]
     max_iterations: 50
@@ -119,6 +131,10 @@ agents:
       6. **Limitations** — when sentiment fails in trends; blend with fundamentals; key uncertainties
 
       Use load_skill("behavioral-finance"), load_skill("risk-analysis").
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [behavioral-finance, risk-analysis]
     max_iterations: 50

@@ -21,6 +21,10 @@ agents:
       5. **Drawdown alert** — Estimated drawdown probability based on volatility and trend; note that the **±7% HOSE daily band can chain into multi-day limit-down sequences** in stress (hard to exit)
 
       Use load_skill for data access (DataPro `.VN`) and volatility methods. Benchmark = VN-Index.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility, data-routing]
     max_iterations: 50
@@ -45,6 +49,10 @@ agents:
       5. **Protection ideas** — VN-available hedges: **VN30 index futures (VN30F)** for the large-cap sleeve, raising cash, trimming low-liquidity names (note: no retail short selling / no equity options in VN)
 
       Use load_skill for vol analytics and statistical methods (DataPro `.VN`).
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility, data-routing]
     max_iterations: 50
@@ -69,6 +77,10 @@ agents:
       5. **Forward look** — 1–3 month path probabilities under a regime framework
 
       Use load_skill for technical and volatility methods (DataPro `.VN`).
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility, technical-basic, data-routing]
     max_iterations: 50
@@ -95,6 +107,10 @@ agents:
       6. **Action items** — Clear guidance on sizing, stops, and hedges
 
       Conclusions must be data-grounded and actionable.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file]
     skills: []
     max_iterations: 50

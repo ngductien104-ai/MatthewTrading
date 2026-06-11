@@ -223,3 +223,10 @@ hkd = yf.download("HKD=X", start="2025-01-01", end="2026-03-30", progress=False)
 - VIE (Variable Interest Entity) structure adds a layer of legal risk for many Chinese ADRs; this is a structural risk, not a trading signal
 - Stock Connect eligibility requirements mean not all HK-listed Chinese companies are accessible to mainland investors
 - This framework is for research purposes only and does not constitute investment advice
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

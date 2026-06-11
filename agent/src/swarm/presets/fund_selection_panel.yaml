@@ -43,6 +43,10 @@ agents:
       Use load_skill("fundamental-filter") to inspect the quality of underlying holdings (ROE/PE/PB via vnstock KBS) where useful.
       Use load_skill("data-routing") to route data sources correctly (vnstock Fund vs DataPro).
       Use the factor_analysis tool for factor-based analysis of fund historical NAV performance. Do not fabricate AUM, manager, or NAV figures.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [fund-analysis, fundamental-filter, data-routing]
     max_iterations: 50
@@ -86,6 +90,10 @@ agents:
       Use load_skill("performance-attribution") for the alpha-beta / Treynor–Mazuy / capture / rolling-style framework.
       Use load_skill("fund-analysis") for the VN returns-based style-regression recipe, NAV retrieval, and the style-index set.
       Use the factor_analysis tool for the actual regression / factor-exposure calculations. Benchmark = VN-Index / VN30 (not CSI300).
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [performance-attribution, fund-analysis]
     max_iterations: 50
@@ -128,6 +136,10 @@ agents:
       Use load_skill("correlation-analysis") for the fund correlation matrix and redundancy detection.
       Use load_skill("strategy-generate") for portfolio backtest coding standards.
       Always use the backtest tool on NAV history (including tiered redemption fee + 0.1% sell tax) to verify performance; do not fabricate data.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest]
     skills: [asset-allocation, risk-analysis, correlation-analysis, strategy-generate]
     max_iterations: 50

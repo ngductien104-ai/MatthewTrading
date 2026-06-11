@@ -22,6 +22,10 @@ agents:
       5. **Conclusion for {market}** — bullish / bearish / neutral rationale
 
       Use load_skill to access data query methods; prioritize tools to obtain the latest VN data to support the analysis.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, global-macro, web-reader, data-routing]
     max_iterations: 50
@@ -47,6 +51,10 @@ agents:
       5. **Recommended Sectors & Rationale** — explicitly recommend 2–3 sectors with suggested allocation weights
 
       Use the factor_analysis tool for factor-based analysis to support judgments.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [sector-rotation, fundamental-filter, data-routing]
     max_iterations: 50
@@ -73,6 +81,10 @@ agents:
 
       Always use load_skill("strategy-generate") for strategy-writing standards.
       Use the backtest tool to validate selection logic on DataPro `.VN` prices, including the 0.1% sell tax + ~0.15% commission. Benchmark = VN-Index / VN30.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest, factor_analysis]
     skills: [strategy-generate, technical-basic, fundamental-filter, earnings-revision, data-routing]
     max_iterations: 50
@@ -99,6 +111,10 @@ agents:
       6. **Action Recommendations** — clear position and timing guidance
 
       Ensure the report is internally consistent, data is traceable, and conclusions are logically supported. Close with a note that this is research, not investment advice.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file]
     skills: [report-generate]
     max_iterations: 50

@@ -1100,3 +1100,10 @@ pip install pandas numpy scipy statsmodels matplotlib seaborn
 6. **China A-share specifics**: China A-shares contain many non-trading days due to holidays and suspensions. Date alignment is especially important in cross-market comparison.
 7. **Multiple testing**: When testing N asset pairs simultaneously, use Benjamini-Hochberg FDR adjustment on p-values. Otherwise false positives will be excessive.
 8. **Kalman tuning**: Tune `delta` with grid search plus out-of-sample validation. Do not rely blindly on the default value.
+
+
+## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+- Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

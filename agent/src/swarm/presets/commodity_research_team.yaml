@@ -29,6 +29,10 @@ agents:
 
       Use load_skill("commodity-analysis") for commodity data and analysis frameworks.
       Use the read_url tool for the latest production, inventory, and policy announcement data.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [commodity-analysis, web-reader, geopolitical-risk]
     max_iterations: 50
@@ -62,6 +66,10 @@ agents:
       Use load_skill("commodity-analysis") for demand analysis methodology.
       Use load_skill("seasonal") for seasonality analysis tools and historical pattern database.
       Use load_skill("global-macro") for macroeconomic data interpretation framework.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [commodity-analysis, seasonal, global-macro]
     max_iterations: 50
@@ -97,6 +105,10 @@ agents:
 
       Use load_skill("strategy-generate") for strategy writing standards.
       Always use the backtest tool for historical scenario validation; never fabricate performance data.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest]
     skills: [commodity-analysis, seasonal, strategy-generate]
     max_iterations: 50

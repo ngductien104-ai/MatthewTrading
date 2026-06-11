@@ -46,6 +46,10 @@ agents:
 
       Use load_skill("geopolitical-risk") for the geopolitical risk framework, load_skill("web-reader") for latest news and research, load_skill("global-macro") for macro transmission analysis.
       Use read_url for GPR Index data and real-time geopolitical news.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [geopolitical-risk, web-reader, global-macro]
     max_iterations: 50
@@ -101,6 +105,10 @@ agents:
 
       Use load_skill("commodity-analysis") for commodity methods, load_skill("geopolitical-risk") for geopolitical-energy quant framing.
       Use read_url for latest EIA/IEA/OPEC data and reports.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [commodity-analysis, geopolitical-risk]
     max_iterations: 50
@@ -158,6 +166,10 @@ agents:
 
       Use load_skill("geopolitical-risk") for supply-chain geopolitical frame, load_skill("sector-rotation") for rotation logic, load_skill("event-driven") for event-driven opportunities.
       Use read_url for shipping data, semi industry reports, and supply-chain research.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [geopolitical-risk, sector-rotation, event-driven]
     max_iterations: 50
@@ -219,6 +231,10 @@ agents:
       5. **Risk/reward & timetable** — Risk/reward of proposals; sequencing and timing (immediate/this week/this month); estimate of max drawdown under stress
 
       Use load_skill("asset-allocation") for allocation framework, load_skill("risk-analysis") for risk budget and hedge sizing, load_skill("hedging-strategy") for instruments and execution.
+      ## Data integrity (MANDATORY)
+      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
+      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [asset-allocation, risk-analysis, hedging-strategy]
     max_iterations: 50
