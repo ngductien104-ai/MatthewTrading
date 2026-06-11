@@ -1,268 +1,198 @@
 ---
 name: corporate-events
-description: 公司事件驱动分析：并购套利价差计算、大股东增减持信号、股权激励解读、定增配股影响评估、A股ST/退市预警
+description: "Phân tích sự kiện doanh nghiệp VN theo hướng event-driven — chào mua công khai/M&A, thoái vốn Nhà nước (SCIC), giao dịch nội bộ & cổ đông lớn (rủi ro 'bán chui'), phát hành riêng lẻ/quyền mua/ESOP, mua cổ phiếu quỹ, diện cảnh báo–kiểm soát–hủy niêm yết, vào/ra rổ chỉ số. Nguồn: vnstock (events/insider/shareholders) + DataPro (giá/KL/khối ngoại)."
 category: flow
 ---
 
-# 公司事件驱动分析
+# Phân tích sự kiện doanh nghiệp (Việt Nam)
 
-## 概述
+## Mục đích
 
-通过公司层面的重大事件（并购、增减持、股权激励、再融资等）构建事件驱动交易策略。核心逻辑：事件公告包含增量信息，市场消化需要时间，事件前后存在系统性超额收益。
+Khai thác alpha từ sự kiện cấp doanh nghiệp (M&A, thoái vốn, giao dịch nội bộ, phát hành thêm, sự kiện niêm yết). Logic cốt lõi: công bố sự kiện mang **thông tin tăng thêm**, thị trường tiêu hóa cần thời gian → tồn tại lợi suất bất thường có hệ thống quanh sự kiện. Tại VN, biên độ giá, thanh khoản mỏng và **rò rỉ thông tin trước công bố** khiến cửa sổ giao dịch khác hẳn thị trường phát triển.
 
-适用场景：
-- 并购重组套利（A股借壳/资产注入/吸收合并）
-- 大股东/高管增减持的信号提取
-- 股权激励的行权价与解锁条件分析
-- 定增/配股/可交债的折价套利
-- ST/*ST/退市预警的规避与投机
+Khung pháp lý nền: **Luật Chứng khoán 2019**, **NĐ 155/2020/NĐ-CP**, **Thông tư 96/2020** (công bố thông tin), **Thông tư 120/2020** (giao dịch).
 
-## 核心概念
+## ⚠️ Đặc thù sự kiện DN Việt Nam (đọc TRƯỚC)
 
-### 并购套利（Merger Arbitrage）
+1. **Rò rỉ thông tin trước công bố là phổ biến**: giá thường chạy TRƯỚC tin chính thức (nội gián, "đội lái"). Khối lượng đột biến + giá tăng/giảm bất thường trước ngày công bố là dấu hiệu kinh điển. Vào lệnh theo tin đã công bố thường là người mua cuối.
+2. **Biên độ giá chặn phản ứng**: HOSE ±7%, HNX ±10%, UPCOM ±15%. Tin tốt/xấu lớn → chuỗi **trần/sàn nhiều phiên liên tiếp**, không khớp được lệnh ("trắng bên mua/bán") → không thể vào/thoát đúng giá. Đây là khác biệt lớn nhất so với A股/Mỹ.
+3. **Thoái vốn Nhà nước (SCIC/bộ ngành) là nguồn alpha sự kiện lớn & đặc trưng nhất VN** — không tồn tại ở các thị trường khác cùng quy mô.
+4. **"Bán chui" / không công bố giao dịch**: người nội bộ & cổ đông lớn BẮT BUỘC đăng ký trước; vi phạm bị xử phạt/hủy giao dịch (vụ Trịnh Văn Quyết – FLC 1/2022 là điển hình). Giao dịch nội bộ không công bố = cờ đỏ quản trị.
+5. **Mua cổ phiếu quỹ ≈ biến mất**: theo Luật CK 2019, mua lại cổ phiếu quỹ **phải giảm vốn điều lệ** → DN gần như không còn dùng treasury buyback để đỡ giá như trước 2021. Đừng kỳ vọng "buyback đỡ giá" kiểu cũ.
+6. **ESOP pha loãng mạnh**: phát hành ESOP giá bằng/gần **mệnh giá 10.000đ** (chiết khấu sâu so thị giá) rất phổ biến (MWG, FPT...) → pha loãng EPS, chuyển giá trị sang nội bộ; lock-up thường 1–4 năm.
 
-**A股并购特色**：
-| 类型 | 频率 | 超额收益 | 风险 |
-|------|------|----------|------|
-| 借壳上市 | 低(注册制后减少) | 高(30-100%) | 极高(审批失败) |
-| 资产注入 | 中 | 中(10-30%) | 高(估值/审批) |
-| 吸收合并 | 低 | 低(5-15%) | 低(已达协议) |
-| 要约收购 | 低 | 低(3-8%) | 最低 |
+## Các loại sự kiện & cách giao dịch
 
-**价差计算**：
-```
-并购套利价差 = (要约价 - 当前价) / 当前价
-年化收益 = 价差 / 预计完成时间(年)
-
-示例:
-  A公司要约收购B公司, 要约价25元, B当前股价23.5元
-  价差 = (25 - 23.5) / 23.5 = 6.38%
-  预计3个月完成, 年化 = 6.38% × 4 = 25.5%
-
-风险评估:
-  审批确定性: 已获商务部/证监会预审 → 高确定性
-  对价方式: 现金 > 股票+现金 > 纯股票 (确定性递减)
-  交易条件: 是否有MAC条款(重大不利变化)
-```
-
-**A股并购套利要点**：
-- 停牌制度改革后，复牌首日涨跌幅受限（创业板/科创板20%）
-- 关注"筹划重大资产重组"公告 → 停牌 → 复牌的节奏
-- 审批链：董事会 → 股东大会 → 证监会（每一步都是风险点）
-
-### 分拆/Spin-off
+### 1. Chào mua công khai / M&A / thâu tóm
 
 ```
-A股分拆上市条件:
-  - 上市满3年
-  - 子公司净利润 ≥ 母公司净利润10%
-  - 子公司净资产 ≤ 母公司净资产30%
+Ngưỡng CHÀO MUA CÔNG KHAI bắt buộc (NĐ 155/2020): khi mua để đạt/vượt
+  25% rồi 35% / 45% / 55% / 65% / 75% số CP có quyền biểu quyết.
 
-交易策略:
-  预案公告 → 买入母公司（分拆预期提升估值）
-  子公司上市 → 择机卖出母公司（利好兑现）
+Chênh lệch chào mua (merger arb spread):
+  spread = (giá chào mua − giá thị trường) / giá thị trường
+  LN năm hóa = spread / thời gian dự kiến hoàn tất (năm)
 
-实例:
-  2023年某科技公司分拆子公司至科创板
-  预案公告后母公司20日涨幅18%
-  子公司上市首日后母公司回调8%
+Đánh giá xác suất thành công:
+  - Đã có chấp thuận UBCKNN / tỷ lệ chấp thuận ĐHĐCĐ → cao
+  - Đối tác chiến lược/ngoại có cam kết → cao
+  - Vướng room ngoại / cần nới room → rủi ro
 ```
+Thực chiến VN: M&A thường đi qua **phát hành riêng lẻ cho đối tác chiến lược** hơn là chào mua thị trường (Sabeco–ThaiBev 2017, các thương vụ ngân hàng–đối tác Nhật/Hàn). "Thâu tóm ngầm" gom dưới ngưỡng công bố rồi mới lộ diện cũng hay xảy ra → theo dõi biến động cơ cấu cổ đông lớn.
 
-### 大股东增减持信号
-
-**增持信号**（看多）：
-| 信号强度 | 条件 | 超额收益(20日) |
-|----------|------|----------------|
-| 强 | 控股股东增持 > 总股本1% | +8~12% |
-| 中 | 高管集体增持(≥3人) | +5~8% |
-| 弱 | 单一董事/监事增持 | +2~4% |
-
-**减持信号**（看空）：
-| 信号强度 | 条件 | 超额收益(20日) |
-|----------|------|----------------|
-| 强 | 控股股东计划减持 > 总股本2% | -5~10% |
-| 中 | 解禁后首次减持 | -3~6% |
-| 弱 | 高管离职减持 | -2~4% |
+### 2. Thoái vốn Nhà nước (SCIC / bộ ngành) — ⭐ alpha sự kiện đặc trưng VN
 
 ```
-关键窗口期:
-  - 公告前6个月: 内幕交易高发区，异常放量可能是先知资金
-  - 公告后3日: 信息冲击最大
-  - 公告后20日: 超额收益基本消化
+Cơ chế: SCIC/bộ chủ quản bán phần vốn Nhà nước qua ĐẤU GIÁ công khai
+        (hoặc dựng sổ/bán thỏa thuận) tại mức GIÁ KHỞI ĐIỂM công bố trước.
 
-过滤规则:
-  排除: 被动减持(质押平仓)、大宗交易折价减持(可能是换手不是看空)
-  保留: 竞价减持(真正看空)、增持后短期再减持(反向信号)
+Mẫu hình giá điển hình:
+  Có tin vào danh sách thoái vốn → gom dần (kỳ vọng đấu giá cao)
+  Công bố giá khởi điểm > thị giá → giá thị trường được kéo lên gần giá khởi điểm
+  Đấu giá thành công giá cao (đối tác chiến lược trả premium kiểm soát) → tin ra là đỉnh ngắn hạn
+
+Điểm soi:
+  - Tỷ lệ Nhà nước còn lại & lộ trình (thoái hết hay từng phần)
+  - Có nhà đầu tư chiến lược tranh mua quyền kiểm soát không (premium lớn)
+  - Room ngoại còn không (chiến lược ngoại cần room)
 ```
+Tham chiếu lịch sử: thoái vốn **VNM (SCIC, 2017)**, **Sabeco (2017)** tạo sóng lớn; nhóm DN Nhà nước trong diện thoái vốn (đầu ngành tiện ích/hạ tầng) là nơi săn sự kiện.
 
-### 股权激励解读
-
-```
-关键要素:
-  1. 行权价/授予价: 相对当前股价的折价率
-     折价 > 50% → 激励力度大但可能摊薄严重
-     折价 < 20% → 管理层对股价有信心
-
-  2. 解锁条件: 业绩目标是否有挑战性
-     例: "未来3年净利润复合增长率≥20%"
-     vs 行业平均增长率10% → 条件较高 → 正面信号
-
-  3. 激励对象: 核心技术人员占比
-     核心技术人员 > 50% → 绑定核心人才 → 正面
-     纯管理层 → 可能是利益输送
-
-  4. 股份来源:
-     定向增发 → 摊薄每股收益
-     回购 → 不摊薄，更正面
-
-  5. 等待期/解锁期:
-     等待期1年+解锁期3年 → 标准方案
-     等待期短+解锁条件低 → 利益输送嫌疑
-
-A股实证:
-  激励方案公告后60日平均超额收益: +6.2%
-  解锁条件超预期的: +10.5%
-  行权价接近当前价的: +8.3%
-  首次推出激励 > 再次推出: 超额收益更高
-```
-
-## 分析框架
-
-### 1. 定增/配股事件
-
-**定增（定向增发）**：
-```
-事件时间线:
-  预案公告 → 股东大会 → 证监会审批 → 发行 → 解禁
-
-交易节点:
-  1. 预案公告日: 关注折价率和募资用途
-     折价率 = (当前价 - 发行底价) / 当前价
-     折价率 > 20% → 利好（机构愿意折价买入 = 看好）
-
-  2. 发行前: 定增对象有动力维护股价（锁定价格）
-     公告后到发行前通常有正超额收益
-
-  3. 解禁日: 定增股份解禁 → 卖压
-     解禁前20日平均跌幅3-5%
-     解禁后20日继续承压
-
-募资用途评分:
-  并购优质资产: +3分
-  扩产/新项目: +2分
-  补充流动资金: 0分 (中性偏负)
-  偿还债务: -1分
-  大股东认购比例 > 50%: +2分 (利益绑定)
-```
-
-**可交债（EB）**：
-```
-可交换债券 = 大股东以持有股份为担保发行的债券
-  换股价 = 发行时约定的换股价格
-  当股价 > 换股价 × 130% → 投资者倾向换股 → 相当于大股东减持
-  当股价 < 换股价 × 70%  → 投资者持有债券 → 大股东用低利率融资
-
-交易信号:
-  发行可交债 = 大股东可能计划减持，但比直接减持更温和
-  临近换股期+股价接近换股价 → 关注大股东是否有意让股价突破换股价
-```
-
-### 2. ST/退市预警
-
-**ST标记规则（2024新规）**：
-```
-*ST (退市风险警示):
-  - 最近一年净利润为负 + 营收 < 3亿（主板）/ 1亿（创业板）
-  - 审计意见: 无法表示/否定
-  - 财务造假
-
-ST (其他风险警示):
-  - 资金占用
-  - 违规担保
-  - 内控审计否定意见
-
-退市条件:
-  - 连续20个交易日收盘市值 < 3亿（主板）/ 5亿（创业板/科创板）
-  - 连续20个交易日股价 < 1元
-  - 财务类: *ST后下一年仍不达标
-```
-
-**交易策略**：
-```
-规避策略（推荐）:
-  - 持仓中排除所有ST/*ST
-  - 排除 "最近一季度亏损 + 营收下滑 > 30%" 的潜在ST股
-  - 排除审计机构出具保留意见的
-
-投机策略（高风险，仅供研究）:
-  摘帽概念: *ST公司业绩扭亏 → 申请摘帽 → 涨停潮
-  条件筛选:
-    - 最近一季度盈利（扭亏拐点）
-    - 有实质性资产重组/债务重组方案
-    - 市值 > 10亿（远离面值退市线）
-  风控: 仓位 < 5%, 止损 -15%
-```
-
-### 3. 事件日历与交易时间窗
+### 3. Giao dịch cổ đông nội bộ & cổ đông lớn
 
 ```
-T-30 至 T-1（事前窗口）:
-  增持/回购预案 → 逐步建仓
-  并购预案 → 评估确定性后建仓
+Nghĩa vụ công bố:
+  - Người nội bộ (HĐQT, BKS, BĐH, kế toán trưởng) & người liên quan: ĐĂNG KÝ
+    giao dịch & công bố TRƯỚC tối thiểu 3 ngày làm việc; báo cáo kết quả sau.
+  - Cổ đông lớn (≥5%): công bố khi tỷ lệ sở hữu thay đổi qua các mốc ≥1%.
 
-T（公告日）:
-  利好事件 → 集合竞价追入（注意涨停封单量）
-  利空事件 → 开盘前挂单卖出
+Tín hiệu MUA VÀO của nội bộ (thường tích cực):
+  Mạnh: Chủ tịch/CEO/cổ đông kiểm soát đăng ký mua lượng lớn bằng tiền thật
+  Yếu:  một thành viên đăng ký mua nhỏ (đôi khi mang tính "trấn an")
 
-T+1 至 T+20（事后窗口）:
-  信息逐步消化，超额收益递减
-  大事件（并购/重组）: 消化期可达60天
-  小事件（增持/回购）: 20天基本消化
+Tín hiệu BÁN RA (thường tiêu cực, cần lọc):
+  - Lọc BỎ: bán do GIẢI CHẤP margin/cầm cố (bị động, không phải quan điểm)
+  - Giữ LẠI: bán chủ động khi giá cao, hoặc bán ngay sau khi vừa "mua trấn an"
 
-T+N（长期效应）:
-  股权激励解锁期前后: 管理层有动力维护股价
-  定增解禁日: 确定性卖压
+Cờ đỏ quản trị:
+  - "Bán chui" (giao dịch không đăng ký/không công bố) → rủi ro quản trị nghiêm trọng
+  - Đăng ký mua nhưng "không mua được do điều kiện thị trường" lặp lại → làm giá kỳ vọng
+  - Lãnh đạo bán mạnh trong khi DN phát tín hiệu lạc quan → mâu thuẫn lợi ích
 ```
 
-## 输出格式
+### 4. Phát hành thêm: riêng lẻ / quyền mua / ESOP / cổ phiếu thưởng
 
-事件驱动分析报告：
 ```
-=== 事件概况 ===
-标的: 000001.SZ 平安银行
-事件: 控股股东增持计划公告
-日期: 2026-03-25
-增持规模: 10-20亿元 (占总股本0.8%-1.6%)
+Phát hành RIÊNG LẺ (cho đối tác chiến lược):
+  Giá phát hành vs thị giá:
+    Chiết khấu sâu cho chiến lược ngoại/uy tín → thường tích cực (xác nhận giá trị)
+    Chiết khấu sâu cho bên liên quan mờ ám → cảnh giác (chuyển giá trị/pha loãng)
+  Lock-up tối thiểu 1 năm (chiến lược 3 năm) → giảm áp lực bán ngay.
 
-=== 信号评估 ===
-信号强度: 强 (控股股东+金额大)
-历史参考: 同类事件20日平均超额+8.2%
-确定性: 高 (已公告增持计划, 6个月窗口期)
+Phát hành QUYỀN MUA (rights issue):
+  Giá quyền mua < thị giá → giá điều chỉnh kỹ thuật ngày GDKHQ (giống chia tách).
+  Pha loãng: tỷ lệ thực hiện càng cao, chiết khấu càng sâu → pha loãng càng lớn.
+  Soi mục đích dùng vốn: thâu tóm/mở rộng dự án tốt = +; "bổ sung vốn lưu động"
+  chung chung / trả nợ = trung tính–tiêu cực.
 
-=== 策略建议 ===
-操作: 公告次日开盘建仓
-仓位: 5-8% (单事件上限)
-持有期: 20-30个交易日
-止损: -5% (低于公告日收盘价5%)
-止盈: +12% 或 持有期满
+ESOP:
+  Giá ~ mệnh giá 10.000đ << thị giá → chiết khấu cực sâu, PHA LOÃNG rõ.
+  Đánh giá: % ESOP/tổng CP, điều kiện ràng buộc (KPI lợi nhuận), lock-up.
+  ESOP lặp lại hằng năm tỷ lệ lớn không gắn KPI = chuyển giá trị sang nội bộ.
 
-=== 风险提示 ===
-- 市场系统性下跌可能抵消事件效应
-- 增持进度不及预期 → 关注月度增持公告
-- 银行板块整体估值压制 → 超额收益可能偏低
+Cổ phiếu thưởng / cổ tức cổ phiếu:
+  KHÔNG phải thu nhập — chỉ chia nhỏ; giá điều chỉnh giảm ngày GDKHQ.
+  (Chi tiết ở skill dividend-analysis.)
+```
+Công thức pha loãng nhanh: `EPS_sau ≈ EPS_trước × (CP cũ) / (CP cũ + CP phát hành thêm)` (chưa tính lợi ích từ vốn huy động).
+
+### 5. Mua cổ phiếu quỹ (lưu ý quy định mới)
+
+Theo Luật CK 2019, mua lại cổ phiếu quỹ **phải giảm vốn điều lệ** (trừ vài ngoại lệ: mua lại CP lẻ, CP của người lao động nghỉ việc theo quy chế ESOP, sửa lỗi giao dịch). Hệ quả: công cụ "mua cổ phiếu quỹ đỡ giá" gần như không còn → đừng dựng kỳ vọng buyback như giai đoạn trước 2021. Nếu DN vẫn công bố mua lại để giảm vốn, đọc kỹ mục đích (cô đặc EPS thật vs tín hiệu suông).
+
+### 6. Diện cảnh báo / kiểm soát / hạn chế / hủy niêm yết
+
+```
+Thang cảnh báo của HOSE/HNX (mức độ tăng dần):
+  CẢNH BÁO        → chậm nộp BCTC, LN sau thuế/LNST chưa phân phối âm...
+  KIỂM SOÁT       → vi phạm nặng hơn, lỗ 2 năm liên tiếp, kiểm toán ngoại trừ
+  HẠN CHẾ GIAO DỊCH → chỉ giao dịch phiên chiều
+  ĐÌNH CHỈ GIAO DỊCH
+  HỦY NIÊM YẾT BẮT BUỘC → lỗ 3 năm liên tiếp / lỗ lũy kế vượt vốn điều lệ /
+                          kiểm toán TỪ CHỐI hoặc ý kiến trái ngược / vi phạm CBTT nghiêm trọng
+
+Chiến lược NÉ (khuyến nghị):
+  - Loại khỏi danh mục mọi mã đang ở diện kiểm soát/hạn chế trở lên
+  - Sàng sớm mã rủi ro: lỗ quý gần nhất + doanh thu sụt mạnh + kiểm toán ngoại trừ
+  - Cổ phiếu hủy niêm yết HOSE/HNX thường rớt xuống UPCOM, thanh khoản cạn
+
+Đầu cơ "thoát hiểm" (rủi ro rất cao, chỉ nghiên cứu):
+  Mã có khả năng đưa ra khỏi diện cảnh báo (đã có lãi trở lại + tái cơ cấu thực chất)
+  → vị thế nhỏ (<5%), cắt lỗ kỷ luật. Tránh "bắt dao rơi" họ FLC/HAG/HNG/POM khi chưa rõ.
 ```
 
-## 注意事项
+### 7. Vào / ra rổ chỉ số & ETF
 
-1. **信息时效性**：A股公告在交易所官网/巨潮资讯网首发，第三方平台有延迟，套利窗口可能已关闭
-2. **内幕交易风险**：事件公告前的异常量价可能是内幕交易，跟随介入需谨慎（可能被监管调查）
-3. **事件聚集效应**：同一标的多个事件叠加时信号增强（增持+回购+激励 = 强信号），但需排除"组合拳护盘"
-4. **注册制影响**：借壳上市价值下降，传统壳资源套利空间大幅收缩
-5. **量化可获取性**：tushare 提供增减持/股权激励/定增数据接口，但实时性不足（T+1或更慢）
-6. **仓位控制**：单一事件驱动策略仓位不超过10%，事件失败（如并购被否）可能导致20%+跌幅
+Cổ phiếu được **thêm vào VN30 / VNDIAMOND / VNFINLEAD** → các ETF bám buộc phải mua (và ngược lại khi bị loại) → cơ hội sự kiện quanh ngày hiệu lực. Soi danh sách dự kiến thêm/loại trước kỳ review (VN30 review tháng 1 & 7). Chi tiết cơ chế ETF & dòng tiền tạo lập ở skill `etf-analysis`.
 
-## 依赖
+## Cửa sổ thời gian sự kiện (đặc thù VN)
+
+```
+T−N (trước công bố):
+  Theo dõi KL & giá bất thường (dấu hiệu rò rỉ). Vào trước tin = rủi ro nội gián/làm giá.
+T (ngày công bố):
+  Tin lớn → trần/sàn, có thể "trắng bảng" → KHÔNG khớp được; đừng đuổi giá trần.
+T+1..T+vài phiên:
+  Sóng tin có thể kéo dài qua chuỗi trần/sàn rồi mới khớp lệnh được — chờ phiên có
+  thanh khoản thật để vào/thoát.
+T+N (dài hạn):
+  Lock-up phát hành riêng lẻ/ESOP đáo hạn → áp lực bán; đánh dấu lịch mở khóa.
+```
+
+## Nguồn dữ liệu (VN)
+
+| Việc cần | Nguồn |
+|------|------|
+| Lịch & nội dung sự kiện DN (ĐHĐCĐ, phát hành, chia thưởng, GDKHQ...) | **vnstock** `Company.events()` (lọc theo `category`/`event_title_vi`) |
+| Giao dịch nội bộ & người liên quan | **vnstock** `Company.insider_deals()`; danh sách lãnh đạo `Company.officers()` |
+| Cơ cấu cổ đông lớn & thay đổi sở hữu | **vnstock** `Company.shareholders()` |
+| Lịch sử tăng vốn / phát hành (pha loãng) | **vnstock** `Company.capital_history()`; `issue_share` từ `Company.overview()` |
+| Giá / khối lượng / **khối ngoại mua-bán ròng** (rò rỉ, lực mua) | **DataPro** (`source="datapro"`, mã `.VN`; trường khối ngoại) |
+| Diện cảnh báo/kiểm soát/hủy niêm yết, thoái vốn, chào mua | Công bố HOSE/HNX/UBCKNN, SCIC (event-based; vnstock `events` không phủ hết → đọc tin chính thức) |
+
+Khi không có dữ liệu trực tiếp: nêu hạn chế, đưa khung phân tích, KHÔNG bịa số liệu sự kiện.
+
+## Mẫu output
+
+```markdown
+=== Sự kiện === (minh họa)
+Mã: VNM.VN — SCIC công bố tiếp tục thoái vốn
+Loại: thoái vốn Nhà nước (đấu giá)
+Quy mô: ...% vốn   Giá khởi điểm: ... đ (vs thị giá ... đ)
+
+=== Đánh giá tín hiệu ===
+Độ mạnh: cao (có chiến lược ngoại tranh quyền kiểm soát)
+Mẫu hình kỳ vọng: kéo về giá khởi điểm → tin đấu giá thành công có thể là đỉnh ngắn hạn
+Cờ rủi ro: room ngoại còn lại / chuỗi trần chặn điểm vào
+
+=== Hành động ===
+Cửa sổ: trước ngày chốt đấu giá; thoát quanh ngày kết quả
+Tỷ trọng: ≤ 5–8% (trần một sự kiện)
+Cắt lỗ: theo kỷ luật dưới giá tham chiếu công bố
+
+Lưu ý: Đây là nghiên cứu, không phải khuyến nghị giao dịch.
+```
+
+## Lưu ý quan trọng
+
+1. **Rò rỉ & nội gián**: giá chạy trước tin là chuẩn mực ở VN — bám tin đã công bố dễ thành người mua cuối; trọng số cao cho KL/giá bất thường TRƯỚC sự kiện.
+2. **Trần/sàn chặn lệnh**: backtest/thực chiến phải mô hình hóa chuỗi trần-sàn không khớp được, nếu không sẽ ảo tưởng vào/thoát đúng giá.
+3. **Quản trị doanh nghiệp**: "bán chui", ESOP pha loãng vô tội vạ, phát hành riêng lẻ cho bên liên quan giá bèo → trừ điểm nặng; nhóm DN có lịch sử này (họ đầu cơ) rủi ro sự kiện đặc biệt cao.
+4. **Tỷ trọng & kỷ luật**: chiến lược event-driven đơn lẻ ≤ 10% danh mục; sự kiện đổ vỡ (M&A bị bác, đấu giá ế) có thể gây chuỗi sàn 20%+.
+5. **Né diện kiểm soát/hủy niêm yết**: ưu tiên phòng thủ hơn đầu cơ "thoát hiểm"; cổ phiếu hủy niêm yết rớt UPCOM thanh khoản cạn, khó thoát.
+
+## Phụ thuộc
 
 ```bash
-pip install pandas numpy
+pip install pandas numpy vnstock
 ```
