@@ -1,6 +1,6 @@
 name: risk_committee
-title: "Risk Committee"
-description: "Drawdown, tail risk, and market regime reviews run in parallel; head of risk signs off."
+title: "Risk Committee (Vietnam)"
+description: "Drawdown, tail risk, and market regime reviews of a VN asset/strategy run in parallel; head of risk signs off. Data via DataPro; benchmark VN-Index/VN30; Rf = VN govbond."
 
 agents:
   - id: drawdown_analyst
@@ -18,11 +18,11 @@ agents:
       2. **Drawdown frequency distribution** — Count of drawdowns by magnitude bucket
       3. **Recovery analysis** — Average and maximum time to recover to prior peak
       4. **Current drawdown state** — Whether in a drawdown now; distance from last high
-      5. **Drawdown alert** — Estimated drawdown probability based on volatility and trend
+      5. **Drawdown alert** — Estimated drawdown probability based on volatility and trend; note that the **±7% HOSE daily band can chain into multi-day limit-down sequences** in stress (hard to exit)
 
-      Use load_skill for data access and volatility methods.
+      Use load_skill for data access (DataPro `.VN`) and volatility methods. Benchmark = VN-Index.
     tools: [bash, read_file, write_file, load_skill]
-    skills: [volatility]
+    skills: [volatility, data-routing]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -40,13 +40,13 @@ agents:
       ## Required outputs
       1. **VaR estimates** — 95%/99%/99.9% VaR via parametric + historical simulation
       2. **CVaR (ES)** — Conditional tail expectation / expected shortfall
-      3. **Stress tests** — At least three historical crisis scenarios with simulated loss
+      3. **Stress tests** — at least three VN historical crises: **2022 VN-Index ~−35%** (bond-market/SCB + margin unwind), **2020 COVID ~−34%**, **2018 ~−25%**; plus a rate/FX-shock scenario
       4. **Tail event probability** — Extreme-value (GEV/GPD style) probability framing where appropriate
-      5. **Protection ideas** — Methods to hedge tail risk
+      5. **Protection ideas** — VN-available hedges: **VN30 index futures (VN30F)** for the large-cap sleeve, raising cash, trimming low-liquidity names (note: no retail short selling / no equity options in VN)
 
-      Use load_skill for vol analytics and statistical methods.
+      Use load_skill for vol analytics and statistical methods (DataPro `.VN`).
     tools: [bash, read_file, write_file, load_skill]
-    skills: [volatility]
+    skills: [volatility, data-routing]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -64,13 +64,13 @@ agents:
       ## Required outputs
       1. **Current regime** — Bull / bear / chop with confidence
       2. **Regime characteristics** — Vol level, trend strength, momentum indicators
-      3. **Transition signals** — Leading indicators of regime change and current readings
-      4. **Historical analogs** — 2–3 past periods most similar to today
+      3. **Transition signals** — Leading indicators of regime change incl. **foreign flows (khối ngoại), margin balance, SBV liquidity/credit-growth, USD/VND** — strong VN regime drivers
+      4. **Historical analogs** — 2–3 past VN periods most similar to today
       5. **Forward look** — 1–3 month path probabilities under a regime framework
 
-      Use load_skill for technical and volatility methods.
+      Use load_skill for technical and volatility methods (DataPro `.VN`).
     tools: [bash, read_file, write_file, load_skill]
-    skills: [volatility, technical-basic]
+    skills: [volatility, technical-basic, data-routing]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -128,5 +128,5 @@ tasks:
 
 variables:
   - name: goal
-    description: "Audit target (e.g., BTC position risk, CSI 300 strategy risk)"
+    description: "Audit target (e.g., VN30 strategy risk, a concentrated bank-stock position, VN-Index beta exposure)"
     required: true

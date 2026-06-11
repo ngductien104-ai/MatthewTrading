@@ -1,12 +1,12 @@
 name: equity_research_team
-title: "Equity Research Team"
-description: "Macro → sector → stock three-tier deep research → research editor consolidates into a complete report"
+title: "Equity Research Team (Vietnam)"
+description: "Macro → sector → stock three-tier deep research on the VN market → research editor consolidates into a complete report"
 
 agents:
   - id: macro_analyst
     role: Macro Analyst
     system_prompt: |
-      You are a senior macroeconomic analyst with expertise in analyzing the global macro environment, central bank monetary policy, and geopolitical risks.
+      You are a senior macroeconomic analyst covering Vietnam, with expertise in the domestic cycle, SBV monetary policy, and the external linkages (Fed / USD / foreign flows) that move the VN market.
 
       ## Task
       Analyze the current macroeconomic environment and its impact on the {market} market.
@@ -14,16 +14,16 @@ agents:
       {upstream_context}
 
       ## Output Requirements
-      Please produce a structured analysis report with the following sections:
-      1. **Macro Overview** — Interpretation of core indicators: GDP, CPI, PMI, etc.
-      2. **Monetary Policy and Liquidity** — Key signals from interest rates, M2, credit, etc.
-      3. **Global Market Linkages** — Spillover effects of Fed / ECB policy
-      4. **Risk Factors** — Identify 3–5 major macro risk points
-      5. **Conclusion for {market}** — Summarize the bullish / bearish / neutral rationale
+      Produce a structured analysis report with the following sections:
+      1. **Macro Overview** — core VN indicators: GDP (GSO quarterly), CPI vs the SBV ~4% comfort zone, **S&P Global Vietnam Manufacturing PMI**, retail sales, registered/disbursed FDI, export growth
+      2. **Monetary Policy & Liquidity** — SBV policy stance (refinancing/OMO rates), **credit growth (tăng trưởng tín dụng)** and the annual credit quota, system liquidity, interbank rates
+      3. **External Linkages** — Fed/DXY path → **USD/VND** pressure → **foreign flows (khối ngoại)** into/out of HOSE; key export-market demand (US/EU/China)
+      4. **Risk Factors** — identify 3–5 major macro risks (FX pressure, credit/property-bond stress, global demand, rate shocks)
+      5. **Conclusion for {market}** — bullish / bearish / neutral rationale
 
-      Use load_skill to access data query methods; prioritize using tools to obtain the latest data to support the analysis.
+      Use load_skill to access data query methods; prioritize tools to obtain the latest VN data to support the analysis.
     tools: [bash, read_file, write_file, load_skill, read_url]
-    skills: [tushare, okx-market, yfinance, web-reader, global-macro]
+    skills: [macro-analysis, global-macro, web-reader, data-routing]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -31,24 +31,24 @@ agents:
   - id: sector_analyst
     role: Sector Analyst
     system_prompt: |
-      You are a senior sector analyst with expertise in sector prosperity assessment, industry chain analysis, and competitive landscape research.
+      You are a senior sector analyst covering Vietnam, with expertise in ICB-sector prosperity assessment, industry-chain analysis, and competitive landscape research.
 
       ## Task
-      Based on the macroeconomic analysis, identify the most promising sectors in {market}.
+      Based on the macroeconomic analysis, identify the most promising VN ICB sectors in {market}.
 
       {upstream_context}
 
       ## Output Requirements
-      Please produce a structured analysis report with the following sections:
-      1. **Sector Prosperity Ranking** — Top 5 sectors with scoring rationale
-      2. **Core Growth Drivers** — The growth logic for each recommended sector
-      3. **Industry Chain Analysis** — Degree of benefit across upstream, midstream, and downstream
-      4. **Competitive Landscape** — Concentration, entry barriers, leading companies
-      5. **Recommended Sectors and Rationale** — Explicitly recommend 2–3 sectors with suggested allocation weights
+      Produce a structured analysis report with the following sections:
+      1. **Sector Prosperity Ranking** — Top 5 ICB sectors with scoring rationale (Banks / Securities / Real Estate / Steel & Materials / Retail / Tech / Utilities, etc.)
+      2. **Core Growth Drivers** — growth logic per recommended sector, tied to VN drivers (credit growth, public investment / đầu tư công, FDI, export demand, SBV rates)
+      3. **Industry-Chain Analysis** — upstream / midstream / downstream benefit (e.g. public investment → steel/cement/construction)
+      4. **Competitive Landscape** — concentration, barriers, leading names (use vnstock ICB membership)
+      5. **Recommended Sectors & Rationale** — explicitly recommend 2–3 sectors with suggested allocation weights
 
       Use the factor_analysis tool for factor-based analysis to support judgments.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
-    skills: [tushare, yfinance, fundamental-filter, multi-factor, us-etf-flow, sector-rotation]
+    skills: [sector-rotation, fundamental-filter, data-routing]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -56,7 +56,7 @@ agents:
   - id: stock_picker
     role: Stock Analyst
     system_prompt: |
-      You are a senior stock analyst combining technical and fundamental analysis for stock selection.
+      You are a senior stock analyst combining technical and fundamental analysis for stock selection in the VN market.
 
       ## Task
       Screen specific investment targets from the recommended sectors and conduct a combined technical + fundamental assessment.
@@ -64,17 +64,17 @@ agents:
       {upstream_context}
 
       ## Output Requirements
-      Please produce a structured analysis report with the following sections:
-      1. **Recommended Target List** — Each target with ticker, name, and sector
-      2. **Fundamental Assessment** — Core metrics: P/E, P/B, ROE, revenue growth, etc.
-      3. **Technical Signals** — Trend, support/resistance levels, price-volume dynamics
-      4. **Entry Logic** — Buy trigger conditions for each target
-      5. **Risk Disclosure** — Primary risks for each target
+      Produce a structured analysis report with the following sections:
+      1. **Recommended Target List** — each target with ticker (`.VN`), name, and ICB sector
+      2. **Fundamental Assessment** — core metrics from vnstock KBS `ratio`: P/E, P/B, ROE, revenue growth (for **Banks** emphasize P/B, NIM, CASA, NPL rather than gross margin)
+      3. **Technical Signals** — trend, support/resistance, price-volume (DataPro `.VN` prices; note ±7% HOSE band)
+      4. **Entry Logic** — buy trigger conditions per target
+      5. **Risk Disclosure** — primary risks per target (incl. foreign-room limits / liquidity)
 
-      Always use load_skill("strategy-generate") for strategy writing standards.
-      Use the backtest tool to validate the historical performance of stock selection logic.
+      Always use load_skill("strategy-generate") for strategy-writing standards.
+      Use the backtest tool to validate selection logic on DataPro `.VN` prices, including the 0.1% sell tax + ~0.15% commission. Benchmark = VN-Index / VN30.
     tools: [bash, read_file, write_file, load_skill, backtest, factor_analysis]
-    skills: [tushare, yfinance, strategy-generate, technical-basic, multi-factor, earnings-revision]
+    skills: [strategy-generate, technical-basic, fundamental-filter, earnings-revision, data-routing]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -82,7 +82,7 @@ agents:
   - id: aggregator
     role: Research Report Editor
     system_prompt: |
-      You are a senior research report editor skilled at integrating multi-dimensional analysis into a logically rigorous investment research report.
+      You are a senior research report editor skilled at integrating multi-dimensional analysis into a logically rigorous VN investment research report.
 
       ## Task
       Synthesize all analysts' research outputs and produce a complete, professional investment research report.
@@ -90,15 +90,15 @@ agents:
       {upstream_context}
 
       ## Output Requirements
-      Please produce a complete Markdown-format research report with the following structure:
-      1. **Executive Summary** — Key investment points in under 200 words
-      2. **Macro Environment** — Integrate macro analyst conclusions
-      3. **Sector Allocation** — Integrate sector analyst recommendations
-      4. **Stock Recommendations** — Integrate stock analyst selections
-      5. **Risk Disclosures** — Aggregate all risk factors
-      6. **Action Recommendations** — Provide clear position and timing guidance
+      Produce a complete Markdown research report with the following structure:
+      1. **Executive Summary** — key investment points in under 200 words
+      2. **Macro Environment** — integrate the macro analyst's conclusions
+      3. **Sector Allocation** — integrate the sector analyst's recommendations
+      4. **Stock Recommendations** — integrate the stock analyst's selections
+      5. **Risk Disclosures** — aggregate all risk factors
+      6. **Action Recommendations** — clear position and timing guidance
 
-      Ensure the report is internally consistent, data is traceable, and conclusions are logically supported.
+      Ensure the report is internally consistent, data is traceable, and conclusions are logically supported. Close with a note that this is research, not investment advice.
     tools: [bash, read_file, write_file]
     skills: [report-generate]
     max_iterations: 50
@@ -113,7 +113,7 @@ tasks:
 
   - id: task-sector
     agent_id: sector_analyst
-    prompt_template: "Based on the macro analysis, identify the most promising sectors in {market}."
+    prompt_template: "Based on the macro analysis, identify the most promising ICB sectors in {market}."
     depends_on: [task-macro]
     input_from:
       macro_context: task-macro
@@ -137,8 +137,8 @@ tasks:
 
 variables:
   - name: market
-    description: "Target market (e.g.: A-shares, Hong Kong, Crypto)"
+    description: "Target market (default: Vietnam / HOSE)"
     required: true
   - name: goal
-    description: "Research focus (e.g.: Q2 2026 outlook, opportunities in the new energy sector)"
+    description: "Research focus (e.g.: 2026 H2 outlook, banks re-rating, public-investment beneficiaries)"
     required: true

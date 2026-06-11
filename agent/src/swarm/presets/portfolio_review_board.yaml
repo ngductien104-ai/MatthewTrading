@@ -1,6 +1,6 @@
 name: portfolio_review_board
-title: "Portfolio Review Board"
-description: "Performance attribution, risk review, and execution quality in parallel; CIO synthesizes into rebalance decisions."
+title: "Portfolio Review Board (Vietnam)"
+description: "Performance attribution, risk review, and execution quality of a VN equity portfolio in parallel; CIO synthesizes into rebalance decisions. Benchmark VN-Index/VN30; data via DataPro + vnstock."
 
 agents:
   - id: attribution_analyst
@@ -13,13 +13,13 @@ agents:
 
       ## Attribution framework
 
-      ### Brinson attribution
-      - **Allocation effect**: P&L from sector/asset-class weights vs benchmark
+      ### Brinson attribution (feasible — this is a self-managed book with known holdings history)
+      - **Allocation effect**: P&L from **ICB-sector** weights vs benchmark (VN-Index / VN30 sector weights)
       - **Selection effect**: P&L from stock selection at given weights vs benchmark
       - **Interaction effect**: cross term of allocation and selection
 
       ### Factor attribution
-      - Decompose excess return into: market, size, value, momentum, quality, industry exposures
+      - Decompose excess return into: market (VN-Index), size (VN30 vs VNMIDCAP/VNSMALLCAP), value, momentum, quality, and the **banks/financials** exposure (dominant in VN)
       - Residual alpha: stock-specific alpha after removing all factor exposures
 
       ### Position-level contribution
@@ -33,9 +33,9 @@ agents:
       4. **Alpha quality** — Whether excess return is systematic alpha (persistent) vs luck; give a confidence score
       5. **Attribution diagnosis** — Whether the book’s core thesis worked this period; what was right/wrong; improvements for next cycle
 
-      Use load_skill("performance-attribution") for methodology, load_skill("multi-factor") for factor exposure; factor_analysis for quant factor attribution.
+      Use load_skill("performance-attribution") for methodology, load_skill("factor-research") for VN factor exposure; factor_analysis for quant factor attribution. Benchmark = VN-Index / VN30.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
-    skills: [performance-attribution, multi-factor]
+    skills: [performance-attribution, factor-research]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -61,14 +61,15 @@ agents:
       - Industry active weight vs benchmark
 
       ### Liquidity risk
-      - Share of small-cap / low-ADV names
-      - Estimated days to liquidate (multiple of average daily volume)
+      - Share of small-cap / low-ADV names (DataPro volume)
+      - Estimated days to liquidate (multiple of average daily volume); **±7% HOSE band can trap exits in a one-way move (limit-down)**
+      - Foreign-room (room ngoại) constraints if any name needs re-buying
       - Liquidity stress under extreme scenarios
 
       ### Correlation & tail risk
-      - Change in average pairwise correlation vs prior period
+      - Change in average pairwise correlation vs prior period (VN equities cluster around the banks factor → correlations spike in stress)
       - Whether VaR/CVaR breaches historical thresholds
-      - Stress test: estimated loss if equity market falls 20%
+      - Stress test: estimated loss if VN-Index falls 20% (and a −35% scenario, per the 2022 drawdown)
 
       ## Required outputs
       1. **Concentration dashboard** — List names above 5%; top-10 / top-20 concentration; red/amber/green flags
@@ -94,10 +95,10 @@ agents:
 
       ## Execution quality framework
 
-      ### Cost analysis
-      - **Explicit costs**: commissions, stamp duty, transfer levies as % of traded notional
+      ### Cost analysis (VN)
+      - **Explicit costs**: brokerage commission (~0.15%), **0.1% transfer tax on the SELL side only** (no buy-side tax, no separate stamp duty in VN); custody fee
       - **Implicit costs (slippage)**: fill vs decision price / VWAP
-      - **Market impact**: estimated price impact of large orders
+      - **Market impact**: estimated price impact of large orders (thin VN small-cap books amplify this)
 
       ### Benchmark comparison
       - **VWAP slippage**: avg fill vs day VWAP (+/−)
@@ -109,8 +110,9 @@ agents:
       - Detect unproductive churn (round-trips that quickly reverse)
       - Turnover and trading cost drag on net returns
 
-      ### Timing quality
-      - Whether buy times-of-day show systematic bias
+      ### Timing quality (VN session structure)
+      - Whether buy times-of-day show systematic bias across the VN sessions: **ATO opening auction, continuous morning, lunch break (11:30–13:00), continuous afternoon, ATC closing auction**
+      - ATC-auction concentration risk (large prints at the close); T+2 settlement timing
       - Quality of rebalance timing (e.g., excessive cost in high-vol windows)
 
       ## Required outputs
@@ -146,10 +148,10 @@ agents:
       - **Exit**: thesis disproved, unacceptable risk, or execution costs eroding returns
       - **New**: identified gap; opportunity complements existing book
 
-      ### Rebalancing timing
+      ### Rebalancing timing (VN)
       - Optimal rebalance window given trend/chop/high-vol regime
       - Triggers: time-based vs threshold-based
-      - Prioritized execution sequence
+      - Prioritized execution sequence; account for the **0.1% sell tax**, T+2 settlement, foreign-room availability when adding, and small-cap liquidity
 
       ## Required outputs
       1. **Position action table** — Every line item: increase/hold/reduce/exit with magnitude and priority, table format
@@ -192,7 +194,7 @@ tasks:
 
 variables:
   - name: portfolio
-    description: "Portfolio name or description (e.g., value-growth blend, CSI 300 enhanced)"
+    description: "Portfolio name or description (e.g., VN30 large-cap blend, VN-Index enhanced)"
     required: true
   - name: review_period
     description: "Review cadence (monthly / quarterly)"
