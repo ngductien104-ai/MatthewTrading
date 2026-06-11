@@ -1,259 +1,154 @@
 ---
 name: convertible-bond
-description: A股可转债分析——转股/纯债/期权三维估值、下修/强赎/回售博弈、双低策略与转债轮动选债框架
+description: "Phân tích trái phiếu chuyển đổi (TPCĐ) tại VN — định giá 3 phần (giá trị trái phiếu thuần + giá trị chuyển đổi + quyền chọn), điều khoản chuyển đổi/chống pha loãng/mua lại, và tác động PHA LOÃNG lên cổ phiếu cơ sở. Lưu ý: VN không có thị trường TPCĐ niêm yết thanh khoản kiểu retail — chủ yếu phát hành riêng lẻ/offshore."
 category: asset-class
 ---
 
-# A股可转债分析
+# Phân tích trái phiếu chuyển đổi (Việt Nam)
 
-## 概述
+## ⚠️ Thực tế thị trường VN (đọc TRƯỚC)
 
-A股可转债是具有"债底保护+股票期权"特征的混合品种。本skill覆盖可转债三维估值、条款博弈分析、双低策略和轮动选债框架。
+TPCĐ ở VN **khác hẳn** thị trường 可转债 Trung Quốc hay convertibles Mỹ:
 
-## 可转债基础概念
+1. **Không có thị trường TPCĐ niêm yết thanh khoản cho NĐT lẻ.** Phần lớn TPCĐ Việt Nam là **phát hành riêng lẻ** cho đối tác chiến lược / tổ chức / NĐT chuyên nghiệp, hoặc **phát hành offshore** (niêm yết Singapore — vd các thương vụ quốc tế của VIC, MSN, NVL, HPG...).
+2. **KHÔNG áp dụng** các "trò chơi" retail của A股: chiến lược **song thấp (双低)**, xoay vòng TPCĐ T+0, đầu cơ điều khoản hạ giá chuyển đổi/mua lại bắt buộc/bán lại. Đừng bê khung đó vào VN.
+3. **Trọng tâm phân tích ở VN** vì vậy là: (a) **định giá một lô TPCĐ cụ thể** từ bản cáo bạch/điều khoản, và (b) đánh giá **tác động pha loãng & tín hiệu** lên **cổ phiếu cơ sở** — phần này hữu ích cho analyst cổ phiếu hơn là trader trái phiếu.
+4. Pháp lý phát hành: **Luật CK 2019, NĐ 155/2020** (chào bán ra công chúng/riêng lẻ), **NĐ 65/2022 & NĐ 08/2023** (trái phiếu DN riêng lẻ — NĐT chuyên nghiệp, xếp hạng tín nhiệm trong một số trường hợp). Xem thêm skill `credit-analysis`.
 
-### 核心要素
+## Khái niệm cốt lõi
 
-| 要素 | 说明 | 示例 |
-|------|------|------|
-| 面值 | 100元 | - |
-| 票面利率 | 递增，通常0.3%-2.0% | 第1年0.4%...第6年2.0% |
-| 转股价 | 转换成股票的价格 | 转股价15.00元 |
-| 到期期限 | 通常6年 | 2024-2030 |
-| 到期赎回价 | 面值+最后一年利息+补偿 | 110-115元 |
-| 回售条款 | 股价持续低于转股价70%可回售 | 连续30个交易日中30天<70% |
-| 强赎条款 | 股价持续高于转股价130%可强赎 | 连续30个交易日中15天>130% |
-| 下修条款 | 可以下调转股价 | 连续30个交易日中15天<85% |
+TPCĐ = trái phiếu mang đặc tính lai: **"sàn trái phiếu" (bảo vệ) + quyền chọn mua cổ phiếu**.
 
-### 关键指标
+| Yếu tố | Giải thích |
+|------|------|
+| Mệnh giá (F) | TPCĐ trong nước thường 100.000đ (đại chúng) / 100 triệu đ (riêng lẻ, NĐT chuyên nghiệp); offshore tính theo USD |
+| Lãi suất danh nghĩa | Thường thấp (có thể tăng dần - step-up); thấp hơn trái phiếu thường vì có quyền chọn |
+| Giá chuyển đổi | Giá quy đổi sang cổ phiếu (kèm điều khoản **chống pha loãng** khi chia tách/thưởng/phát hành thêm) |
+| Tỷ lệ chuyển đổi | = Mệnh giá / Giá chuyển đổi |
+| Kỳ hạn | Thường 2–5 năm |
+| Điều khoản mua lại (call) / bán lại (put) | Quyền của tổ chức phát hành / trái chủ theo điều kiện giá hoặc thời điểm |
 
 ```
-转股价值 = 面值 / 转股价 × 正股价格
-         = 100 / 15.00 × 18.00 = 120.00元
+Giá trị chuyển đổi = (Mệnh giá / Giá chuyển đổi) × Giá cổ phiếu cơ sở
+                   = Tỷ lệ chuyển đổi × Giá cổ phiếu
 
-转股溢价率 = (转债价格 - 转股价值) / 转股价值 × 100%
-           = (125 - 120) / 120 × 100% = 4.17%
-
-纯债价值 = Σ(票息 / (1+r)^t) + 到期赎回价 / (1+r)^n
-         ≈ 85-95元（取决于剩余期限和利率）
-
-纯债溢价率 = (转债价格 - 纯债价值) / 纯债价值 × 100%
+Phần bù chuyển đổi (%) = (Giá TPCĐ − Giá trị chuyển đổi) / Giá trị chuyển đổi
+Phần bù trái phiếu (%) = (Giá TPCĐ − Giá trị trái phiếu thuần) / Giá trị trái phiếu thuần
 ```
 
-## 三维估值体系
+## Định giá 3 phần (universal — áp dụng được mọi TPCĐ)
 
-### 1. 纯债价值（债底）
+### 1. Giá trị trái phiếu thuần (bond floor)
 
 ```python
-def bond_floor(coupon_rates: list, years_remaining: float,
-               redemption_price: float = 110, yield_rate: float = 0.03) -> float:
-    """
+def bond_floor(coupon_rates: list, face: float = 100,
+               redemption: float = 100, ytm_straight: float = 0.10) -> float:
+    """Giá trị trái phiếu thuần = chiết khấu dòng tiền coupon + giá mua lại đáo hạn.
+
     Args:
-        coupon_rates: 剩余各年票面利率列表，如 [0.8, 1.0, 1.5, 2.0]
-        years_remaining: 剩余年限
-        redemption_price: 到期赎回价
-        yield_rate: 折现率（同期信用债收益率，约2.5-4%）
+        coupon_rates: lãi suất từng năm còn lại (vd [0.05, 0.06, 0.07])
+        face: mệnh giá
+        redemption: giá hoàn trả khi đáo hạn (thường = mệnh giá, có thể + phụ trội)
+        ytm_straight: lợi suất chiết khấu = lợi suất trái phiếu thường CÙNG rủi ro/kỳ hạn
+                      (ở VN nhóm BĐS/đầu cơ có thể 12–15%+ → bond floor thấp)
     Returns:
-        纯债价值
+        Giá trị trái phiếu thuần
     """
-    pv = sum(c * 100 / (1 + yield_rate)**i for i, c in enumerate(coupon_rates, 1))
-    pv += redemption_price / (1 + yield_rate)**len(coupon_rates)
+    pv = sum(c * face / (1 + ytm_straight) ** i for i, c in enumerate(coupon_rates, 1))
+    pv += redemption / (1 + ytm_straight) ** len(coupon_rates)
     return pv
 ```
+- Bond floor cao → bảo vệ tốt, ít dư địa giảm. **Đặc thù VN**: tổ chức phát hành (nhất là BĐS) rủi ro tín dụng cao → lợi suất chiết khấu lớn → **sàn trái phiếu thấp & kém tin cậy** (rủi ro vỡ nợ thực sự, không chỉ lý thuyết). Bond floor chỉ có ý nghĩa nếu trái chủ thực sự đòi được nợ.
 
-**纯债价值含义**：
-- 纯债价值越高 → 债底保护越强 → 下跌空间有限
-- 通常纯债价值在 85-100 之间
-- 转债价格跌到纯债价值附近 = "债性转债"，安全但弹性小
-
-### 2. 转股价值（股性）
-
+### 2. Giá trị chuyển đổi (phần cổ phiếu)
 ```
-转股价值 = 100 / 转股价 × 正股当前价
-
-影响因子:
-- 正股价格（正相关）
-- 转股价（负相关）
-- 下修转股价 → 转股价值上升
+Giá trị chuyển đổi = Tỷ lệ chuyển đổi × Giá cổ phiếu cơ sở (DataPro, mã .VN)
+Yếu tố tác động: giá cổ phiếu (+), giá chuyển đổi (−, có điều chỉnh chống pha loãng).
 ```
 
-### 3. 期权价值
-
+### 3. Giá trị quyền chọn
 ```
-期权价值 = 转债价格 - max(纯债价值, 转股价值)
-
-期权价值高 → 市场看好正股上涨潜力 或 看好下修概率
-期权价值低/负 → 便宜（可能有机会）
+Giá trị quyền chọn = Giá TPCĐ − max(Bond floor, Giá trị chuyển đổi)
+Cao → thị trường định giá tiềm năng tăng của cổ phiếu / biến động lớn.
 ```
 
-### 三维判断矩阵
+### Ma trận phân loại
+| Giá trị chuyển đổi | Bond floor | Loại | Hàm ý |
+|------|------|------|------|
+| Cao (>> mệnh giá) | — | Thiên cổ phiếu | Đi theo cổ phiếu cơ sở; coi như nắm cổ phiếu có điều kiện |
+| ≈ mệnh giá | — | Cân bằng | Lai cân bằng; nhạy cả hai phía |
+| Thấp | Cao & ĐÁNG TIN | Thiên trái phiếu | Giữ ăn lãi, chờ cổ phiếu hồi |
+| Thấp | Thấp / không tin được | **Khốn khó** | Rủi ro tín dụng/vỡ nợ — vùng nguy hiểm nhất ở VN |
 
-| 转股价值 | 纯债价值 | 转债类型 | 策略 |
-|---------|---------|---------|------|
-| >120 | 不重要 | 偏股型 | 跟随正股，关注强赎风险 |
-| 100-120 | 不重要 | 平衡型 | 进可攻退可守，最佳区间 |
-| <100 | >90 | 偏债型 | 持有吃利息，等下修/正股反弹 |
-| <80 | <85 | 困境型 | 高风险，可能有信用风险 |
-
-## 条款博弈分析
-
-### 下修博弈
-
-**触发条件**：连续30个交易日中15天正股收盘价低于当期转股价的85%。
+## Phân tích tác động lên CỔ PHIẾU CƠ SỞ (phần hữu ích nhất cho VN)
 
 ```
-下修概率评估:
-1. 触发条件已满足/接近满足 → 高概率
-2. 大股东持有大量转债未转股 → 高概率（有动力下修）
-3. 公司即将面临回售 → 高概率（下修避免回售）
-4. 公司现金充裕、无还债压力 → 低概率（无动力下修）
-5. 转股会大幅稀释股权 → 低概率（控制权顾虑）
+Pha loãng tiềm năng khi chuyển đổi:
+  Số CP phát hành thêm = Tổng mệnh giá TPCĐ / Giá chuyển đổi
+  EPS pha loãng ≈ LNST / (CP hiện hữu + CP phát hành thêm khi chuyển đổi)
 
-下修后影响:
-- 转股价值 = 100 / 新转股价 × 正股价，通常瞬间上升
-- 转债价格通常上涨 5-15%
-- 但正股可能因稀释预期下跌
+Tín hiệu từ việc phát hành TPCĐ:
+  + Phát hành cho đối tác CHIẾN LƯỢC uy tín (ngoại/định chế lớn), giá chuyển đổi hợp lý,
+    mục đích M&A/mở rộng dự án tốt → xác nhận giá trị, vốn rẻ.
+  − Phát hành cho bên liên quan/mờ ám, giá chuyển đổi thấp, mục đích "đảo nợ"/bổ sung
+    vốn lưu động chung chung → pha loãng + cờ đỏ thanh khoản tổ chức phát hành.
+
+Điều khoản cần soi trong bản cáo bạch:
+  - Giá & cơ chế điều chỉnh chống pha loãng (anti-dilution)
+  - Lock-up của bên nhận chuyển đổi
+  - Call/put, lãi suất step-up, tài sản đảm bảo & bảo lãnh
 ```
 
-### 强赎博弈
-
-**触发条件**：连续30个交易日中15天正股收盘价高于转股价的130%。
-
-```
-强赎应对:
-1. 公告强赎 → 必须在赎回日前转股或卖出
-2. 赎回价通常 100.XX 元 → 远低于转股价值
-3. 不转股 = 巨亏（如转债价160元，赎回价100元）
-
-强赎信号:
-- 正股价持续>转股价130% → 数天数
-- 公司公告"不提前赎回" → 暂时安全
-- 转股进度已>90% → 可能不赎回
-```
-
-### 回售博弈
-
-**触发条件**：正股价连续30天低于转股价的70%（最后2个计息年度）。
-
-```
-回售 = 投资者有权以面值+利息卖回给公司
-
-公司应对:
-1. 下修转股价 → 避免回售
-2. 拉升股价 → 避免触发条件
-3. 接受回售 → 掏钱还债
-
-投资者策略:
-- 在回售期持有纯债价值附近的转债 → 下有回售保底
-- 下修预期 → 赚下修收益
-```
-
-## 双低策略
-
-### 策略逻辑
-
-```
-双低值 = 转债价格 + 转股溢价率 × 100
-
-双低值越低 → 价格低 + 溢价率低 → 性价比高
-
-筛选条件:
-1. 双低值 < 130（严格）或 < 150（宽松）
-2. 转债价格 < 115（安全）
-3. 转股溢价率 < 30%（弹性）
-4. 剩余期限 > 1年（避免到期压力）
-5. 信用评级 ≥ AA-（避免信用风险）
-```
-
-### 双低选债示例
+## Mẫu output
 
 ```markdown
-### 双低排名 Top 10
+## Phân tích TPCĐ: [Tổ chức phát hành / mã .VN cơ sở] (minh họa)
 
-| 排名 | 转债名 | 价格 | 溢价率 | 双低值 | 评级 | 剩余年限 |
-|------|--------|------|--------|--------|------|---------|
-| 1 | XX转债 | 105.2 | 12.3% | 117.5 | AA | 3.2年 |
-| 2 | YY转债 | 108.5 | 15.6% | 124.1 | AA | 2.8年 |
-| ... | ... | ... | ... | ... | ... | ... |
+### Điều khoản
+| Mục | Giá trị |
+|------|------|
+| Mệnh giá / kỳ hạn | ... / ... năm |
+| Lãi suất (step-up?) | ... |
+| Giá chuyển đổi | ... (vs thị giá ...) |
+| Tỷ lệ chuyển đổi | ... |
+| Call/Put / TSĐB / bảo lãnh | ... |
+
+### Định giá 3 phần
+- Bond floor: ... (chiết khấu theo lợi suất rủi ro tổ chức phát hành ...% — ĐỘ TIN?)
+- Giá trị chuyển đổi: ...
+- Giá trị quyền chọn: ...
+- Phân loại: thiên cổ phiếu / cân bằng / thiên trái phiếu / khốn khó
+
+### Tác động cổ phiếu cơ sở
+- Pha loãng tiềm năng: + ...% số CP → EPS pha loãng ...
+- Tín hiệu phát hành: [xác nhận giá trị / pha loãng-đảo nợ]
+
+### Nhận định
+Trọng tâm rủi ro ở VN là TÍN DỤNG tổ chức phát hành, không phải "trò" điều khoản. ...
+
+Lưu ý: Đây là nghiên cứu, không phải khuyến nghị đầu tư.
 ```
 
-### 双低策略回测框架
+## Lưu ý quan trọng
 
-```python
-class ConvertibleBondEngine:
-    """双低策略信号引擎"""
-    def generate(self, data_map):
-        # 每月末计算双低值
-        # 选 Top N 等权配置
-        # 下月初调仓
-        pass
+1. **Rủi ro tín dụng là trọng tâm ở VN**, không phải đầu cơ điều khoản. Sau khủng hoảng TPDN 2022 (Tân Hoàng Minh, Vạn Thịnh Phát), nhiều lô trái phiếu DN (nhất là BĐS) **vỡ nợ/giãn hoãn** — "sàn trái phiếu" có thể không đòi được. Phân tích tín dụng tổ chức phát hành TRƯỚC (xem `credit-analysis`).
+2. **Thanh khoản gần như không có** với TPCĐ riêng lẻ — không thể vào/ra như cổ phiếu; định giá mang tính nắm-đến-đáo-hạn/sự kiện chuyển đổi.
+3. **Điều khoản từng lô rất khác nhau** (chống pha loãng, call/put, TSĐB) → phải đọc bản cáo bạch từng lô, không suy diễn chung.
+4. **Đừng áp chiến lược song thấp/xoay vòng A股** — không tồn tại thị trường tương ứng ở VN.
+5. **Góc nhìn cổ phiếu**: với analyst cổ phiếu, giá trị lớn nhất của skill này là lượng hóa **pha loãng** và đọc **tín hiệu** từ đợt phát hành TPCĐ của DN.
+
+## Nguồn dữ liệu (VN)
+
+| Việc cần | Nguồn |
+|------|------|
+| Điều khoản TPCĐ (giá/tỷ lệ chuyển đổi, lãi suất, call/put, TSĐB) | Bản cáo bạch / nghị quyết ĐHĐCĐ / công bố thông tin tổ chức phát hành (nguồn ngoài) |
+| Giá cổ phiếu cơ sở (tính giá trị chuyển đổi) | **DataPro** (`source="datapro"`, mã `.VN`) |
+| Cơ bản & sức khỏe tín dụng tổ chức phát hành | **vnstock KBS** (`income`/`balancesheet`/`cashflow`, đòn bẩy, ICR) + skill `credit-analysis` |
+| Lịch sử tăng vốn / pha loãng | **vnstock** `Company.capital_history()` |
+| Thông tin trái phiếu DN (thứ cấp) | Hệ thống giao dịch TPDN riêng lẻ tập trung HNX (từ 2023), FiinPro (nguồn ngoài) |
+
+## Phụ thuộc
+
+```bash
+pip install pandas numpy vnstock
 ```
-
-**历史表现参考**（A股可转债）：
-- 年化收益：10-15%
-- 最大回撤：-8% ~ -15%
-- Sharpe：1.0-1.5
-- 关键风险：信用风险（小盘转债违约）
-
-## 转债轮动策略
-
-### 轮动维度
-
-| 维度 | 指标 | 信号 |
-|------|------|------|
-| 价格 | 转债价格 | <110超便宜, 110-120合理, >130偏贵 |
-| 弹性 | 转股溢价率 | <10%高弹性, 10-30%中等, >50%纯债 |
-| 安全 | 纯债价值/价格 | >0.9安全边际高 |
-| 下修 | 下修概率 | 大股东持仓+接近触发=高概率 |
-| 正股 | 正股动量 | 正股趋势向好=弹性来源 |
-
-### 轮动流程
-
-```
-1. 全市场筛选（剔除: 已退市/已公告强赎/评级<A+）
-2. 计算各维度得分
-3. 综合打分排名
-4. 选 Top 15-20 只等权配置
-5. 每月调仓一次
-```
-
-## 输出格式
-
-```markdown
-## 可转债分析: [转债名称/代码]
-
-### 基本信息
-| 指标 | 值 |
-|------|-----|
-| 当前价 | 112.50 |
-| 转股价值 | 98.30 |
-| 纯债价值 | 92.15 |
-| 转股溢价率 | 14.4% |
-| 纯债溢价率 | 22.1% |
-| 双低值 | 126.9 |
-| 剩余年限 | 3.5年 |
-| 评级 | AA |
-
-### 三维估值
-- **债底保护**: 纯债价值92.15, 下跌空间约18%有保护
-- **股性弹性**: 溢价率14.4%偏低, 正股上涨10%转债预计涨8%
-- **期权价值**: 转债价格-max(纯债,转股)=14.2, 合理
-
-### 条款博弈
-- **下修概率**: 中（正股距下修触发价还有12%空间）
-- **强赎风险**: 低（正股距强赎线还有35%）
-- **回售保护**: 尚未进入回售期
-
-### 投资建议
-双低值126.9，属于性价比区间。建议...
-```
-
-## 注意事项
-
-1. **信用风险是最大雷**：A股已出现可转债违约案例（搜特转债等），低评级转债谨慎
-2. **强赎倒计时要盯紧**：公告强赎后不转股/不卖出会巨亏，每天检查强赎公告
-3. **流动性风险**：小盘转债日成交额可能不足100万，大资金进出困难
-4. **条款差异**：每只转债条款细节不同（下修比例、强赎天数），必须逐只核查
-5. **到期不转股**：如果到期没转股，只拿回面值+利息（110左右），高价买入会亏
-6. **数据获取**：可转债数据需通过tushare的可转债接口获取，OHLCV数据可用标准接口
-7. **回测局限**：可转债回测需要转股价、强赎/回售信息等额外数据，比股票回测复杂
