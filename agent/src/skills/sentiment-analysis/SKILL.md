@@ -1,273 +1,154 @@
 ---
 name: sentiment-analysis
-description: 市场情绪分析——恐贪指数/Put-Call Ratio/融资融券/北向资金信号解读、社交媒体舆情量化框架
+description: "Phân tích tâm lý thị trường VN — định lượng tham–sợ qua khối ngoại mua/bán ròng, dư nợ margin toàn thị trường, số tài khoản mở mới, thanh khoản/độ rộng, basis phái sinh VN30F. Thị trường ~85–90% NĐT lẻ → dùng làm chỉ báo ngược ở vùng cực đoan. Nguồn: DataPro (khối ngoại/giá/KL) + VSD/CTCK (margin, tài khoản)."
 category: analysis
 ---
 
-# 市场情绪分析
+# Phân tích tâm lý thị trường (Việt Nam)
 
-## 概述
+## Mục đích
 
-量化市场情绪，将主观的"贪婪与恐惧"转化为可衡量的指标。覆盖恐贪指数、期权情绪、杠杆资金、外资流向和社交舆情五大维度。情绪指标常作为反向指标使用。
+Định lượng "tham lam & sợ hãi" thành chỉ tiêu đo được. TTCK VN do **NĐT lẻ chi phối (~85–90% giá trị khớp lệnh)** nên tâm lý đám đông biên độ rất lớn — chỉ báo tâm lý ở **vùng cực đoan** thường là **chỉ báo ngược** hiệu quả. Năm trục đặc thù VN: **khối ngoại, dư nợ margin, tài khoản mở mới, thanh khoản & độ rộng, phái sinh**.
 
-## 恐贪指数
+> Lưu ý: VN **không** có chỉ số Fear & Greed thống nhất, **không** có thị trường quyền chọn cổ phiếu để tính Put-Call Ratio chuẩn. Đừng bê nguyên khung Mỹ/Trung; dùng các đại lượng dưới đây.
 
-### 加密恐贪指数（Crypto Fear & Greed Index）
-
-```
-分值范围: 0-100
-
-| 分值 | 情绪状态 | 历史信号 |
-|------|---------|---------|
-| 0-20 | 极度恐惧 | 底部区域（逆向买入）|
-| 20-40 | 恐惧 | 偏底部 |
-| 40-60 | 中性 | 观望 |
-| 60-80 | 贪婪 | 偏顶部 |
-| 80-100 | 极度贪婪 | 顶部区域（逆向卖出）|
-
-构成因子:
-- 波动率 (25%): BTC 30天/90天波动率
-- 市场动量 (25%): BTC价格 vs MA(30/90)
-- 社交媒体 (15%): Twitter/Reddit情绪词频
-- 调查 (15%): 投资者调查
-- 比特币市占率 (10%): BTC Dominance
-- Google趋势 (10%): "Bitcoin"搜索热度
-```
-
-### A股恐贪指标
-
-A股没有统一的恐贪指数，用以下组合替代：
-
-| 指标 | 数据源 | 极度恐惧 | 极度贪婪 |
-|------|--------|---------|---------|
-| 上证换手率 | 交易所 | <0.5% | >2.5% |
-| 涨停家数/跌停家数 | 行情数据 | <0.3 | >5.0 |
-| 新增开户数(周) | 中登 | <20万 | >100万 |
-| 融资余额变化(月) | 交易所 | 净流出>500亿 | 净流入>1000亿 |
-| ETF净申购 | 基金数据 | 宽基ETF净申购（抄底）| 净赎回（获利了结）|
-
-### 恐贪指数使用方法
+## 1. Khối ngoại (dòng tiền nước ngoài) — ⭐ trục được theo dõi nhất
 
 ```
-核心原则: 别人恐惧时贪婪，别人贪婪时恐惧
+Khối ngoại mua/bán ròng = giá trị nước ngoài mua − bán (theo mã & toàn thị trường).
+  Nguồn: DataPro (trường khối ngoại theo mã .VN).
 
-实操:
-1. 极度恐惧（<20）: 分批建仓信号
-   - 不要一次性全仓，分3-5批
-   - 确认有基本面支撑（不是暴雷导致的恐惧）
+Ý nghĩa:
+  - Bán ròng kéo dài (chuỗi tuần/tháng) → áp lực cung + tâm lý dè dặt (giai đoạn 2020–2023
+    khối ngoại bán ròng kỷ lục hàng tỷ USD, đè nhóm bluechip VN30).
+  - Mua ròng mạnh trở lại, đặc biệt vào bluechip/VNDIAMOND → xác nhận dòng vốn quay lại.
 
-2. 极度贪婪（>80）: 逐步减仓信号
-   - 不要做空（趋势可能持续）
-   - 减仓到安全水位（如从80%仓位降到50%）
-
-3. 中性区间: 情绪指标失效，看其他因素
+Cách dùng đúng:
+  - Xem LŨY KẾ tuần/tháng, bỏ nhiễu ngày lẻ.
+  - Tách dòng CHỦ ĐỘNG vs ETF (tạo lập E1VFVN30/FUEVFVND/Fubon/VanEck) — dòng ETF mang
+    tính phân bổ thụ động, không phải quan điểm chọn cổ phiếu (xem skill etf-analysis).
+  - Trọng số khối ngoại GIẢM dần khi lẻ áp đảo → không còn "tín hiệu thông minh" tuyệt đối
+    như giai đoạn trước; kết hợp với margin/thanh khoản.
 ```
 
-## Put-Call Ratio
-
-### 定义与解读
+## 2. Dư nợ margin toàn thị trường — đo đòn bẩy & hưng phấn
 
 ```
-Put-Call Ratio = Put期权成交量 / Call期权成交量
+Dư nợ margin (cho vay ký quỹ) toàn thị trường: tổng hợp từ BCTC quý các CTCK / số liệu VSD.
 
-| PCR | 含义 | 信号（反向指标）|
-|-----|------|----------------|
-| > 1.5 | 极度看空情绪 | 看多（恐惧过度）|
-| 1.0-1.5 | 偏空 | 偏多 |
-| 0.7-1.0 | 中性 | 无明确信号 |
-| 0.5-0.7 | 偏多 | 偏空 |
-| < 0.5 | 极度看多情绪 | 看空（贪婪过度）|
+Tín hiệu:
+  - Margin LẬP ĐỈNH lịch sử + margin/vốn hóa cao + margin chạm trần vốn chủ CTCK
+    → đòn bẩy căng, "hết dư địa bơm" → vùng rủi ro đỉnh (cuối 2021 margin kỷ lục → 2022 sập).
+  - Margin co mạnh sau call/force-sell → đã rũ đòn bẩy, gần vùng tạo đáy.
+
+Vòng xoáy giải chấp: thị trường giảm → call margin → force-sell → giá sàn → call thêm
+  (xem skill regulatory-knowledge). Khi nghe "căng margin", cảnh giác chuỗi sàn liên phiên.
 ```
 
-### 不同市场PCR参考
-
-| 市场 | 数据源 | 正常范围 | 极端区间 |
-|------|--------|---------|---------|
-| 美股（CBOE） | VIX期权 | 0.7-1.2 | <0.5 或 >1.5 |
-| A股（上证50ETF） | 上交所 | 0.5-1.5 | <0.3 或 >2.0 |
-| BTC（Deribit） | Deribit | 0.3-0.8 | <0.2 或 >1.2 |
-
-### PCR与VIX配合使用
+## 3. Số tài khoản mở mới — nhịp tham gia của NĐT lẻ (F0)
 
 ```
-PCR高 + VIX高 = 极度恐慌（强烈看多反转信号）
-PCR低 + VIX低 = 极度自满（警惕黑天鹅）
-PCR高 + VIX低 = 对冲需求（机构在保护多头）
-PCR低 + VIX高 = 矛盾信号（需要更多确认）
+Số tài khoản chứng khoán mở mới hằng tháng (VSD công bố).
+
+Chỉ báo ngược ở cực đoan:
+  - Mở mới BÙNG NỔ kỷ lục (làn sóng "F0" 2021–2022) → hưng phấn đỉnh, dòng tiền lẻ đu đỉnh.
+  - Mở mới cạn kiệt, NĐT chán nản rời thị trường → vùng đáy tâm lý.
+"Khi bác xe ôm/quán cà phê bàn cổ phiếu" = dấu hiệu đỉnh (phiên bản VN của chỉ báo Buffett).
 ```
 
-## 融资融券信号（A股）
+## 4. Thanh khoản & độ rộng thị trường
 
-### 融资余额分析
+| Chỉ tiêu | Cực sợ hãi | Cực tham lam |
+|------|------|------|
+| GTGD bình quân toàn thị trường | Cạn kiệt (rút mạnh so trung bình) | Bùng nổ kỷ lục (FOMO lẻ) |
+| Số mã tăng TRẦN / giảm SÀN | Sàn la liệt | Trần hàng loạt (đầu cơ nóng) |
+| Độ rộng (mã tăng/mã giảm) | < 0,3 | > 3–5 |
+| % mã trên MA50/MA200 | Rất thấp (<20%) | Rất cao (>80%) |
 
-```
-融资 = 借钱买股（看多杠杆）
-融券 = 借股卖出（看空杠杆）
+> Thanh khoản là "nhiệt kế" của thị trường lẻ VN: GTGD tăng vọt cùng giá = tiền nóng vào;
+> giá tăng nhưng GTGD teo = phân phối/thiếu xác nhận.
 
-融资余额指标:
-- 绝对值: 反映杠杆资金总量（2024年约1.5-1.8万亿）
-- 变化率: 周环比/月环比，方向比绝对值重要
-- 占比: 融资余额/A股总市值，通常2-3%
-```
-
-### 融资融券信号
-
-| 指标 | 看多信号 | 看空信号 |
-|------|---------|---------|
-| 融资余额 | 底部企稳后连续增加 | 高位加速增加（过热） |
-| 融资净买入 | 连续5天净买入 | 连续5天净卖出 |
-| 融券余额 | 大幅增加后减少（空头回补） | 突然大增（有人做空） |
-| 融资/融券比 | 比值回落后反弹 | 极端高位（杠杆过高） |
-
-### 融资余额历史阈值（A股）
+## 5. Phái sinh VN30F & chứng quyền
 
 ```
-2015年牛市顶部: 2.27万亿（极端）
-2018年熊市底部: 0.76万亿
-2020年正常区间: 1.0-1.2万亿
-2024年正常区间: 1.4-1.8万亿
-
-经验法则: 融资余额月增>10% → 过热警示
-          融资余额月减>10% → 恐慌警示
+Basis VN30F = giá HĐTL VN30 − VN30 spot:
+  Basis ÂM sâu kéo dài (futures discount) → kỳ vọng bi quan/phòng hộ mạnh → có thể đảo chiều.
+  Basis DƯƠNG cao (futures premium) → lạc quan thái quá.
+Khối lượng phái sinh tăng vọt khi cơ sở giảm → NĐT đổ sang short phái sinh phòng hộ (sợ hãi).
+Chứng quyền (CW): khối lượng/độ nóng CW call tăng đột biến → đầu cơ đòn bẩy cao (tham).
 ```
 
-## 北向资金信号（A股）
-
-### 北向资金分析框架
+## 6. Mạng xã hội & diễn đàn (định tính)
 
 ```
-北向资金 = 通过沪深港通买A股的外资
-
-核心特征:
-1. 规模: 累计净买入约2万亿
-2. 风格: 偏好白马（消费+金融+科技龙头）
-3. 前瞻性: 历史上多次在底部加仓
-4. 局限: 2023年后主动型vs被动型分化
+Kênh VN: F319, Fireant, diễn đàn Vietstock, các nhóm "phím hàng" Facebook/Zalo/Telegram,
+  KOL chứng khoán YouTube/TikTok.
+Đo: độ nóng thảo luận (tần suất nhắc mã vs nền), tỷ lệ hô mua/bán, mức độ đồng thuận KOL.
+Chỉ báo ngược: đồng thuận hô mua >80% + "room" rần rần + chê người thận trọng = nguy hiểm.
+Nhiễu: đội lái/"phím hàng" có chủ đích, bot → lọc kỹ, chỉ dùng định tính bổ trợ.
 ```
 
-### 北向资金信号
-
-| 指标 | 看多信号 | 看空信号 |
-|------|---------|---------|
-| 单日净流入 | >100亿（强烈信号） | <-100亿 |
-| 连续流入天数 | >10天连续流入 | >10天连续流出 |
-| 月度净流入 | >500亿 | <-500亿 |
-| 持仓变化 | 增持低估值白马 | 减持周期+概念股 |
-
-### 北向资金使用注意
+## Khung điểm tâm lý tổng hợp
 
 ```
-2023年后变化:
-1. 被动资金(ETF)占比上升，主动选股参考价值下降
-2. 单日大额波动可能是对冲交易（非方向性）
-3. "假外资"（内地资金绕道香港）干扰信号
+Tâm lý tổng hợp (chuẩn hóa 0–100, vùng cực đoan dùng chỉ báo NGƯỢC):
+  ≈ 0,25×khối_ngoại + 0,25×margin + 0,20×thanh_khoản/độ_rộng
+    + 0,15×tài_khoản_mở_mới + 0,15×basis_phái_sinh
 
-建议:
-- 看周度/月度累计，忽略单日波动
-- 区分主动型vs被动型（有些数据源可拆分）
-- 与融资余额、ETF申赎交叉验证
+0–20  Cực sợ hãi   → vùng tích lũy (mua dần, cần nền cơ bản, không bắt dao rơi do vỡ nợ)
+20–40 Sợ hãi       → tăng dần tỷ trọng
+40–60 Trung tính   → chỉ báo tâm lý kém tác dụng, nhìn yếu tố khác
+60–80 Tham lam     → giảm dần tỷ trọng
+80–100 Cực tham lam → hạ về vùng an toàn (đừng short xu hướng mạnh; phòng hộ qua VN30F)
 ```
 
-## 社交媒体舆情分析
-
-### 舆情量化框架
-
-```
-数据源:
-- 中文: 雪球/东方财富股吧/微博/微信公众号
-- 英文: Twitter(X)/Reddit/Telegram
-- 加密: CryptoTwitter/Discord/Telegram群
-
-量化维度:
-1. 讨论热度: 提及频次 / 基准频次
-2. 情绪倾向: 正面/负面/中性比例
-3. 情绪强度: 正面均值 - 负面均值
-4. 情绪变化: 较上期的变化方向
-```
-
-### 舆情指标
-
-| 指标 | 计算 | 反向信号 |
-|------|------|---------|
-| 热度指数 | 搜索量/讨论量 vs MA(30) | 热度暴增=过热 |
-| 看多比例 | 看多帖子/总帖子 | >80%=极度乐观(警惕) |
-| 新人指数 | 新注册账号讨论占比 | >50%=散户涌入(顶部) |
-| KOL一致性 | 大V观点一致度 | 一致看多=危险 |
-
-### 社交媒体情绪周期
-
-```
-底部: 无人讨论 → 少数人抄底 → 争议期
-上涨: 讨论增加 → 乐观蔓延 → 新人涌入
-顶部: 全民讨论 → 极度乐观 → 不看好者被嘲笑
-下跌: 争议 → 恐慌 → 无人讨论（回到底部）
-
-巴菲特指标: 出租车司机/理发师开始讨论股票 = 顶部
-```
-
-## 综合情绪评分框架
-
-### 评分模型
-
-```
-综合情绪 = 0.25×恐贪 + 0.20×PCR + 0.20×融资 + 0.20×北向 + 0.15×舆情
-
-每个维度标准化到 0-100:
-0-20: 极度恐惧
-20-40: 恐惧
-40-60: 中性
-60-80: 贪婪
-80-100: 极度贪婪
-```
-
-### 情绪 → 操作映射
-
-| 综合情绪 | 仓位建议 | 操作 |
-|---------|---------|------|
-| 0-20 | 80-100% | 逆向满仓 |
-| 20-40 | 60-80% | 逐步加仓 |
-| 40-60 | 40-60% | 标准仓位 |
-| 60-80 | 20-40% | 逐步减仓 |
-| 80-100 | 0-20% | 逆向清仓 |
-
-## 输出格式
+## Mẫu output
 
 ```markdown
-## 市场情绪分析
+## Tâm lý thị trường VN (minh họa)
 
-### 情绪仪表盘
-| 指标 | 当前值 | 分位 | 信号 |
-|------|--------|------|------|
-| 恐贪指数(加密) | 72 | 75% | 贪婪 |
-| A股换手率 | 1.8% | 70% | 偏活跃 |
-| PCR(50ETF) | 0.65 | 35% | 偏乐观 |
-| 融资余额变化(周) | +280亿 | 80% | 杠杆加速 |
-| 北向净流入(周) | +120亿 | 60% | 偏正面 |
+### Bảng đo
+| Chỉ tiêu | Giá trị | Phân vị | Tín hiệu |
+|------|------|------|------|
+| Khối ngoại ròng (tuần) | −1.200 tỷ | 15% | Bán ròng (đè) |
+| Dư nợ margin | gần đỉnh LS | 90% | Đòn bẩy căng |
+| Tài khoản mở mới (tháng) | cao | 80% | Lẻ hưng phấn |
+| GTGD bình quân | bùng nổ | 85% | FOMO |
+| Basis VN30F | dương cao | 75% | Lạc quan |
 
-### 综合情绪评分: 68/100（贪婪区间）
+### Điểm tổng hợp: 72/100 (vùng tham lam)
 
-### 情绪解读
-当前市场情绪偏贪婪，多个指标指向乐观:
-- 融资余额加速增长，杠杆资金积极
-- 北向资金持续流入，外资态度正面
-- 但PCR偏低，期权市场缺乏对冲意识
+### Diễn giải
+Lẻ hưng phấn (margin + tài khoản + thanh khoản đỉnh) nhưng khối ngoại BÁN RÒNG →
+phân kỳ: dòng tiền lẻ đỡ giá còn ngoại thoát. Rủi ro đảo chiều khi margin hết dư địa.
 
-### 操作建议
-- 建议仓位: 降至40-50%
-- 不追高，等回调再加仓
-- 可适当买入看跌期权对冲
+### Hành động
+- Hạ tỷ trọng về vùng an toàn; không đu trần.
+- Phòng hộ beta bằng short VN30F thay vì cố short cổ phiếu (VN cấm bán khống).
+- Chờ margin rũ bớt / khối ngoại ngừng bán để mua lại.
 
-### 风险提示
-- 情绪指标是反向指标，不是精确择时工具
-- 趋势强时情绪可以持续极端很久
+### Cảnh báo
+Chỉ báo tâm lý là chỉ báo NGƯỢC, không phải công cụ định thời điểm chính xác — xu hướng
+mạnh có thể giữ trạng thái cực đoan rất lâu.
 ```
 
-## 注意事项
+## Lưu ý quan trọng
 
-1. **反向指标不是精确择时**：情绪可以在极端区域持续很久，不要仅凭情绪做空/做多
-2. **情绪+趋势结合**：上升趋势中的贪婪是正常的，下降趋势中的恐惧也是正常的
-3. **不同市场不同阈值**：A股、美股、加密的情绪阈值差异大
-4. **数据获取限制**：部分情绪数据需要付费API（如Bloomberg情绪指标、Glassnode）
-5. **社交媒体噪音大**：机器人/营销号会干扰舆情分析，需要过滤
-6. **北向资金变化**：2023年后北向数据披露规则变化，实时数据不如以前透明
-7. **融资数据T+1**：融资融券数据为T+1日公布，有滞后
+1. **Chỉ báo ngược ≠ định thời điểm chính xác**: tâm lý có thể neo cực đoan rất lâu; đừng short/long chỉ vì tâm lý.
+2. **Kết hợp tâm lý + xu hướng**: tham lam trong uptrend mạnh là bình thường; sợ hãi trong downtrend cũng vậy.
+3. **Khối ngoại đã giảm trọng số**: lẻ áp đảo → tín hiệu ngoại không còn "thông minh tuyệt đối"; luôn chéo với margin/thanh khoản.
+4. **Margin & tài khoản có độ trễ**: margin theo quý (BCTC CTCK), tài khoản theo tháng (VSD) → là bức tranh trễ, dùng cho bối cảnh hơn là tín hiệu ngày.
+5. **Phân kỳ lẻ vs ngoại** là một trong những tín hiệu cảnh báo đỉnh giá trị nhất ở VN (lẻ FOMO trong khi ngoại + tự doanh thoát).
+6. **Nhiễu mạng xã hội**: "phím hàng"/đội lái có chủ đích → chỉ dùng định tính, lọc kỹ.
+
+## Nguồn dữ liệu (VN)
+
+| Việc cần | Nguồn |
+|------|------|
+| **Khối ngoại mua/bán ròng** (mã & thị trường), giá, KL, GTGD, độ rộng | **DataPro** (`source="datapro"`, mã `.VN`; trường khối ngoại) |
+| Dư nợ margin toàn thị trường | BCTC quý các CTCK / tổng hợp VSD (số liệu trễ; nhập tay/nguồn ngoài) |
+| Số tài khoản mở mới | **VSD** công bố hằng tháng (nguồn ngoài) |
+| Basis & khối lượng VN30F, chứng quyền | DataPro/HNX (phái sinh), HOSE (CW) |
+| Tâm lý mạng xã hội (định tính) | F319/Fireant/Vietstock/nhóm MXH (nguồn ngoài, lọc nhiễu) |
+
+Khi thiếu dữ liệu trực tiếp: nêu hạn chế, đưa khung phân tích, KHÔNG bịa số.
