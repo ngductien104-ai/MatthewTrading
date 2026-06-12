@@ -1,257 +1,272 @@
 ---
 name: performance-attribution
-description: Performance attribution analysis — Brinson sector/stock-selection attribution, factor alpha/beta decomposition, market-timing evaluation, and benchmark comparison framework.
+description: "Phân tích quy kết hiệu suất (performance attribution) cho danh mục cổ phiếu VN — Brinson phân rã allocation/selection theo ngành HOSE, phân rã alpha/beta & đa nhân tố, đánh giá khả năng định thời điểm (market timing), khung so sánh benchmark. Lưu ý đặc thù: so với VN30-TRI (total return) chứ không phải VN-Index giá; index VN tập trung cao vào ngân hàng & họ Vingroup."
 category: analysis
 ---
 
-# Performance Attribution Analysis
+# Phân tích quy kết hiệu suất (Việt Nam)
 
-## Overview
+## Mục đích
 
-Decompose portfolio excess returns into explainable sources: sector allocation, stock selection, factor exposure, timing contribution, and more. This helps explain **why** a strategy made or lost money, rather than only **how much** it made or lost.
+Phân rã lợi suất vượt trội (excess return) của danh mục thành các nguồn giải thích được: phân bổ ngành, chọn cổ phiếu, độ phơi nhiễm nhân tố, đóng góp từ định thời điểm… Mục tiêu trả lời **"vì sao"** chiến lược lãi/lỗ, chứ không chỉ **"lãi/lỗ bao nhiêu"**.
 
-## Brinson Attribution Model
+> **Cảnh báo benchmark đặc thù VN — đọc trước tiên:** **VN-Index là chỉ số GIÁ (price index), không cộng cổ tức.** Một danh mục bluechip nhận cổ tức 3–5%/năm "đánh bại VN-Index" có thể chỉ là do cổ tức, **không phải kỹ năng**. Để quy kết công bằng, dùng **VN30-TRI / VNI-TRI (total return index)** làm benchmark, hoặc cộng lại cổ tức vào VN-Index. Bỏ qua điểm này là sai lầm phổ biến nhất khi đánh giá quỹ VN.
 
-### Single-Period Brinson-Fachler Model
+## Mô hình Brinson
 
-```
-Total excess return = portfolio return - benchmark return
-
-Decomposed into three parts:
-1. Allocation effect: sector-weight deviation × sector benchmark return deviation
-2. Selection effect: stock selection within a sector × sector benchmark weight
-3. Interaction effect: weight deviation × stock-selection deviation
-```
-
-**Mathematical formulas**:
+### Brinson-Fachler một kỳ
 
 ```
-Let w_p,i = portfolio weight of sector i
-    w_b,i = benchmark weight of sector i
-    r_p,i = portfolio return of sector i
-    r_b,i = benchmark return of sector i
-    R_b   = total benchmark return
+Excess return = lợi suất danh mục − lợi suất benchmark
 
-Allocation_i = (w_p,i - w_b,i) × (r_b,i - R_b)
-Selection_i  = w_b,i × (r_p,i - r_b,i)
-Interaction_i = (w_p,i - w_b,i) × (r_p,i - r_b,i)
-
-Total excess = Σ(Allocation_i) + Σ(Selection_i) + Σ(Interaction_i)
+Phân rã thành 3 thành phần:
+1. Allocation (phân bổ ngành): lệch tỷ trọng ngành × lệch lợi suất ngành so với benchmark tổng
+2. Selection (chọn cổ phiếu trong ngành): chọn mã trong ngành × tỷ trọng ngành benchmark
+3. Interaction (tương tác): lệch tỷ trọng × lệch chọn mã
 ```
 
-### Example Brinson Attribution
+**Công thức**:
+
+```
+Gọi w_p,i = tỷ trọng ngành i trong danh mục
+    w_b,i = tỷ trọng ngành i trong benchmark (vd VN30/VN-Index)
+    r_p,i = lợi suất ngành i trong danh mục
+    r_b,i = lợi suất ngành i trong benchmark
+    R_b   = lợi suất benchmark tổng
+
+Allocation_i  = (w_p,i − w_b,i) × (r_b,i − R_b)
+Selection_i   = w_b,i × (r_p,i − r_b,i)
+Interaction_i = (w_p,i − w_b,i) × (r_p,i − r_b,i)
+
+Excess = Σ(Allocation_i) + Σ(Selection_i) + Σ(Interaction_i)
+```
+
+> **Đặc thù VN — index tập trung rất cao:** VN30/VN-Index bị chi phối bởi **nhóm ngân hàng (~35–45% vốn hóa) và họ Vingroup (VIC/VHM/VRE)**. Vì vậy Allocation effect thường bị thống trị bởi quyết định **over/underweight ngân hàng và BĐS Vingroup**. Lệch tỷ trọng nhỏ ở 2 nhóm này tạo ra phần lớn allocation effect — luôn soi kỹ 2 nhóm này trước.
+
+### Ví dụ Brinson theo ngành (HOSE)
 
 ```markdown
-### Brinson Sector Attribution
+### Quy kết Brinson theo ngành
 
-| Sector | Portfolio Weight | Benchmark Weight | Portfolio Return | Benchmark Return | Allocation | Selection | Interaction |
+| Ngành | Tỷ trọng DM | Tỷ trọng BM | Lợi suất DM | Lợi suất BM | Allocation | Selection | Interaction |
 |------|---------|---------|---------|---------|---------|---------|---------|
-| Food & Beverage | 20% | 10% | 15% | 8% | +0.3% | +0.7% | +0.7% |
-| Electronics | 15% | 12% | 5% | 10% | -0.1% | -0.6% | +0.2% |
-| Banks | 5% | 20% | 3% | 2% | +0.3% | +0.2% | -0.2% |
-| Others | 60% | 58% | 8% | 7% | +0.0% | +0.6% | +0.0% |
-| **Total** | 100% | 100% | 9.5% | 6.2% | **+0.5%** | **+0.9%** | **+0.7%** |
+| Ngân hàng | 25% | 38% | 12% | 8% | −0,3% | +1,5% | −0,5% |
+| BĐS (Vingroup+) | 10% | 18% | −5% | −2% | +0,2% | −0,5% | +0,2% |
+| Thép/Tài nguyên | 15% | 6% | 20% | 15% | +0,8% | +0,3% | +0,5% |
+| Bán lẻ/Tiêu dùng | 20% | 10% | 18% | 12% | +0,5% | +0,6% | +0,6% |
+| Còn lại | 30% | 28% | 9% | 7% | +0,0% | +0,6% | +0,0% |
+| **Tổng** | 100% | 100% | 11,5% | 6,8% | **+1,2%** | **+2,5%** | **+0,8%** |
 
-Excess return 3.3% = allocation effect 0.5% + selection effect 0.9% + interaction effect 0.7% + residual 0.2%
+Excess 4,7% = allocation 1,2% + selection 2,5% + interaction 0,8% + dư 0,2%
 ```
 
-### Multi-Period Attribution (Linked Brinson)
+### Brinson nhiều kỳ (linking)
 
 ```
-Directly summing single-period attribution creates residuals (compounding effect). Common approaches:
+Cộng thẳng từng kỳ sẽ phát sinh dư (do hiệu ứng kép – compounding). Cách xử lý:
 
-Method 1: arithmetic linking (simple sum of each period's attribution)
-  - Advantage: simple
-  - Disadvantage: residual remains
+Cách 1: cộng số học (arithmetic linking) — đơn giản nhưng còn dư.
+Cách 2: Carino logarithmic linking — không dư nhưng phức tạp hơn.
 
-Method 2: Carino logarithmic linking
-  - Advantage: no residual
-  - Disadvantage: more complex
-
-Practical recommendation: arithmetic linking is enough for monthly attribution; residuals are usually <0.1%
+Khuyến nghị thực chiến: với báo cáo quy kết theo THÁNG, cộng số học là đủ; phần dư
+thường <0,1%. Khi báo cáo cả năm và dư lớn (do biên độ VN cao, các tháng sóng mạnh),
+chuyển sang Carino.
 ```
 
-## Factor Attribution
+## Quy kết theo nhân tố (Factor Attribution)
 
-### Alpha-Beta Decomposition
+### Phân rã Alpha–Beta
 
 ```
 R_p = α + β × R_m + ε
 
-α (alpha): excess return, manager skill
-β (beta): market exposure, systematic risk
-ε (epsilon): residual, idiosyncratic risk
+α (alpha): lợi suất vượt trội — kỹ năng nhà quản lý
+β (beta): độ phơi nhiễm thị trường — rủi ro hệ thống
+ε (epsilon): phần dư — rủi ro phi hệ thống
 
-Regression method: OLS regression, with at least 60 data points
+Hồi quy OLS, tối thiểu ~60 quan sát. R_m = lợi suất VN-Index hoặc VN30
+(ưu tiên VN30 nếu danh mục thiên bluechip).
 ```
 
-#### Multi-Factor Attribution (Fama-French Extension)
+#### Quy kết đa nhân tố (mở rộng Fama-French cho VN)
 
 ```
-R_p - R_f = α + β_mkt × (R_m - R_f) + β_smb × SMB + β_hml × HML + β_mom × MOM + ε
+R_p − R_f = α + β_mkt×(R_m − R_f) + β_smb×SMB + β_hml×HML + β_mom×MOM + ε
 
-| Factor | Meaning | China A-share Proxy |
+R_f: lợi suất phi rủi ro VN ≈ lãi suất tín phiếu/TPCP kỳ hạn ngắn (không dùng lãi suất Mỹ).
+
+| Nhân tố | Ý nghĩa | Proxy cho TTCK VN |
 |------|------|--------|
-| MKT | Market | CSI 300 return |
-| SMB | Small-cap premium | CSI 500 - CSI 300 |
-| HML | Value premium | high-PB group - low-PB group |
-| MOM | Momentum | top past-12M winners - bottom group |
+| MKT | Thị trường | Lợi suất VN-Index (hoặc VN30) − R_f |
+| SMB | Phần bù vốn hóa nhỏ | VNSmallcap − VN30 (hoặc rổ smallcap tự dựng − rổ largecap) |
+| HML | Phần bù giá trị | Nhóm P/B thấp − nhóm P/B cao |
+| MOM | Quán tính | Top tăng 6–12T − Bottom (lưu ý: momentum ở VN yếu/nhiễu hơn do T+2 + lẻ chi phối) |
 ```
 
-#### Factor Exposure Analysis Template
+> **Lưu ý xây nhân tố ở VN:** dữ liệu nhân tố dựng sẵn gần như không có sẵn → phải **tự dựng** từ dữ liệu giá + cơ bản (DataPro/vnstock). Mẫu lịch sử ngắn (thị trường non trẻ, nhiều mã mới niêm yết) → t-stat kém ổn định, đừng over-fit. Nhân tố **size (SMB)** và **value (HML)** có hiệu lực rõ ở VN; **momentum** chập chờn do biên độ trần/sàn cắt đuôi xu hướng và dòng lẻ đảo nhanh.
+
+#### Mẫu bảng phơi nhiễm nhân tố
 
 ```markdown
-### Factor Exposure Analysis
+### Phân tích phơi nhiễm nhân tố
 
-| Factor | Beta | t-stat | Significance | Interpretation |
+| Nhân tố | Beta | t-stat | Mức ý nghĩa | Diễn giải |
 |------|------|---------|--------|------|
-| Market (MKT) | 0.85 | 12.3 | *** | Below 1, defensive profile |
-| Small-cap (SMB) | 0.25 | 3.2 | ** | Small-cap tilt |
-| Value (HML) | -0.15 | -1.8 | * | Growth tilt |
-| Momentum (MOM) | 0.30 | 4.1 | *** | Significant momentum exposure |
-| **Alpha** | **0.8% / month** | **2.5** | ** | **Significant alpha** |
+| Thị trường (MKT) | 1,05 | 13,1 | *** | Beta > 1 — danh mục thiên tấn công (đặc trưng DM nhiều midcap VN) |
+| Vốn hóa nhỏ (SMB) | 0,35 | 3,8 | *** | Nghiêng smallcap rõ — rủi ro thanh khoản khi thị trường đảo |
+| Giá trị (HML) | 0,20 | 2,4 | ** | Nghiêng value nhẹ |
+| Quán tính (MOM) | 0,10 | 1,1 | — | Không có ý nghĩa thống kê (momentum VN yếu) |
+| **Alpha** | **0,9%/tháng** | **2,6** | ** | **Alpha có ý nghĩa** |
 
-R² = 0.72 → factors explain 72% of return variation
-Alpha = 0.8% / month = 10% / year, significant
+R² = 0,75 → nhân tố giải thích 75% biến động lợi suất.
+Alpha 0,9%/tháng ≈ 11%/năm, có ý nghĩa — nhưng kiểm chứng SMB beta cao (rủi ro thanh khoản).
 ```
 
-## Market-Timing Evaluation
+## Đánh giá khả năng định thời điểm (Market Timing)
 
-### Treynor-Mazuy Model
-
-```
-R_p - R_f = α + β × (R_m - R_f) + γ × (R_m - R_f)² + ε
-
-γ > 0 and significant → timing ability exists (adds risk in bull markets, cuts risk in bear markets)
-γ ≤ 0 → no timing ability
-```
-
-### Henriksson-Merton Model
+### Mô hình Treynor-Mazuy
 
 ```
-R_p - R_f = α + β × (R_m - R_f) + γ × max(R_m - R_f, 0) + ε
+R_p − R_f = α + β×(R_m − R_f) + γ×(R_m − R_f)² + ε
 
-γ > 0 → portfolio beta is higher in bull markets (successful timing)
+γ > 0 và có ý nghĩa → có khả năng định thời điểm (tăng beta khi thị trường lên, giảm khi xuống).
+γ ≤ 0 → không có khả năng định thời điểm.
 ```
 
-### Practical Timing Metrics
+### Mô hình Henriksson-Merton
 
-| Metric | Calculation | Meaning |
+```
+R_p − R_f = α + β×(R_m − R_f) + γ×max(R_m − R_f, 0) + ε
+γ > 0 → beta danh mục cao hơn trong thị trường tăng (định thời điểm thành công).
+```
+
+### Chỉ tiêu định thời điểm thực dụng
+
+| Chỉ tiêu | Cách tính | Ý nghĩa |
 |------|------|------|
-| Bull capture ratio | portfolio return in bull markets / benchmark return | >100% = outperforming |
-| Bear capture ratio | portfolio return in bear markets / benchmark return | <100% = better downside defense |
-| Timing hit rate | proportion of months where market direction was called correctly | >55% = shows skill |
-| Correlation between position changes and market | `corr(position_change, future_return)` | >0 = timing is correct |
+| Tỷ lệ bắt sóng tăng (up-capture) | LS danh mục trong pha tăng / LS benchmark | >100% = vượt trội pha tăng |
+| Tỷ lệ chịu sóng giảm (down-capture) | LS danh mục trong pha giảm / LS benchmark | <100% = phòng thủ tốt khi giảm |
+| Tỷ lệ đoán đúng hướng | % số tháng đoán đúng hướng thị trường | >55% = có kỹ năng |
+| Tương quan đổi vị thế vs thị trường | `corr(thay_đổi_vị_thế, lợi_suất_tương_lai)` | >0 = định thời điểm đúng |
 
-## Benchmark Comparison Framework
+> **Đặc thù VN:** khả năng phòng thủ pha giảm bị giới hạn vì **cấm bán khống cổ phiếu**. Một quỹ chỉ-long muốn hạ beta thực sự khi thị trường xấu phải **bán bớt cổ phiếu sang tiền mặt** hoặc **short VN30F (phái sinh)** để phòng hộ. Down-capture thấp thường đến từ kỷ luật tiền mặt/phái sinh, không phải short cổ phiếu. Khi đánh giá timing của quỹ VN, hỏi rõ họ dùng tiền mặt hay VN30F.
 
-### Benchmark Selection
+## Khung so sánh benchmark
 
-| Strategy Type | Recommended Benchmark | China A-share Code |
+### Chọn benchmark
+
+| Loại chiến lược | Benchmark khuyến nghị | Ghi chú |
 |---------|---------|---------|
-| China A-share large cap | CSI 300 | 000300.SH |
-| China A-share small cap | CSI 500 / CSI 1000 | 000905.SH |
-| China A-share broad market | CSI All Share | 000985.SH |
-| Hong Kong equities | Hang Seng Index | HSI |
-| US equities | S&P 500 | SPX |
-| Crypto | BTC | BTC-USDT |
-| Multi-asset | 60/40 portfolio | self-constructed |
+| Bluechip vốn hóa lớn VN | **VN30-TRI** (total return) | Công bằng nhất — đã gồm cổ tức |
+| Toàn thị trường VN | **VNI-TRI** / VN-Index + cổ tức | VN-Index giá đánh giá thấp benchmark thật |
+| Midcap | VNMidcap | Rổ vốn hóa vừa HOSE |
+| Smallcap | VNSmallcap | Rổ vốn hóa nhỏ HOSE |
+| Quỹ chủ động đa ngành | VN-Index (chuẩn ngành dùng) hoặc 80%VN30 + 20%VNMidcap | Theo thông lệ công bố quỹ |
+| Quỹ cân bằng cổ phiếu+TP | Tự dựng (vd 70% VN30-TRI + 30% TPCP) | |
 
-### Risk-Adjusted Performance Metrics
+> Phần lớn quỹ mở/ETF VN công bố benchmark là **VN-Index** hoặc **VN30-TRI**. Khi báo cáo nội bộ, luôn kèm cả phiên bản total-return để tránh "ăn gian" alpha bằng cổ tức.
 
-| Metric | Formula | Excellent | Good | Average |
+### Chỉ tiêu hiệu suất điều chỉnh rủi ro
+
+| Chỉ tiêu | Công thức | Xuất sắc | Tốt | Trung bình |
 |------|------|------|------|------|
-| Sharpe | `(R_p - R_f) / σ_p` | >1.5 | 1.0-1.5 | 0.5-1.0 |
-| Sortino | `(R_p - R_f) / σ_down` | >2.0 | 1.5-2.0 | 1.0-1.5 |
-| Calmar | `R_p / MaxDD` | >1.0 | 0.5-1.0 | 0.2-0.5 |
-| Information Ratio | `(R_p - R_b) / TE` | >1.0 | 0.5-1.0 | 0.2-0.5 |
-| Treynor | `(R_p - R_f) / β` | used comparatively | | |
+| Sharpe | `(R_p − R_f) / σ_p` | >1,5 | 1,0–1,5 | 0,5–1,0 |
+| Sortino | `(R_p − R_f) / σ_down` | >2,0 | 1,5–2,0 | 1,0–1,5 |
+| Calmar | `R_p / MaxDD` | >1,0 | 0,5–1,0 | 0,2–0,5 |
+| Information Ratio | `(R_p − R_b) / TE` | >1,0 | 0,5–1,0 | 0,2–0,5 |
+| Treynor | `(R_p − R_f) / β` | dùng để so sánh | | |
 
-### Rolling Analysis
+> **R_f ở VN:** dùng lãi suất phi rủi ro VND — tín phiếu NHNN / lợi suất TPCP 1 năm (tham chiếu, thường ~2–5% tùy chu kỳ), **không** dùng T-bill Mỹ. Biên độ VN cao nên σ_p lớn → Sharpe tuyệt đối của cổ phiếu VN thường thấp hơn cảm giác; so sánh tương đối với benchmark mới có ý nghĩa.
 
-```
-Use rolling windows (such as 12 months) to analyze:
-- Rolling Sharpe: strategy stability
-- Rolling alpha: whether alpha persists
-- Rolling beta: whether market exposure is stable
-- Rolling information ratio: persistence of benchmark outperformance
-
-Suggested windows: 252 days for daily data, 12-36 months for monthly data
-```
-
-## Analysis Framework
-
-### Step 1: Aggregate Analysis
+### Phân tích cuốn chiếu (rolling)
 
 ```
-1. Cumulative return vs benchmark
-2. Excess-return decomposition (annual / monthly)
-3. Summary risk metrics (volatility / max drawdown / Sharpe)
+Dùng cửa sổ cuốn chiếu (vd 12 tháng) để phân tích:
+- Rolling Sharpe: độ ổn định chiến lược
+- Rolling alpha: alpha có bền không
+- Rolling beta: độ phơi nhiễm thị trường có ổn định không
+- Rolling information ratio: tính bền của việc vượt benchmark
+
+Cửa sổ gợi ý: 252 phiên cho dữ liệu ngày, 12–36 tháng cho dữ liệu tháng.
+Lưu ý VN: chú ý các "đứt gãy chế độ" (2018 thương chiến, 2020 COVID, 2022 trái phiếu/SCB)
+— rolling beta/alpha thường nhảy mạnh quanh các mốc này.
 ```
 
-### Step 2: Attribution Decomposition
+## Khung phân tích
+
+### Bước 1: Tổng hợp
 
 ```
-1. Brinson attribution (if sector information is available)
-2. Factor attribution (alpha / beta / factor exposure)
-3. Timing attribution (TM / HM models)
+1. Lợi suất lũy kế vs benchmark (dùng bản TRI)
+2. Phân rã excess return (theo năm/tháng)
+3. Tóm tắt rủi ro (biến động / sụt giảm tối đa / Sharpe)
 ```
 
-### Step 3: Style Analysis
+### Bước 2: Phân rã quy kết
 
 ```
-1. Large cap vs small cap exposure
-2. Growth vs value exposure
-3. Style drift detection (rolling style analysis)
+1. Brinson (nếu có thông tin ngành — soi trước nhóm ngân hàng & Vingroup)
+2. Quy kết nhân tố (alpha / beta / phơi nhiễm)
+3. Quy kết định thời điểm (mô hình TM / HM)
 ```
 
-### Step 4: Conclusions and Recommendations
+### Bước 3: Phân tích phong cách (style)
 
 ```
-1. Main sources of excess return
-2. Whether risk exposure is reasonable
-3. Suggested improvement directions
+1. Phơi nhiễm largecap vs smallcap (VN: smallcap rủi ro thanh khoản cao)
+2. Phơi nhiễm growth vs value
+3. Phát hiện trôi phong cách (rolling style analysis)
 ```
 
-## Output Format
+### Bước 4: Kết luận & khuyến nghị
+
+```
+1. Nguồn chính của excess return
+2. Phơi nhiễm rủi ro có hợp lý không (đặc biệt thanh khoản smallcap, tập trung 1–2 mã)
+3. Hướng cải thiện
+```
+
+## Mẫu output
 
 ```markdown
-## Performance Attribution Report
+## Báo cáo quy kết hiệu suất (minh họa)
 
-### Performance Overview
-| Metric | Strategy | Benchmark | Excess |
+### Tổng quan hiệu suất (vs VN30-TRI)
+| Chỉ tiêu | Danh mục | Benchmark | Vượt trội |
 |------|------|------|------|
-| Cumulative return | +85.2% | +32.1% | +53.1% |
-| Annualized return | 12.5% | 5.8% | +6.7% |
-| Annualized volatility | 18.2% | 20.5% | - |
-| Sharpe | 0.69 | 0.28 | - |
-| Information Ratio | 0.82 | - | - |
+| Lợi suất lũy kế | +85,2% | +52,1% | +33,1% |
+| Lợi suất/năm | 12,5% | 8,3% | +4,2% |
+| Biến động/năm | 22,5% | 24,0% | − |
+| Sharpe | 0,42 | 0,30 | − |
+| Information Ratio | 0,71 | − | − |
 
-### Attribution Breakdown
-| Source | Contribution (annualized) | Share |
+### Phân rã quy kết
+| Nguồn | Đóng góp (/năm) | Tỷ trọng |
 |------|-----------|------|
-| Sector allocation | +2.1% | 31% |
-| Stock selection | +3.8% | 57% |
-| Timing | +0.8% | 12% |
+| Phân bổ ngành (allocation) | +1,2% | 29% |
+| Chọn cổ phiếu (selection) | +2,5% | 60% |
+| Định thời điểm (timing) | +0,5% | 11% |
 
-### Factor Exposure
-[factor exposure table]
+### Phơi nhiễm nhân tố
+[bảng phơi nhiễm nhân tố]
 
-### Conclusion
-Excess return mainly comes from stock selection (57% contribution), followed by sector allocation.
-Alpha is significant (`t=2.5`), indicating real stock-picking ability.
-Watch the risk of excessive small-cap exposure (`SMB beta=0.25`).
+### Kết luận
+Excess return chủ yếu đến từ chọn cổ phiếu (60%), kế đến là phân bổ ngành (overweight
+thép/bán lẻ, underweight ngân hàng đúng nhịp). Alpha có ý nghĩa (t=2,6) → có năng lực
+chọn mã thật. CẢNH BÁO: SMB beta 0,35 (nghiêng smallcap) → rủi ro thanh khoản khi
+thị trường đảo; kiểm tra mức tập trung vào vài mã midcap.
 ```
 
-## Notes
+## Lưu ý quan trọng
 
-1. **Attribution ≠ prediction**: attribution explains the past; it does not guarantee persistence in the future
-2. **Benchmark selection affects attribution**: switch the benchmark and alpha may disappear, so benchmark choice must be appropriate
-3. **Data frequency**: daily attribution is noisy, monthly attribution is more stable but has fewer samples; recommended workflow is daily computation with monthly reporting
-4. **Survivorship bias**: delisted stocks may be excluded in backtests, creating false alpha
-5. **Multiple-testing problem**: if you test 100 strategies, about 5 may appear significant by chance (`p=0.05`); use multiple-comparison correction
-6. **Factor data requirement**: factor attribution requires factor return data, which can be obtained from `tushare` or self-constructed
-7. **Attribution in backtest reports**: `metrics.csv` already provides basic metrics after a backtest; this skill adds deeper attribution analysis
+1. **Quy kết ≠ dự báo**: quy kết giải thích quá khứ, không bảo đảm lặp lại tương lai.
+2. **Benchmark quyết định alpha**: đổi benchmark thì alpha có thể biến mất. **Phải so với bản total-return (VN30-TRI), không phải VN-Index giá** — nếu không, cổ tức bị tính nhầm thành alpha.
+3. **Tần suất dữ liệu**: quy kết ngày nhiễu, quy kết tháng ổn định hơn nhưng ít mẫu; quy trình chuẩn là tính theo ngày, báo cáo theo tháng.
+4. **Survivorship bias mạnh ở VN**: mã hủy niêm yết / chuyển sàn HOSE→UPCoM (vd HVN, HAG giai đoạn khó khăn, FLC, ROS) dễ bị loại khỏi backtest → tạo alpha giả. Giữ cả mã đã rời sàn.
+5. **Đa kiểm định (multiple testing)**: thử 100 chiến lược thì ~5 cái "có ý nghĩa" do ngẫu nhiên (p=0,05); dùng hiệu chỉnh đa so sánh.
+6. **Dữ liệu nhân tố tự dựng**: VN không có sẵn factor returns chuẩn → dựng từ DataPro/vnstock; mẫu ngắn, kiểm chứng out-of-sample.
+7. **Quy kết trong báo cáo backtest**: `metrics.csv` đã có chỉ tiêu cơ bản sau backtest; skill này bổ sung lớp quy kết sâu hơn.
+8. **Tập trung danh mục**: VN dễ tập trung quá mức vào 1–2 mã thanh khoản (HPG/FPT/MWG…). Khi 1 mã đóng góp >40% excess, "selection skill" có thể chỉ là 1 cú đặt cược đúng — soi kỹ.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

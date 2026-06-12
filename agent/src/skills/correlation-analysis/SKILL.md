@@ -1,29 +1,37 @@
 ---
 name: correlation-analysis
-description: Correlation and cointegration analysis — co-movement discovery, deep return-correlation analysis, sector clustering, realized correlation, Engle-Granger / Johansen cointegration, half-life, Kalman dynamic hedge ratio, cross-market linkage analysis, and pair-trading signal generation
+description: "Phân tích tương quan & đồng tích hợp (cointegration) cho TTCK VN — quét cặp đồng pha, phân tích tương quan lợi suất chuyên sâu, phân cụm ngành, tương quan thực hiện theo chế độ thị trường, kiểm định Engle-Granger/Johansen, half-life, hedge ratio động Kalman, liên thông xuyên thị trường, sinh tín hiệu cặp. LƯU Ý: VN cấm bán khống cổ phiếu → pairs trading cổ điển long/short 2 cổ phiếu KHÔNG thực hiện được; khung này dùng cho relative-value long-only, phòng hộ beta bằng VN30F, phân cụm rủi ro."
 category: analysis
 ---
 
-# Correlation and Cointegration Analysis
+# Phân tích tương quan & đồng tích hợp (Việt Nam)
 
-## Overview
+## Mục đích
 
-Correlation analysis is a foundational tool for pairs trading, portfolio construction, and risk management. This skill covers four analysis modes (co-movement discovery / return-correlation deep dive / sector clustering / realized correlation), a full cointegration-testing framework, cross-market linkage analysis, and the complete workflow from analytics to pair-trading signals.
+Tương quan là công cụ nền tảng cho relative value, xây dựng danh mục và quản trị rủi ro. Skill này gồm bốn chế độ phân tích (quét cặp đồng pha / tương quan lợi suất chuyên sâu / phân cụm ngành / tương quan thực hiện), khung kiểm định đồng tích hợp đầy đủ, phân tích liên thông xuyên thị trường, và quy trình từ phân tích đến tín hiệu giao dịch cặp.
+
+> **Cảnh báo đặc thù VN — đọc trước tiên:** **TTCK VN cấm bán khống cổ phiếu** và gần như không có cho vay chứng khoán (SBL) cho NĐT thường. Vì vậy **pairs trading cổ điển (long mã rẻ / short mã đắt) KHÔNG thực hiện được với hai cổ phiếu.** Khung đồng tích hợp/Z-Score dưới đây ở VN dùng cho:
+> 1. **Relative-value xoay vòng (long-only)**: khi cặp lệch khỏi cân bằng, **chuyển vốn** từ mã đắt sang mã rẻ, không mở vị thế short.
+> 2. **Phòng hộ beta bằng VN30F**: short hợp đồng tương lai chỉ số để trung hòa beta của một rổ long cổ phiếu.
+> 3. **Spread giữa các kỳ hạn VN30F** (calendar spread) — phái sinh được phép 2 chiều.
+> 4. **Tìm mã thay thế** khi mã đích cạn room ngoại / kém thanh khoản.
+> 5. **Phân cụm rủi ro & kiểm tra đa dạng hóa danh mục.**
+> Đọc tín hiệu "short spread" bên dưới theo nghĩa **giảm tỷ trọng mã đắt / phòng hộ VN30F**, không phải bán khống cổ phiếu.
 
 ---
 
-## Mode 1: Co-Movement Discovery
+## Chế độ 1: Quét cặp đồng pha (Co-Movement Discovery)
 
-**Use case**: Given a target asset, scan a universe for highly correlated assets and build a candidate pool with similar industry or factor exposure, for use in pairs trading or substitute identification.
+**Tình huống**: cho một mã đích, quét một rổ để tìm các mã tương quan cao, lập danh sách ứng viên cùng ngành/cùng nhân tố — phục vụ relative value hoặc tìm mã thay thế.
 
-### Workflow
+### Quy trình
 
 ```
-1. Pull daily return series for the target asset and N candidates
-2. Compute Pearson / Spearman correlations between the target and each candidate
-3. Rank by correlation in descending order and keep Top-K (usually K=10-20)
-4. Run cointegration tests on the Top-K set to retain pairs with real long-run equilibrium
-5. Output the candidate pool and a correlation summary
+1. Lấy chuỗi lợi suất ngày của mã đích và N ứng viên
+2. Tính tương quan Pearson / Spearman giữa mã đích và từng ứng viên
+3. Xếp hạng giảm dần theo tương quan, giữ Top-K (thường K=10–20)
+4. Kiểm định đồng tích hợp trên Top-K để giữ các cặp có cân bằng dài hạn thật
+5. Xuất danh sách ứng viên + tóm tắt tương quan
 ```
 
 ```python
@@ -38,17 +46,17 @@ def scan_correlated_assets(
     min_corr: float = 0.5,
     method: str = "pearson",
 ) -> pd.DataFrame:
-    """Scan for assets that are highly correlated with the target asset.
+    """Quét các mã tương quan cao với mã đích.
 
     Args:
-        target_returns: Daily return series for the target asset
-        universe_returns: Candidate-universe return matrix, columns are symbols
-        top_k: Number of top candidates to return
-        min_corr: Minimum absolute-correlation threshold
-        method: "pearson" or "spearman"
+        target_returns: Chuỗi lợi suất ngày của mã đích
+        universe_returns: Ma trận lợi suất rổ ứng viên, cột là mã
+        top_k: Số ứng viên trả về
+        min_corr: Ngưỡng tương quan tuyệt đối tối thiểu
+        method: "pearson" hoặc "spearman"
 
     Returns:
-        A DataFrame containing symbol / corr / p_value / rank
+        DataFrame gồm symbol / corr / p_value / rank
     """
     aligned = universe_returns.dropna(axis=1, how="any")
     aligned, target_aligned = aligned.align(target_returns, join="inner", axis=0)
@@ -67,22 +75,24 @@ def scan_correlated_assets(
     return df.head(top_k).reset_index(drop=True)
 ```
 
-**Screening guidance**:
+**Hướng dẫn sàng lọc**:
 
-| Correlation | Conclusion | Follow-up Action |
+| Tương quan | Kết luận | Hành động tiếp theo |
 |---------|------|---------|
-| > 0.8 | Strong same-direction co-movement | Send to the cointegration test queue |
-| 0.6 - 0.8 | Moderate co-movement | Check industry / factor alignment before cointegration |
-| < 0.6 | Weak correlation | Usually unsuitable for pairs trading |
-| Negative and < -0.6 | Strong inverse co-movement | Can be used in hedged portfolios, but be careful with spread direction |
+| > 0,8 | Đồng pha mạnh | Đưa vào hàng đợi kiểm định đồng tích hợp |
+| 0,6 – 0,8 | Đồng pha vừa | Kiểm tra cùng ngành/nhân tố trước khi test đồng tích hợp |
+| < 0,6 | Tương quan yếu | Thường không phù hợp relative value |
+| Âm và < −0,6 | Nghịch pha mạnh | Hiếm ở VN (đa số cổ phiếu đồng pha theo index); cẩn thận chiều spread |
+
+> **Đặc thù VN:** do thị trường lẻ chi phối và beta cao, **đa số cổ phiếu VN đồng pha mạnh với VN-Index** trong pha sóng → tương quan dương rất phổ biến, tương quan âm bền vững gần như không có giữa hai cổ phiếu. Lọc theo tương quan đơn thuần dễ ra toàn cặp "cùng trôi theo index" — phải dùng đồng tích hợp + cùng ngành để lọc cặp relative-value thật.
 
 ---
 
-## Mode 2: Deep Return-Correlation Analysis
+## Chế độ 2: Tương quan lợi suất chuyên sâu (hai mã)
 
-**Use case**: Run a full bivariate correlation study on two assets, including multiple correlation coefficients, Beta / R², rolling correlation, and spread Z-Score.
+**Tình huống**: nghiên cứu tương quan đầy đủ cho hai mã — nhiều hệ số tương quan, Beta/R², tương quan cuốn chiếu, Z-Score của spread.
 
-### Core Metrics
+### Chỉ tiêu cốt lõi
 
 ```python
 import statsmodels.api as sm
@@ -93,21 +103,21 @@ def bivariate_correlation_analysis(
     x: pd.Series,
     rolling_window: int = 60,
 ) -> dict:
-    """Run deep correlation analysis for two assets.
+    """Phân tích tương quan chuyên sâu cho hai mã.
 
     Args:
-        y: Daily return series of asset A
-        x: Daily return series of asset B
-        rolling_window: Rolling-window length in trading days
+        y: Chuỗi lợi suất ngày của mã A
+        x: Chuỗi lợi suất ngày của mã B
+        rolling_window: Độ dài cửa sổ cuốn chiếu (phiên)
 
     Returns:
-        Dict of correlation statistics
+        Dict các thống kê tương quan
     """
-    # Align the two series.
+    # Căn chỉnh hai chuỗi.
     df = pd.concat([y.rename("y"), x.rename("x")], axis=1).dropna()
     y_clean, x_clean = df["y"], df["x"]
 
-    # Static correlations.
+    # Tương quan tĩnh.
     pearson_r, pearson_p = pearsonr(y_clean, x_clean)
     spearman_r, spearman_p = spearmanr(y_clean, x_clean)
     kendall_r, kendall_p = kendalltau(y_clean, x_clean)
@@ -119,10 +129,10 @@ def bivariate_correlation_analysis(
     alpha = ols.params["const"]
     r_squared = ols.rsquared
 
-    # Rolling Pearson correlation.
+    # Tương quan Pearson cuốn chiếu.
     rolling_corr = y_clean.rolling(rolling_window).corr(x_clean)
 
-    # Spread and Z-Score using the hedge ratio.
+    # Spread và Z-Score theo hedge ratio.
     spread = y_clean - beta * x_clean
     spread_mean = spread.rolling(rolling_window).mean()
     spread_std = spread.rolling(rolling_window).std()
@@ -143,21 +153,21 @@ def bivariate_correlation_analysis(
     }
 ```
 
-### Correlation-Coefficient Selection Guide
+### Hướng dẫn chọn hệ số tương quan
 
-| Coefficient | Assumption | Best Use Case | Not Suitable When |
+| Hệ số | Giả định | Dùng tốt khi | Không phù hợp khi |
 |------|------|---------|--------|
-| Pearson | Linear, approximately normal | Return series | Heavy tails / many outliers |
-| Spearman | Monotonic relationship | Ranking / quantile analysis, many outliers | When magnitude information matters |
-| Kendall | Order consistency | Small samples, unknown distribution | Large samples due to slower computation |
+| Pearson | Tuyến tính, xấp xỉ chuẩn | Chuỗi lợi suất | Đuôi nặng / nhiều ngoại lai (cổ phiếu VN) |
+| Spearman | Đơn điệu | Xếp hạng/phân vị, nhiều ngoại lai | Khi cần thông tin độ lớn |
+| Kendall | Nhất quán thứ tự | Mẫu nhỏ, phân phối chưa rõ | Mẫu lớn (tính chậm) |
 
-**Practical rule in finance**: Usually report all three coefficients. If Pearson and Spearman differ by more than 0.1, the relationship is likely nonlinear or heavy-tailed, and Spearman should carry more weight.
+**Quy tắc thực chiến**: thường báo cả ba hệ số. Nếu Pearson và Spearman lệch >0,1 thì quan hệ nhiều khả năng phi tuyến/đuôi nặng → ưu tiên Spearman. Ở VN, các phiên trần/sàn tạo ngoại lai → Spearman thường đáng tin hơn Pearson.
 
 ---
 
-## Mode 3: Sector Clustering
+## Chế độ 3: Phân cụm ngành (Sector Clustering)
 
-**Use case**: Run hierarchical clustering on the correlation matrix of N assets to discover sector structure, check portfolio diversification, and identify similar assets.
+**Tình huống**: phân cụm phân cấp trên ma trận tương quan của N mã để phát hiện cấu trúc ngành, kiểm tra đa dạng hóa danh mục, tìm mã tương đồng.
 
 ```python
 import numpy as np
@@ -173,30 +183,30 @@ def sector_clustering(
     n_clusters: int = 5,
     figsize: tuple = (12, 10),
 ) -> dict:
-    """Run sector clustering analysis.
+    """Phân cụm ngành.
 
     Args:
-        returns: Multi-asset daily return matrix, columns are symbols
-        method: Linkage method: "ward" / "complete" / "average"
-        n_clusters: Target number of clusters
-        figsize: Heatmap size
+        returns: Ma trận lợi suất ngày đa mã, cột là mã
+        method: Phương pháp liên kết: "ward" / "complete" / "average"
+        n_clusters: Số cụm mục tiêu
+        figsize: Kích thước heatmap
 
     Returns:
-        Dict containing the correlation matrix, cluster labels, and figure objects
+        Dict gồm ma trận tương quan, nhãn cụm, đối tượng hình
     """
-    # 1. Correlation matrix
+    # 1. Ma trận tương quan
     corr_matrix = returns.corr(method="pearson")
 
-    # 2. Distance matrix where distance = 1 - |correlation|
+    # 2. Ma trận khoảng cách: distance = 1 − |tương quan|
     distance_matrix = 1 - corr_matrix.abs()
     condensed = squareform(distance_matrix.values, checks=False)
 
-    # 3. Hierarchical clustering
+    # 3. Phân cụm phân cấp
     linkage_matrix = linkage(condensed, method=method)
     labels = fcluster(linkage_matrix, n_clusters, criterion="maxclust")
     cluster_df = pd.DataFrame({"symbol": corr_matrix.columns, "cluster": labels})
 
-    # 4. Heatmap sorted by cluster
+    # 4. Heatmap sắp theo cụm
     order = cluster_df.sort_values("cluster").index
     sorted_corr = corr_matrix.iloc[order, order]
 
@@ -210,9 +220,9 @@ def sector_clustering(
         annot=len(corr_matrix) <= 20,
         fmt=".2f",
         ax=ax,
-        cbar_kws={"label": "Pearson correlation"},
+        cbar_kws={"label": "Tương quan Pearson"},
     )
-    ax.set_title(f"Correlation Heatmap ({method.upper()} clustering order)")
+    ax.set_title(f"Heatmap tương quan (thứ tự cụm {method.upper()})")
 
     # 5. Dendrogram
     fig_dendro, ax2 = plt.subplots(figsize=(figsize[0], 6))
@@ -223,8 +233,8 @@ def sector_clustering(
         leaf_rotation=90,
         color_threshold=0,
     )
-    ax2.set_title(f"Hierarchical Dendrogram ({method.upper()} linkage)")
-    ax2.set_ylabel("Distance")
+    ax2.set_title(f"Dendrogram phân cấp (liên kết {method.upper()})")
+    ax2.set_ylabel("Khoảng cách")
 
     return {
         "corr_matrix": corr_matrix,
@@ -236,19 +246,21 @@ def sector_clustering(
     }
 ```
 
-### Comparison of Three Linkage Methods
+### So sánh ba phương pháp liên kết
 
-| Method | Feature | Best Use Case | Weakness |
+| Phương pháp | Đặc điểm | Dùng tốt khi | Điểm yếu |
 |------|------|---------|------|
-| Ward | Minimizes within-cluster variance, gives compact clusters | **Default recommendation**, stock-sector discovery | Works best for spherical clusters, weaker for irregular shapes |
-| Complete | Uses maximum pairwise distance, conservative | When high within-cluster similarity is required | Can produce elongated clusters |
-| Average | Uses average distance, compromise approach | General analysis where compactness is not the top priority | Sensitive to noise |
+| Ward | Tối thiểu phương sai nội cụm, cụm gọn | **Mặc định khuyến nghị**, phát hiện ngành | Hợp cụm dạng cầu, kém cho hình bất thường |
+| Complete | Dùng khoảng cách lớn nhất, bảo thủ | Khi cần tương đồng nội cụm cao | Có thể tạo cụm dài |
+| Average | Dùng khoảng cách trung bình, dung hòa | Phân tích chung | Nhạy nhiễu |
+
+> **Ứng dụng VN:** phân cụm thường tái hiện đúng các "họ" cổ phiếu VN — họ ngân hàng, họ chứng khoán, họ thép, họ Vingroup, nhóm dầu khí (theo giá dầu), nhóm điện/nước phòng thủ. Dùng để **kiểm tra đa dạng hóa**: nếu danh mục "10 mã" nhưng 7 mã rơi vào 1 cụm (vd toàn ngân hàng + chứng khoán) → thực chất chỉ là 1 cú đặt cược beta, không đa dạng hóa.
 
 ---
 
-## Mode 4: Realized Correlation
+## Chế độ 4: Tương quan thực hiện (Realized Correlation)
 
-**Use case**: Compute rolling correlation time series and analyze conditional correlation by market regime (bull / bear / high-volatility) to discover how correlation evolves dynamically.
+**Tình huống**: tính chuỗi tương quan cuốn chiếu và phân tích tương quan theo chế độ thị trường (tăng/giảm/biến động cao) để thấy tương quan biến đổi động.
 
 ```python
 def realized_correlation(
@@ -259,27 +271,27 @@ def realized_correlation(
     vol_window: int = 20,
     vol_threshold: float = 1.5,
 ) -> dict:
-    """Rolling realized correlation plus regime-conditional correlation.
+    """Tương quan cuốn chiếu + tương quan theo chế độ.
 
     Args:
-        y, x: Daily return series of two assets
-        benchmark: Daily return series of the benchmark index used for regime labeling
-        windows: List of rolling windows in trading days
-        vol_window: Volatility window
-        vol_threshold: High-vol threshold as a multiple of average vol
+        y, x: Chuỗi lợi suất ngày của hai mã
+        benchmark: Lợi suất ngày của chỉ số tham chiếu (VN-Index/VN30) để gán chế độ
+        windows: Danh sách cửa sổ cuốn chiếu (phiên)
+        vol_window: Cửa sổ biến động
+        vol_threshold: Ngưỡng biến động cao (bội số biến động trung bình)
 
     Returns:
-        Rolling correlation series and conditional-correlation summary
+        Chuỗi tương quan cuốn chiếu + tóm tắt tương quan theo chế độ
     """
     df = pd.concat([y.rename("y"), x.rename("x"),
                     benchmark.rename("bm")], axis=1).dropna()
 
-    # Rolling correlation time series.
+    # Chuỗi tương quan cuốn chiếu.
     rolling_corrs = {}
     for w in windows:
         rolling_corrs[f"roll_{w}d"] = df["y"].rolling(w).corr(df["x"])
 
-    # Regime labels.
+    # Gán nhãn chế độ.
     bm_ret_252 = df["bm"].rolling(252).mean()
     bm_vol = df["bm"].rolling(vol_window).std()
     bm_vol_mean = bm_vol.rolling(252).mean()
@@ -289,7 +301,7 @@ def realized_correlation(
     df.loc[df["bm"] < -bm_ret_252.abs(), "regime"] = "bear"
     df.loc[bm_vol > bm_vol_mean * vol_threshold, "regime"] = "high_vol"
 
-    # Conditional correlation.
+    # Tương quan có điều kiện.
     cond_corr = {}
     for regime in ["bull", "bear", "sideways", "high_vol"]:
         mask = df["regime"] == regime
@@ -306,24 +318,24 @@ def realized_correlation(
     }
 ```
 
-### Typical Correlation Behavior by Market Regime
+### Hành vi tương quan điển hình theo chế độ (VN)
 
-| Market Regime | Equity-Equity Correlation | Equity-Bond Correlation | A-Share Characteristic |
+| Chế độ thị trường | Tương quan cổ phiếu–cổ phiếu | Cổ phiếu–trái phiếu | Đặc trưng TTCK VN |
 |---------|---------|---------|--------|
-| Bull | Medium (0.4-0.6) | Low or negative | Small-cap names tend to move together strongly |
-| Bear | **High (0.7-0.9)** | Negative (safe-haven effect) | Broad selloff, correlation jumps sharply |
-| High volatility | **Very high (0.8+)** | Negative | In crises, correlation often converges toward 1 |
-| Sideways | Low (0.2-0.4) | Near zero | Stock dispersion rises, ideal for pairs trading |
+| Tăng (bull) | Vừa (0,4–0,6) | Thấp hoặc âm | Mid/small chạy theo dòng tiền lẻ, đồng pha mạnh |
+| Giảm (bear) | **Cao (0,7–0,9)** | Âm (TPCP trú ẩn) | Bán tháo diện rộng, tương quan nhảy vọt |
+| Biến động cao | **Rất cao (0,8+)** | Âm | Khủng hoảng (2022) → tương quan → 1, sàn la liệt |
+| Đi ngang (sideways) | Thấp (0,2–0,4) | Gần 0 | Phân hóa mạnh, lý tưởng cho relative-value xoay vòng |
 
 ---
 
-## Cointegration Analysis
+## Phân tích đồng tích hợp (Cointegration)
 
-Correlation measures the degree of co-movement. Cointegration measures whether a **long-run equilibrium relationship** exists. High correlation does not guarantee cointegration, and low correlation does not rule it out.
+Tương quan đo mức đồng pha. Đồng tích hợp đo có tồn tại **quan hệ cân bằng dài hạn** hay không. Tương quan cao không bảo đảm đồng tích hợp, và tương quan thấp không loại trừ đồng tích hợp.
 
-### Engle-Granger Two-Step Method
+### Engle-Granger hai bước
 
-Suitable for two-variable pairs, quick and intuitive.
+Phù hợp cặp hai biến, nhanh và trực quan.
 
 ```python
 from statsmodels.tsa.stattools import coint, adfuller
@@ -335,30 +347,29 @@ def engle_granger_coint(
     x: pd.Series,
     significance: float = 0.05,
 ) -> dict:
-    """Run the Engle-Granger two-step cointegration test.
+    """Kiểm định đồng tích hợp Engle-Granger hai bước.
 
-    H0: No cointegration relationship exists (residuals contain a unit root).
+    H0: Không có quan hệ đồng tích hợp (phần dư có nghiệm đơn vị).
 
     Args:
-        y, x: Two price series. These must be non-stationary series,
-            usually prices rather than returns.
-        significance: Significance level
+        y, x: Hai chuỗi GIÁ. Phải là chuỗi không dừng (dùng giá, không dùng lợi suất).
+        significance: Mức ý nghĩa
 
     Returns:
-        Test results and spread series
+        Kết quả kiểm định + chuỗi spread
     """
-    # Step 1: estimate the cointegrating vector with OLS.
+    # Bước 1: ước lượng vector đồng tích hợp bằng OLS.
     x_const = sm.add_constant(x)
     ols = sm.OLS(y, x_const).fit()
     hedge_ratio = ols.params[x.name if x.name else "x"]
     intercept = ols.params["const"]
     residuals = ols.resid
 
-    # Step 2: test residual stationarity with ADF.
+    # Bước 2: kiểm định tính dừng của phần dư bằng ADF.
     adf_res = adfuller(residuals, autolag="AIC")
     adf_stat, adf_p = adf_res[0], adf_res[1]
 
-    # statsmodels coint wrapper.
+    # Hàm coint của statsmodels.
     coint_stat, coint_p, crit_vals = coint(y, x)
 
     return {
@@ -374,11 +385,11 @@ def engle_granger_coint(
     }
 ```
 
-**Note**: Engle-Granger can detect only one cointegrating vector, and the test result depends on the ordering of `y` and `x`. In practice, test both directions and keep the direction with the smaller p-value.
+**Lưu ý**: Engle-Granger chỉ phát hiện một vector đồng tích hợp và kết quả phụ thuộc thứ tự `y`, `x`. Thực chiến: test cả hai chiều, giữ chiều có p-value nhỏ hơn.
 
-### Johansen Cointegration Test for Multiple Variables
+### Kiểm định Johansen cho nhiều biến
 
-Suitable for three or more assets and for estimating the number of cointegrating vectors (rank).
+Phù hợp ba mã trở lên và để ước lượng số vector đồng tích hợp (rank).
 
 ```python
 from statsmodels.tsa.vector_ar.vecm import coint_johansen
@@ -388,16 +399,15 @@ def johansen_coint(
     det_order: int = 0,
     k_ar_diff: int = 1,
 ) -> dict:
-    """Run the Johansen cointegration test.
+    """Kiểm định đồng tích hợp Johansen.
 
     Args:
-        prices: Multi-asset price matrix, columns are symbols.
-            The series must be non-stationary.
-        det_order: Deterministic term. -1=no intercept, 0=intercept, 1=trend
-        k_ar_diff: Number of lagged differences in the VAR, usually 1-5 chosen by AIC
+        prices: Ma trận giá đa mã, cột là mã. Chuỗi phải không dừng.
+        det_order: Thành phần xác định. -1=không chặn, 0=chặn, 1=xu thế
+        k_ar_diff: Số sai phân trễ trong VAR, thường 1–5 chọn theo AIC
 
     Returns:
-        Trace-test and max-eigenvalue-test results
+        Kết quả trace test và max-eigenvalue test
     """
     result = coint_johansen(prices.dropna(), det_order=det_order, k_ar_diff=k_ar_diff)
     n = prices.shape[1]
@@ -426,7 +436,7 @@ def johansen_coint(
             "reject_5pct": result.lr2[i] > result.cvm[i, 1],
         })
 
-    # Cointegrating vectors, normalized.
+    # Vector đồng tích hợp, chuẩn hóa.
     coint_vectors = pd.DataFrame(
         result.evec[:, :sum(r["reject_5pct"] for r in trace_results)],
         index=prices.columns,
@@ -442,35 +452,35 @@ def johansen_coint(
     }
 ```
 
-**Johansen rank interpretation rules**:
+**Quy tắc đọc rank Johansen**:
 
 ```
-Start the trace test from H0: rank=0 and move upward.
-The first rank that cannot be rejected is the estimated cointegration rank.
+Bắt đầu trace test từ H0: rank=0 và đi lên.
+Rank đầu tiên KHÔNG bác bỏ được chính là rank đồng tích hợp ước lượng.
 
-rank = 0   → no cointegration
-rank = 1   → one cointegrating vector (most common, long-run equilibrium for a pair)
-rank = k-1 → k-1 cointegrating vectors (system is tightly linked)
-rank = k   → the series themselves are stationary, so cointegration is not needed
+rank = 0   → không đồng tích hợp
+rank = 1   → một vector đồng tích hợp (phổ biến nhất — cân bằng dài hạn của một cặp)
+rank = k-1 → k-1 vector (hệ liên kết chặt)
+rank = k   → bản thân các chuỗi đã dừng, không cần đồng tích hợp
 ```
 
-### Half-Life Calculation
+### Tính half-life
 
-Half-life measures how long a spread takes to mean-revert after deviating from equilibrium. It is a practical reference for expected holding period in pairs trading.
+Half-life đo thời gian để spread hồi về cân bằng sau khi lệch. Là tham chiếu thực dụng cho kỳ nắm giữ kỳ vọng trong giao dịch cặp.
 
 ```python
 def compute_half_life(spread: pd.Series) -> float:
-    """Estimate mean-reversion half-life with OLS, in days.
+    """Ước lượng half-life hồi quy về trung bình bằng OLS (đơn vị: phiên).
 
-    Principle:
-        Estimate ΔSpread_t = λ·Spread_{t-1} + ε
-        Half-life = -ln(2) / λ, where λ must be negative for mean reversion
+    Nguyên lý:
+        Ước lượng ΔSpread_t = λ·Spread_{t-1} + ε
+        Half-life = -ln(2) / λ, với λ phải âm để có hồi quy về trung bình
 
     Args:
-        spread: Spread series, which should be stationary
+        spread: Chuỗi spread, nên là chuỗi dừng
 
     Returns:
-        Half-life in trading days. Negative or infinite values imply divergence.
+        Half-life (phiên). Giá trị âm/vô cực ⇒ phân kỳ.
     """
     spread_lag = spread.shift(1)
     delta = spread.diff()
@@ -482,25 +492,27 @@ def compute_half_life(spread: pd.Series) -> float:
     lam = ols.params["lag"]
 
     if lam >= 0:
-        return float("inf")  # no mean reversion
+        return float("inf")  # không hồi quy về trung bình
 
     half_life = -np.log(2) / lam
     return round(half_life, 1)
 ```
 
-**Half-life reference ranges**:
+**Tham chiếu khoảng half-life**:
 
-| Half-Life | Meaning | Trading Guidance |
+| Half-life | Ý nghĩa | Hướng dẫn giao dịch |
 |-------|------|---------|
-| < 5 days | Extremely fast reversion | Intraday or overnight trading, friction cost matters |
-| 5-20 days | Fast reversion | Ideal range for short-term pairs trading |
-| 20-60 days | Medium-speed reversion | Medium-term holding, rolling windows 60-120 days |
-| 60-180 days | Slow reversion | Long holding period, monitor cointegration stability |
-| > 180 days | Near random walk | High pairs-trading risk, use cautiously |
+| < 5 phiên | Hồi cực nhanh | Vướng T+2 (không bán cổ phiếu vừa mua) → khó khai thác bằng cổ phiếu; cân nhắc phái sinh |
+| 5–20 phiên | Hồi nhanh | Khoảng lý tưởng cho relative-value ngắn hạn ở VN |
+| 20–60 phiên | Hồi trung bình | Nắm giữ trung hạn, cửa sổ 60–120 phiên |
+| 60–180 phiên | Hồi chậm | Nắm giữ dài, theo dõi độ ổn định đồng tích hợp |
+| > 180 phiên | Gần bước ngẫu nhiên | Rủi ro cao, dùng thận trọng |
 
-### Kalman Filter Dynamic Hedge Ratio
+> **Lưu ý T+2:** half-life < 5 phiên về lý thuyết hấp dẫn nhưng ở VN gần như **không khai thác được bằng cổ phiếu** vì cổ phiếu vừa mua phải chờ ~2 phiên mới bán được. Half-life 5–20 phiên là vùng thực tế nhất.
 
-Static OLS hedge ratios cannot capture gradual drift in the cointegration relationship. A Kalman filter provides a continuously updated dynamic hedge ratio.
+### Hedge ratio động bằng Kalman Filter
+
+OLS tĩnh không bắt được trôi dần của quan hệ đồng tích hợp. Kalman filter cho hedge ratio cập nhật liên tục.
 
 ```python
 import numpy as np
@@ -511,28 +523,28 @@ def kalman_hedge_ratio(
     delta: float = 1e-4,
     vt: float = 1.0,
 ) -> pd.DataFrame:
-    """Estimate a dynamic hedge ratio with a Kalman filter.
+    """Ước lượng hedge ratio động bằng Kalman filter.
 
-    State equation:
+    Phương trình trạng thái:
         β_t = β_{t-1} + w_t,  w ~ N(0, Q)
-    Observation equation:
+    Phương trình quan sát:
         y_t = β_t · x_t + v_t,  v ~ N(0, R)
 
     Args:
-        y: Price series of asset A
-        x: Price series of asset B
-        delta: State-noise intensity. Larger means faster hedge-ratio adaptation
-        vt: Observation-noise variance
+        y: Chuỗi giá mã A
+        x: Chuỗi giá mã B
+        delta: Cường độ nhiễu trạng thái. Lớn hơn ⇒ hedge ratio thích nghi nhanh hơn
+        vt: Phương sai nhiễu quan sát
 
     Returns:
-        DataFrame containing the dynamic hedge ratio and spread
+        DataFrame gồm hedge ratio động và spread
     """
     n = len(y)
-    # State: [β, α] = hedge ratio + intercept
+    # Trạng thái: [β, α] = hedge ratio + chặn
     Wt = delta / (1 - delta) * np.eye(2)
     Vt = vt
 
-    # Initialization
+    # Khởi tạo
     theta = np.zeros((n, 2))
     P = np.zeros((n, 2, 2))
     P[0] = np.eye(2)
@@ -543,7 +555,7 @@ def kalman_hedge_ratio(
     for t in range(1, n):
         F = np.array([x.iloc[t], 1.0])
 
-        # Predict
+        # Dự báo
         theta_pred = theta[t - 1]
         P_pred = P[t - 1] + Wt
 
@@ -554,7 +566,7 @@ def kalman_hedge_ratio(
         # Kalman gain
         K = P_pred @ F.T / S
 
-        # Update
+        # Cập nhật
         theta[t] = theta_pred + K * innovation
         P[t] = (np.eye(2) - np.outer(K, F)) @ P_pred
 
@@ -567,66 +579,65 @@ def kalman_hedge_ratio(
     }, index=y.index)
 ```
 
-**Static vs dynamic hedge-ratio comparison**:
+**So sánh hedge ratio tĩnh vs động**:
 
-| Method | Strength | Weakness | Best Use Case |
+| Phương pháp | Ưu | Nhược | Dùng tốt khi |
 |------|------|------|------|
-| OLS | Simple, stable | Cannot capture time variation | Short-term stable pairs |
-| Rolling OLS | Time-varying, intuitive | Window-sensitive, endpoint effect | Medium-term pairs |
-| Kalman Filter | Real-time, continuous update | `delta` is harder to tune | Long-term or structurally shifting pairs |
+| OLS | Đơn giản, ổn định | Không bắt biến đổi theo thời gian | Cặp ổn định ngắn hạn |
+| Rolling OLS | Biến thiên, trực quan | Nhạy cửa sổ, hiệu ứng biên | Cặp trung hạn |
+| Kalman Filter | Cập nhật liên tục, thời gian thực | `delta` khó tinh chỉnh | Cặp dài hạn / có dịch chuyển cấu trúc |
 
 ---
 
-## Cross-Market Correlation
+## Tương quan xuyên thị trường (Cross-Market)
 
-### Correlation Across China A-Share Sectors
+### Tương quan giữa các ngành HOSE
 
 ```python
-# Typical China A-share sector-correlation patterns
-ASHARE_SECTOR_PATTERNS = {
-    "strong_pairs_gt_0_7": [
-        "Banks & insurance",
-        "Baijiu & consumer staples",
-        "New energy & solar",
-        "Defense & aerospace",
+# Mẫu hình tương quan ngành điển hình TTCK VN
+VN_SECTOR_PATTERNS = {
+    "manh_gt_0_7": [
+        "Họ ngân hàng (VCB/BID/CTG/MBB/ACB/TCB)",
+        "Họ chứng khoán (SSI/HCM/VND/VCI) — beta cao theo index",
+        "Họ thép (HPG/HSG/NKG)",
+        "Họ Vingroup (VIC/VHM/VRE)",
     ],
-    "medium_pairs_0_4_to_0_7": [
-        "Pharma & consumer",
-        "Technology & semiconductors",
-        "Real estate & building materials",
+    "vua_0_4_to_0_7": [
+        "BĐS ↔ xây dựng/vật liệu (thép, xi măng)",
+        "Bán lẻ/tiêu dùng (MWG/FRT/PNJ/DGW)",
+        "Dầu khí (GAS/PLX/PVS/PVD/BSR) — theo giá dầu Brent",
     ],
-    "low_or_negative_lt_0_3": [
-        "Gold & technology",
-        "Utilities & cyclicals",
-        "Consumer & cyclicals",
+    "thap_hoac_am_lt_0_3": [
+        "Điện/nước phòng thủ (POW/NT2/REE) ↔ nhóm đầu cơ",
+        "Phòng thủ (dược, điện nước) ↔ chu kỳ",
     ],
 }
 ```
 
-### Cross-Market Linkage Analysis
+### Phân tích liên thông xuyên thị trường
 
 ```python
 def cross_market_correlation(
-    markets: dict,  # {"China A-shares": series, "Hong Kong": series, "crypto": series, "US": series}
+    markets: dict,  # {"VN-Index": series, "S&P500": series, "Brent": series, "USD/VND": series}
     rolling_window: int = 60,
     lag_days: list = [0, 1, 2, 3],
 ) -> dict:
-    """Cross-market correlation plus lead-lag analysis.
+    """Tương quan xuyên thị trường + phân tích dẫn-trễ (lead-lag).
 
     Args:
-        markets: Daily return series for each market
-        rolling_window: Rolling window
-        lag_days: List of lags to test
+        markets: Chuỗi lợi suất ngày của từng thị trường/yếu tố
+        rolling_window: Cửa sổ cuốn chiếu
+        lag_days: Danh sách độ trễ cần test
 
     Returns:
-        Correlation matrix, lead-lag analysis, and rolling correlation
+        Ma trận tương quan, phân tích dẫn-trễ, tương quan cuốn chiếu
     """
     df = pd.DataFrame(markets).dropna()
 
-    # Static correlation matrix
+    # Ma trận tương quan tĩnh
     static_corr = df.corr()
 
-    # Lead-lag correlation to detect cross-market transmission
+    # Tương quan dẫn-trễ để phát hiện truyền dẫn xuyên thị trường
     lead_lag = {}
     mkt_names = list(markets.keys())
     for i, m1 in enumerate(mkt_names):
@@ -640,7 +651,7 @@ def cross_market_correlation(
                     r, _ = pearsonr(df[m1].iloc[lag:], df[m2].iloc[:-lag])
                 lead_lag[pair_key][f"lag_{lag}d"] = round(r, 4)
 
-    # Rolling correlation
+    # Tương quan cuốn chiếu
     rolling_corrs = {}
     for i, m1 in enumerate(mkt_names):
         for m2 in mkt_names[i + 1:]:
@@ -654,46 +665,46 @@ def cross_market_correlation(
     }
 ```
 
-### Empirical Cross-Market Linkage Patterns
+### Mẫu hình liên thông xuyên thị trường (thực nghiệm VN)
 
-| Market Pair | Average Correlation | Transmission Direction | Lag |
+| Cặp thị trường | Tương quan TB | Chiều truyền dẫn | Độ trễ |
 |-------|---------|---------|------|
-| China A-shares ↔ Hong Kong | 0.5-0.7 | Two-way, Hong Kong slightly leads | 0-1 day |
-| China A-shares ↔ U.S. equities | 0.2-0.4 | U.S. leads overnight | 1 day |
-| BTC ↔ ETH | 0.7-0.9 | Highly synchronous | < 1 hour |
-| China A-shares ↔ BTC | 0.0-0.2 | Mostly independent, except correlation spikes in crises | Unstable |
-| U.S. equities ↔ BTC | 0.1-0.4 | U.S. leads through institutional capital flows | Within 1 day |
-| RMB exchange rate ↔ China A-shares | -0.2 - 0.3 | RMB weakness → foreign outflows → China A-share weakness | 0-2 days |
+| VN-Index ↔ S&P500 / Nasdaq | 0,2–0,4 | Mỹ dẫn qua đêm (tâm lý toàn cầu) | 1 phiên |
+| VN-Index ↔ MSCI EM / Frontier | 0,3–0,5 | Dòng vốn ngoại (ETF) | 0–1 phiên |
+| Nhóm dầu khí VN (GAS/PVS/PVD/BSR) ↔ Brent | 0,4–0,7 | Giá dầu dẫn | 0–1 phiên |
+| Nhóm thép VN (HPG/HSG) ↔ giá HRC/thép Trung Quốc | 0,3–0,6 | Giá thép TQ dẫn | 0–2 phiên |
+| VN-Index ↔ USD/VND | −0,2 đến 0,1 | USD/VND tăng → khối ngoại rút → VN yếu | 0–2 phiên |
+| VN-Index ↔ A-share Trung Quốc | 0,1–0,3 | Liên thông yếu, đa phần độc lập | Bất ổn |
 
-### Impact of FX Factors on Cross-Market Correlation
+### Tác động của yếu tố tỷ giá lên tương quan xuyên thị trường
 
-Cross-market correlation analysis must distinguish between local-currency returns and FX-adjusted returns. Otherwise, exchange-rate moves can create spurious correlation or hide the true one.
+Khi so sánh xuyên thị trường, phải phân biệt lợi suất theo nội tệ và lợi suất đã điều chỉnh tỷ giá; nếu không, biến động tỷ giá tạo tương quan giả hoặc che giấu tương quan thật.
 
 ```python
 def fx_adjusted_correlation(
-    foreign_price: pd.Series,   # foreign-market price, denominated in foreign currency
-    domestic_price: pd.Series,  # domestic-market price
-    fx_rate: pd.Series,         # foreign currency / domestic currency, e.g. USD/CNY
+    foreign_price: pd.Series,   # giá thị trường nước ngoài, mệnh giá ngoại tệ
+    domestic_price: pd.Series,  # giá thị trường trong nước (VN)
+    fx_rate: pd.Series,         # ngoại tệ / nội tệ, vd USD/VND
 ) -> dict:
-    """Cross-market correlation adjusted for FX effects.
+    """Tương quan xuyên thị trường đã điều chỉnh tỷ giá.
 
     Args:
-        foreign_price: Foreign-market price series in foreign currency
-        domestic_price: Domestic-market price series in domestic currency
-        fx_rate: FX series expressed as foreign / domestic
+        foreign_price: Chuỗi giá nước ngoài (ngoại tệ)
+        domestic_price: Chuỗi giá trong nước (VND)
+        fx_rate: Tỷ giá dạng ngoại tệ / nội tệ (USD/VND)
 
     Returns:
-        Raw correlation vs FX-adjusted correlation
+        Tương quan thô vs tương quan điều chỉnh tỷ giá
     """
-    # Domestic-currency foreign return = foreign return + FX return
+    # Lợi suất nước ngoài quy VND = lợi suất nước ngoài + lợi suất tỷ giá
     foreign_ret = foreign_price.pct_change()
     fx_ret = fx_rate.pct_change()
-    foreign_ret_cny = (1 + foreign_ret) * (1 + fx_ret) - 1
+    foreign_ret_vnd = (1 + foreign_ret) * (1 + fx_ret) - 1
 
     domestic_ret = domestic_price.pct_change()
 
     df = pd.concat([foreign_ret.rename("foreign_raw"),
-                    foreign_ret_cny.rename("foreign_domestic"),
+                    foreign_ret_vnd.rename("foreign_domestic"),
                     domestic_ret.rename("domestic"),
                     fx_ret.rename("fx")], axis=1).dropna()
 
@@ -706,31 +717,33 @@ def fx_adjusted_correlation(
         "fx_adjusted_corr": round(adj_corr, 4),
         "fx_domestic_corr": round(fx_corr, 4),
         "fx_contribution": round(adj_corr - raw_corr, 4),
-        "note": "fx_contribution > 0 means FX amplified cross-market correlation",
+        "note": "fx_contribution > 0 nghĩa là tỷ giá khuếch đại tương quan xuyên thị trường",
     }
 ```
 
-### Correlation Breakdown During Crises
+> **Đặc thù VN:** USD/VND được điều hành tương đối ổn định (biên độ thường ±3%/năm) nên đóng góp tỷ giá nhỏ hơn nhiều so với CNY/các đồng EM khác. Tuy vậy điều chỉnh tỷ giá vẫn quan trọng khi nhìn dưới góc **NĐT nước ngoài** (lợi suất quy USD): các đợt USD/VND mất giá mạnh (2022, 2024) trùng với khối ngoại bán ròng → tương quan VN-Index ↔ tỷ giá đổi dấu trong các giai đoạn này.
 
-During crises, equity correlation converges toward 1 and diversification breaks down. This is one of the central challenges in portfolio risk management.
+### Đổ vỡ tương quan trong khủng hoảng
+
+Trong khủng hoảng, tương quan cổ phiếu hội tụ về 1 và đa dạng hóa thất bại — một trong những thách thức trung tâm của quản trị rủi ro danh mục.
 
 ```python
 def correlation_breakdown_test(
     returns: pd.DataFrame,
-    crisis_threshold: float = -0.02,  # one-day benchmark drop threshold for crisis days
+    crisis_threshold: float = -0.02,  # ngưỡng giảm 1 phiên của benchmark để coi là ngày khủng hoảng
     benchmark_col: str = None,
     window: int = 20,
 ) -> dict:
-    """Detect jumps in correlation during crisis periods.
+    """Phát hiện nhảy tương quan trong các giai đoạn khủng hoảng.
 
     Args:
-        returns: Multi-asset daily return matrix
-        crisis_threshold: Benchmark return below this level defines a crisis day
-        benchmark_col: Benchmark column name. If None, use cross-sectional mean return
-        window: Window for rolling average correlation
+        returns: Ma trận lợi suất ngày đa mã
+        crisis_threshold: Lợi suất benchmark dưới mức này = ngày khủng hoảng
+        benchmark_col: Tên cột benchmark. Nếu None, dùng lợi suất trung bình ngang
+        window: Cửa sổ tương quan trung bình cuốn chiếu
 
     Returns:
-        Comparison of correlation in normal periods vs crisis periods
+        So sánh tương quan thời bình vs thời khủng hoảng
     """
     if benchmark_col:
         bm = returns[benchmark_col]
@@ -740,7 +753,7 @@ def correlation_breakdown_test(
     crisis_mask = bm < crisis_threshold
     normal_mask = ~crisis_mask
 
-    # Average pairwise correlation for each period
+    # Tương quan cặp trung bình từng giai đoạn
     def avg_corr(df_subset: pd.DataFrame) -> float:
         if len(df_subset) < 5:
             return float("nan")
@@ -751,7 +764,7 @@ def correlation_breakdown_test(
     crisis_corr = avg_corr(returns[crisis_mask])
     normal_corr = avg_corr(returns[normal_mask])
 
-    # Rolling average correlation to detect structural change
+    # Tương quan trung bình cuốn chiếu để phát hiện đứt gãy cấu trúc
     rolling_avg_corr = pd.Series(dtype=float, index=returns.index)
     for i in range(window, len(returns)):
         sub = returns.iloc[i - window:i]
@@ -767,38 +780,41 @@ def correlation_breakdown_test(
     }
 ```
 
+> Ở VN, hiện tượng này cực rõ: trong các đợt giải chấp margin (2018, 2022), **sàn la liệt toàn thị trường**, tương quan cặp trung bình nhảy từ ~0,4 lên >0,8. Hai mã "relative-value" tưởng phòng hộ lẫn nhau có thể **cùng nằm sàn** → ngưỡng cắt lỗ phải chặt hơn thời bình.
+
 ---
 
-## Pair-Trading Signal Generation
+## Sinh tín hiệu giao dịch cặp (relative-value)
 
-### Full Workflow From Correlation to Signal
+> **Nhắc lại ràng buộc VN:** không short được cổ phiếu. "Long spread / short spread" dưới đây ở VN hiểu là: **tăng tỷ trọng mã rẻ / giảm tỷ trọng mã đắt** (xoay vòng long-only), hoặc **phòng hộ chân short bằng VN30F** nếu mã đắt có beta cao tương quan với VN30. Đừng triển khai như lệnh bán khống cổ phiếu.
+
+### Quy trình đầy đủ từ tương quan đến tín hiệu
 
 ```
-Step 1: Asset screening
-  - Run scan_correlated_assets and keep candidate pairs with Pearson > 0.6
-  - Run engle_granger_coint and keep pairs with p < 0.05
+Bước 1: Sàng lọc tài sản
+  - Chạy scan_correlated_assets, giữ cặp ứng viên Pearson > 0,6 (cùng ngành)
+  - Chạy engle_granger_coint, giữ cặp p < 0,05
 
-Step 2: Spread quality assessment
-  - Run compute_half_life and keep pairs with half-life between 5 and 60 days
-  - Test spread stationarity with ADF and require p < 0.05
-  - Measure how often the absolute Z-Score exceeds 1.5 over the last 12 months
-    to estimate trading frequency
+Bước 2: Đánh giá chất lượng spread
+  - Chạy compute_half_life, giữ cặp half-life 5–60 phiên (tránh <5 vì vướng T+2)
+  - Kiểm định tính dừng spread bằng ADF, yêu cầu p < 0,05
+  - Đo tần suất |Z-Score| vượt 1,5 trong 12 tháng gần nhất để ước lượng tần suất giao dịch
 
-Step 3: Hedge-ratio selection
-  - Use static OLS for stable pairs
-  - Use Kalman Filter for long-lived or drifting pairs
+Bước 3: Chọn hedge ratio
+  - OLS tĩnh cho cặp ổn định
+  - Kalman Filter cho cặp dài hạn / có dịch chuyển
 
-Step 4: Signal generation
-  - Compute rolling Z-Score with a lookback of 2-3× half-life
-  - Generate long / short / exit signals based on thresholds
+Bước 4: Sinh tín hiệu
+  - Tính Z-Score cuốn chiếu với lookback 2–3× half-life
+  - Sinh tín hiệu tăng/giảm tỷ trọng/đóng theo ngưỡng (long-only hoặc phòng hộ VN30F)
 
-Step 5: Signal monitoring
-  - Recompute Z-Score daily
-  - Re-run cointegration monthly to avoid broken relationships
-  - Warn if half-life exceeds 2× the original value
+Bước 5: Giám sát tín hiệu
+  - Tính lại Z-Score hằng ngày
+  - Test lại đồng tích hợp hằng tháng để tránh quan hệ đứt gãy
+  - Cảnh báo nếu half-life vượt 2× giá trị ban đầu
 ```
 
-### Z-Score Signal Generation
+### Sinh tín hiệu theo Z-Score
 
 ```python
 def generate_pair_signals(
@@ -810,18 +826,21 @@ def generate_pair_signals(
     stop_z: float = 3.5,
     use_kalman: bool = False,
 ) -> pd.DataFrame:
-    """Generate pair-trading signals.
+    """Sinh tín hiệu giao dịch cặp.
 
     Args:
-        y_price, x_price: Two price series
-        lookback: Rolling Z-Score lookback, usually 2-3× half-life
-        entry_z: Entry threshold
-        exit_z: Exit threshold, usually near mean reversion
-        stop_z: Stop threshold. Crossing it suggests cointegration may have broken
-        use_kalman: Whether to use a Kalman dynamic hedge ratio
+        y_price, x_price: Hai chuỗi giá
+        lookback: Lookback Z-Score cuốn chiếu, thường 2–3× half-life
+        entry_z: Ngưỡng vào lệnh
+        exit_z: Ngưỡng đóng, thường gần điểm hồi trung bình
+        stop_z: Ngưỡng cắt lỗ. Vượt ngưỡng ⇒ đồng tích hợp có thể đã đứt gãy
+        use_kalman: Có dùng hedge ratio động Kalman không
 
     Returns:
-        DataFrame containing signals, Z-Score, and positions
+        DataFrame gồm tín hiệu, Z-Score, vị thế
+
+    Lưu ý VN: signal_y/signal_x diễn giải là tỷ trọng tương đối (long-only) hoặc
+    cặp long cổ phiếu + short VN30F, KHÔNG phải bán khống cổ phiếu.
     """
     if use_kalman:
         kf = kalman_hedge_ratio(y_price, x_price)
@@ -837,10 +856,10 @@ def generate_pair_signals(
     spread_std = spread.rolling(lookback).std()
     z_score = (spread - spread_mean) / spread_std
 
-    # Signal state machine to avoid repeated re-entry.
+    # Máy trạng thái tín hiệu để tránh vào lại lặp lại.
     signal_y = pd.Series(0.0, index=y_price.index)
     signal_x = pd.Series(0.0, index=x_price.index)
-    position = 0  # 0=flat, 1=long spread, -1=short spread
+    position = 0  # 0=đứng ngoài, 1=long spread, -1=short spread
 
     for i in range(lookback, len(z_score)):
         z = z_score.iloc[i]
@@ -849,9 +868,9 @@ def generate_pair_signals(
 
         if position == 0:
             if z < -entry_z:
-                position = 1   # spread is too low: buy y, sell x
+                position = 1   # spread quá thấp: ưu tiên y, giảm x
             elif z > entry_z:
-                position = -1  # spread is too high: sell y, buy x
+                position = -1  # spread quá cao: giảm y, ưu tiên x
         elif position == 1:
             if z > -exit_z or z > stop_z:
                 position = 0
@@ -869,20 +888,22 @@ def generate_pair_signals(
         "spread_std": spread_std,
         "signal_y": signal_y,
         "signal_x": signal_x,
-        "position": signal_y * 2,  # 1=long spread, -1=short spread, 0=flat
+        "position": signal_y * 2,  # 1=long spread, -1=short spread, 0=đứng ngoài
     })
 ```
 
-### Z-Score Threshold Configuration Guide
+### Hướng dẫn cấu hình ngưỡng Z-Score
 
-| Parameter | Conservative | Standard | Aggressive | Notes |
+| Tham số | Thận trọng | Chuẩn | Tích cực | Ghi chú |
 |------|------|------|------|------|
-| entry_z | 2.5 | 2.0 | 1.5 | Higher threshold means fewer trades |
-| exit_z | 0.3 | 0.5 | 0.8 | Higher threshold means shorter holding periods |
-| stop_z | 3.0 | 3.5 | 4.0 | Beyond this level, cointegration may have broken |
-| lookback | 90 | 60 | 30 | Usually 2-3× half-life |
+| entry_z | 2,5 | 2,0 | 1,5 | Ngưỡng cao ⇒ ít lệnh hơn |
+| exit_z | 0,3 | 0,5 | 0,8 | Ngưỡng cao ⇒ nắm giữ ngắn hơn |
+| stop_z | 3,0 | 3,5 | 4,0 | Vượt ngưỡng ⇒ đồng tích hợp có thể đã đứt gãy |
+| lookback | 90 | 60 | 30 | Thường 2–3× half-life |
 
-### Spread-Stability Monitoring
+> **Lưu ý VN:** vì rủi ro "cùng nằm sàn" khi giải chấp, nên dùng `stop_z` chặt hơn thị trường khác (vd 3,0 thay vì 3,5) và bắt buộc test lại đồng tích hợp sau mỗi đợt biến động mạnh.
+
+### Giám sát sức khỏe spread
 
 ```python
 def monitor_spread_health(
@@ -892,17 +913,17 @@ def monitor_spread_health(
     warning_hl_multiple: float = 2.0,
     warning_corr_drop: float = 0.2,
 ) -> dict:
-    """Monitor spread stability and judge whether cointegration still holds.
+    """Giám sát độ ổn định spread, đánh giá đồng tích hợp còn giữ không.
 
     Args:
-        spread: Live spread series
-        original_half_life: Half-life at entry, in days
-        original_corr: Correlation at entry
-        warning_hl_multiple: Warn if half-life exceeds this multiple of the original
-        warning_corr_drop: Warn if correlation drops by more than this amount
+        spread: Chuỗi spread thực tế
+        original_half_life: Half-life lúc vào lệnh (phiên)
+        original_corr: Tương quan lúc vào lệnh
+        warning_hl_multiple: Cảnh báo nếu half-life vượt bội số này so với ban đầu
+        warning_corr_drop: Cảnh báo nếu tương quan giảm quá mức này
 
     Returns:
-        Health-status report
+        Báo cáo trạng thái sức khỏe
     """
     recent = spread.iloc[-60:] if len(spread) > 60 else spread
 
@@ -911,23 +932,23 @@ def monitor_spread_health(
 
     hl_ratio = current_hl / original_half_life if original_half_life > 0 else float("inf")
 
-    # Cointegration health score
+    # Điểm sức khỏe đồng tích hợp
     health_score = 100
     warnings = []
 
     if current_adf > 0.10:
         health_score -= 40
-        warnings.append(f"Spread ADF p={current_adf:.3f} > 0.10, stationarity has weakened")
+        warnings.append(f"Spread ADF p={current_adf:.3f} > 0,10, tính dừng đã suy yếu")
 
     if hl_ratio > warning_hl_multiple:
         health_score -= 30
         warnings.append(
-            f"Half-life {current_hl:.1f}d is {hl_ratio:.1f}x the original {original_half_life:.1f}d"
+            f"Half-life {current_hl:.1f} phiên = {hl_ratio:.1f}× so với ban đầu {original_half_life:.1f} phiên"
         )
 
     if current_adf > 0.20:
         health_score -= 20
-        warnings.append("Spread may no longer be stationary. Re-test cointegration immediately")
+        warnings.append("Spread có thể không còn dừng. Test lại đồng tích hợp ngay")
 
     status = "healthy" if health_score >= 70 else "warning" if health_score >= 40 else "danger"
 
@@ -938,42 +959,42 @@ def monitor_spread_health(
         "hl_ratio": round(hl_ratio, 2),
         "spread_adf_p": round(current_adf, 4),
         "warnings": warnings,
-        "action": "hold" if status == "healthy" else "reduce" if status == "warning" else "exit_now",
+        "action": "giữ" if status == "healthy" else "giảm" if status == "warning" else "thoát ngay",
     }
 ```
 
 ---
 
-## Visualization Templates
+## Mẫu biểu đồ
 
-### Rolling-Correlation Time-Series Plot
+### Biểu đồ tương quan cuốn chiếu
 
 ```python
 import matplotlib.pyplot as plt
 
 def plot_rolling_correlation(
     rolling_corrs: pd.DataFrame,
-    title: str = "Rolling Correlation",
+    title: str = "Tương quan cuốn chiếu",
     figsize: tuple = (14, 5),
 ) -> plt.Figure:
-    """Plot rolling correlation time series across multiple windows."""
+    """Vẽ chuỗi tương quan cuốn chiếu nhiều cửa sổ."""
     fig, ax = plt.subplots(figsize=figsize)
     colors = ["#2196F3", "#FF9800", "#4CAF50"]
     for i, col in enumerate(rolling_corrs.columns):
         ax.plot(rolling_corrs.index, rolling_corrs[col],
                 label=col, color=colors[i % len(colors)], alpha=0.8)
     ax.axhline(0, color="black", linestyle="--", linewidth=0.8)
-    ax.axhline(0.6, color="green", linestyle=":", linewidth=0.8, label="high-correlation threshold (0.6)")
+    ax.axhline(0.6, color="green", linestyle=":", linewidth=0.8, label="ngưỡng tương quan cao (0,6)")
     ax.axhline(-0.6, color="red", linestyle=":", linewidth=0.8)
     ax.set_title(title)
-    ax.set_ylabel("Correlation")
+    ax.set_ylabel("Tương quan")
     ax.legend(loc="best")
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     return fig
 ```
 
-### Z-Score Signal Plot
+### Biểu đồ tín hiệu Z-Score
 
 ```python
 def plot_zscore_signals(
@@ -982,29 +1003,29 @@ def plot_zscore_signals(
     stop_z: float = 3.5,
     figsize: tuple = (14, 8),
 ) -> plt.Figure:
-    """Plot spread Z-Score and pair-trading signals."""
+    """Vẽ Z-Score của spread và tín hiệu giao dịch cặp."""
     fig, axes = plt.subplots(2, 1, figsize=figsize, sharex=True)
 
-    # Top chart: spread
+    # Biểu đồ trên: spread
     axes[0].plot(signal_df["spread"], label="Spread", color="#1565C0")
-    axes[0].plot(signal_df["spread_mean"], label="Mean", color="orange", linestyle="--")
+    axes[0].plot(signal_df["spread_mean"], label="Trung bình", color="orange", linestyle="--")
     axes[0].fill_between(signal_df.index,
                          signal_df["spread_mean"] - signal_df["spread_std"],
                          signal_df["spread_mean"] + signal_df["spread_std"],
                          alpha=0.2, color="orange", label="±1σ")
-    axes[0].set_title("Spread and Mean")
+    axes[0].set_title("Spread và trung bình")
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
 
-    # Bottom chart: Z-Score + signals
+    # Biểu đồ dưới: Z-Score + tín hiệu
     axes[1].plot(signal_df["z_score"], label="Z-Score", color="#1565C0")
-    axes[1].axhline(entry_z, color="red", linestyle="--", label=f"entry threshold (±{entry_z})")
+    axes[1].axhline(entry_z, color="red", linestyle="--", label=f"ngưỡng vào (±{entry_z})")
     axes[1].axhline(-entry_z, color="red", linestyle="--")
-    axes[1].axhline(stop_z, color="darkred", linestyle=":", label=f"stop threshold (±{stop_z})")
+    axes[1].axhline(stop_z, color="darkred", linestyle=":", label=f"ngưỡng cắt lỗ (±{stop_z})")
     axes[1].axhline(-stop_z, color="darkred", linestyle=":")
     axes[1].axhline(0, color="black", linestyle="-", linewidth=0.8)
 
-    # Annotate entry / exit points
+    # Đánh dấu điểm vào/đóng
     long_entry = signal_df["position"].diff() > 0
     short_entry = signal_df["position"].diff() < 0
     exit_pos = (signal_df["position"] == 0) & (signal_df["position"].shift(1) != 0)
@@ -1014,9 +1035,9 @@ def plot_zscore_signals(
     axes[1].scatter(signal_df.index[short_entry], signal_df["z_score"][short_entry],
                     color="red", marker="v", s=80, label="short spread", zorder=5)
     axes[1].scatter(signal_df.index[exit_pos], signal_df["z_score"][exit_pos],
-                    color="gray", marker="o", s=40, label="exit", zorder=5)
+                    color="gray", marker="o", s=40, label="đóng", zorder=5)
 
-    axes[1].set_title("Z-Score and Trading Signals")
+    axes[1].set_title("Z-Score và tín hiệu giao dịch")
     axes[1].legend(loc="best")
     axes[1].grid(True, alpha=0.3)
 
@@ -1026,7 +1047,7 @@ def plot_zscore_signals(
 
 ---
 
-## Dependencies
+## Phụ thuộc
 
 ```bash
 pip install pandas numpy scipy statsmodels matplotlib seaborn
@@ -1034,72 +1055,77 @@ pip install pandas numpy scipy statsmodels matplotlib seaborn
 
 ---
 
-## Output Format
+## Mẫu output
 
 ```markdown
-## Correlation and Cointegration Analysis Report
+## Báo cáo tương quan & đồng tích hợp (minh họa)
 
-### Pair: [Asset A] vs [Asset B] ([Start Date] - [End Date])
+### Cặp: HPG vs HSG (2023.01 – 2024.12)  ← ví dụ cùng họ thép
 
-#### Correlation Statistics
-| Metric | Value | Interpretation |
+#### Thống kê tương quan
+| Chỉ tiêu | Giá trị | Diễn giải |
 |------|------|------|
-| Pearson r | 0.82 | Strong linear positive correlation |
-| Spearman ρ | 0.80 | Consistent monotonic relationship |
-| Beta (A/B) | 1.15 | Sensitivity of A to B |
-| R² | 0.67 | 67% of return variance in A is explained by B |
+| Pearson r | 0,82 | Tương quan dương tuyến tính mạnh |
+| Spearman ρ | 0,80 | Quan hệ đơn điệu nhất quán |
+| Beta (A/B) | 1,15 | Độ nhạy của A theo B |
+| R² | 0,67 | 67% biến động lợi suất A được B giải thích |
 
-#### Cointegration Tests
-| Method | Statistic | p-value | Conclusion |
+#### Kiểm định đồng tích hợp
+| Phương pháp | Thống kê | p-value | Kết luận |
 |------|--------|------|------|
-| Engle-Granger | -4.12 | 0.008 | Cointegrated ** |
-| Johansen trace test | 28.3 | — | 1 cointegrating vector |
-| Spread ADF | -3.95 | 0.002 | Spread is stationary ** |
+| Engle-Granger | −4,12 | 0,008 | Đồng tích hợp ** |
+| Johansen trace test | 28,3 | — | 1 vector đồng tích hợp |
+| ADF của spread | −3,95 | 0,002 | Spread dừng ** |
 
-#### Mean-Reversion Characteristics
-| Metric | Value |
+#### Đặc tính hồi quy về trung bình
+| Chỉ tiêu | Giá trị |
 |------|------|
-| OLS hedge ratio | 1.23 |
-| Half-life | 18.5 days |
-| Suggested holding window | 10-30 days |
-| Suggested lookback window | 40-60 days |
+| Hedge ratio OLS | 1,23 |
+| Half-life | 18,5 phiên |
+| Cửa sổ nắm giữ gợi ý | 10–30 phiên |
+| Cửa sổ lookback gợi ý | 40–60 phiên |
 
-#### Conditional Correlation (Regime Analysis)
-| Regime | Correlation | Sample Size |
+#### Tương quan theo chế độ
+| Chế độ | Tương quan | Số mẫu |
 |------|---------|--------|
-| Bull | 0.76 | 312 days |
-| Bear | 0.88 | 198 days |
-| High volatility | 0.91 | 87 days |
-| Sideways | 0.71 | 645 days |
+| Tăng (bull) | 0,76 | 312 phiên |
+| Giảm (bear) | 0,88 | 198 phiên |
+| Biến động cao | 0,91 | 87 phiên |
+| Đi ngang | 0,71 | 645 phiên |
 
-#### Recommended Pair-Trading Signal Parameters
-| Parameter | Value |
+#### Tham số tín hiệu gợi ý (long-only / phòng hộ VN30F)
+| Tham số | Giá trị |
 |------|-----|
-| entry_z | 2.0 |
-| exit_z | 0.5 |
-| stop_z | 3.5 |
-| lookback | 60 days |
+| entry_z | 2,0 |
+| exit_z | 0,5 |
+| stop_z | 3,0 (chặt hơn do rủi ro cùng nằm sàn) |
+| lookback | 60 phiên |
 
-#### Current Spread Status
-| Metric | Value | Alert |
+#### Trạng thái spread hiện tại
+| Chỉ tiêu | Giá trị | Cảnh báo |
 |------|-----|------|
-| Current Z-Score | -2.3 | Near entry zone |
-| Health score | 85/100 | Healthy |
-| Half-life (last 60 days) | 21.2 days | Normal |
+| Z-Score hiện tại | −2,3 | Gần vùng vào lệnh (ưu tiên mã rẻ hơn) |
+| Điểm sức khỏe | 85/100 | Khỏe mạnh |
+| Half-life (60 phiên gần) | 21,2 phiên | Bình thường |
+
+> Triển khai ở VN: tăng tỷ trọng mã rẻ tương đối, giảm mã đắt tương đối (long-only);
+> KHÔNG bán khống. Nếu muốn trung hòa beta, phòng hộ bằng short VN30F.
 ```
 
 ---
 
-## Notes
+## Lưu ý quan trọng
 
-1. **Prices vs returns**: Use price series, which are non-stationary, for cointegration tests; use return series, which are stationary, for correlation analysis. Mixing them is the most common mistake.
-2. **Data alignment**: Cross-market analysis must handle holiday mismatches with an inner join. Do not forward-fill missing trading days, or you will create fake correlation.
-3. **Cointegration is not the same as high correlation**: Two series can have Pearson < 0.3 and still be cointegrated, and the reverse can also happen.
-4. **Out-of-sample validation**: If a pair is selected using cointegration on the first N years, you must verify whether the relationship survives in later out-of-sample data to avoid overfitting.
-5. **Crisis-period risk**: Correlation jumps in crises, and both legs in a pair can crash together. Stop thresholds should be tighter than in normal periods.
-6. **China A-share specifics**: China A-shares contain many non-trading days due to holidays and suspensions. Date alignment is especially important in cross-market comparison.
-7. **Multiple testing**: When testing N asset pairs simultaneously, use Benjamini-Hochberg FDR adjustment on p-values. Otherwise false positives will be excessive.
-8. **Kalman tuning**: Tune `delta` with grid search plus out-of-sample validation. Do not rely blindly on the default value.
+1. **Giá vs lợi suất**: dùng chuỗi GIÁ (không dừng) cho kiểm định đồng tích hợp; dùng chuỗi LỢI SUẤT (dừng) cho phân tích tương quan. Trộn lẫn là lỗi phổ biến nhất.
+2. **Căn chỉnh dữ liệu**: phân tích xuyên thị trường phải xử lý lệch ngày nghỉ bằng inner join. **Đừng forward-fill phiên thiếu**, sẽ tạo tương quan giả. VN nghỉ **Tết Nguyên đán** dài ~1 tuần, lệch hẳn lịch Mỹ/toàn cầu → căn chỉnh ngày càng quan trọng khi so VN với thị trường ngoài.
+3. **Đồng tích hợp ≠ tương quan cao**: hai chuỗi có thể Pearson < 0,3 nhưng vẫn đồng tích hợp, và ngược lại.
+4. **Kiểm chứng ngoài mẫu**: cặp chọn bằng đồng tích hợp trên N năm đầu phải kiểm tra còn giữ ở dữ liệu ngoài mẫu để tránh overfit.
+5. **Rủi ro khủng hoảng**: tương quan nhảy vọt, hai chân cặp có thể **cùng nằm sàn** (2018, 2022). Ngưỡng cắt lỗ phải chặt hơn thời bình.
+6. **CẤM BÁN KHỐNG (đặc thù VN — quan trọng nhất)**: không short được cổ phiếu → pairs trading cổ điển không khả thi. Dùng khung này cho **relative-value xoay vòng long-only**, **phòng hộ beta bằng VN30F**, hoặc **calendar spread VN30F**. Đừng đề xuất chiến lược dựa trên bán khống cổ phiếu cơ sở.
+7. **Thanh khoản & T+2**: half-life <5 phiên khó khai thác bằng cổ phiếu (T+2). Nhiều mã mid/small thanh khoản kém → spread khó thực thi đúng giá; ưu tiên cặp trong VN30/VN100.
+8. **Đa kiểm định**: khi test N cặp đồng thời, hiệu chỉnh p-value bằng Benjamini-Hochberg FDR; nếu không, dương tính giả tràn lan.
+9. **Tinh chỉnh Kalman**: chỉnh `delta` bằng grid search + kiểm chứng ngoài mẫu, đừng tin mù giá trị mặc định.
+10. **Tương quan giả do dòng tiền chung**: ở VN đa số mã đồng pha theo VN-Index → tương quan cao có thể chỉ là "cùng trôi theo index", không phải quan hệ relative-value thật. Luôn lọc thêm bằng cùng ngành + đồng tích hợp.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

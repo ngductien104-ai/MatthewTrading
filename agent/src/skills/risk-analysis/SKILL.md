@@ -1,30 +1,35 @@
 ---
 name: risk-analysis
-description: Risk measurement and stress testing — VaR/CVaR/max drawdown calculation, Monte Carlo simulation, extreme-value tail-risk analysis, and historical scenario stress testing.
+description: "Đo lường rủi ro & kiểm định sức chịu đựng (stress test) cho danh mục cổ phiếu VN — tính VaR/CVaR/sụt giảm tối đa, mô phỏng Monte Carlo, phân tích rủi ro đuôi (EVT), stress test theo kịch bản lịch sử VN (2008/2018/2020/2022). Lưu ý: biên độ trần/sàn cắt đuôi 1 phiên nhưng chuỗi sàn do giải chấp margin tạo đuôi nhiều phiên; cấm bán khống nên phòng hộ chỉ qua tiền mặt/VN30F."
 category: analysis
 ---
 
-# Risk Measurement and Stress Testing
+# Đo lường rủi ro & kiểm định sức chịu đựng (Việt Nam)
 
-## Overview
+## Mục đích
 
-Systematic risk-measurement methodology covering VaR/CVaR calculation, Monte Carlo simulation, stress-test design, and tail-risk analysis. It provides risk evaluation for backtest results and risk-control constraints for asset allocation.
+Phương pháp đo rủi ro có hệ thống: VaR/CVaR, mô phỏng Monte Carlo, thiết kế stress test, phân tích rủi ro đuôi. Cung cấp lớp đánh giá rủi ro cho kết quả backtest và ràng buộc kiểm soát rủi ro cho phân bổ tài sản.
 
-## Risk Measurement Methods
+> **Đặc thù rủi ro TTCK VN — đọc trước tiên:**
+> - **Biên độ trần/sàn** (HOSE ±7%, HNX ±10%, UPCoM ±15%) **cắt đuôi lợi suất 1 phiên** → VaR/kurtosis tính trên dữ liệu ngày sẽ **đánh giá THẤP rủi ro thật**. Rủi ro lớn nằm ở **chuỗi sàn liên tiếp** (giải chấp margin) — phải đo trên lợi suất nhiều phiên / drawdown, không chỉ 1 ngày.
+> - **Cấm bán khống cổ phiếu** → không thể phòng hộ đuôi bằng short cổ phiếu; chỉ còn **nâng tiền mặt** hoặc **short VN30F (phái sinh)**.
+> - **Vòng xoáy giải chấp**: giá giảm → call margin → force-sell → sàn → call thêm. Đây là cơ chế tạo đuôi trái nguy hiểm nhất ở VN, không có trong phân phối chuẩn.
+
+## Phương pháp đo rủi ro
 
 ### 1. VaR (Value at Risk)
 
-**Definition**: the maximum expected loss over a given horizon at a specified confidence level.
+**Định nghĩa**: mức lỗ tối đa kỳ vọng trong một khoảng thời gian, tại một mức tin cậy cho trước.
 
-#### Three Calculation Methods
+#### Ba cách tính
 
-| Method | Formula / Steps | Advantages | Disadvantages |
+| Phương pháp | Công thức / các bước | Ưu | Nhược |
 |------|----------|------|------|
-| Historical simulation | Sort historical returns and take the quantile | No distribution assumption | Depends on historical samples |
-| Parametric (normal) | `VaR = μ - z_α × σ` | Easy to compute | Assumes a normal distribution |
-| Monte Carlo | Simulate N paths and take the quantile | Flexible | Computationally intensive |
+| Mô phỏng lịch sử | Sắp xếp lợi suất lịch sử, lấy phân vị | Không giả định phân phối | Phụ thuộc mẫu lịch sử |
+| Tham số (chuẩn) | `VaR = μ − z_α × σ` | Dễ tính | Giả định phân phối chuẩn (sai cho VN fat-tail) |
+| Monte Carlo | Mô phỏng N đường, lấy phân vị | Linh hoạt | Nặng tính toán |
 
-#### Historical Simulation Implementation
+#### Cài đặt — mô phỏng lịch sử
 
 ```python
 import numpy as np
@@ -33,19 +38,19 @@ import pandas as pd
 def historical_var(returns: pd.Series, confidence: float = 0.95, horizon: int = 1) -> float:
     """
     Args:
-        returns: Daily return series
-        confidence: Confidence level, commonly 0.95 or 0.99
-        horizon: Holding period in days, default 1
+        returns: Chuỗi lợi suất ngày
+        confidence: Mức tin cậy, thường 0.95 hoặc 0.99
+        horizon: Kỳ nắm giữ (phiên), mặc định 1
     Returns:
-        VaR value (positive means loss)
+        Giá trị VaR (dương = mức lỗ)
     """
     sorted_returns = returns.sort_values()
     index = int((1 - confidence) * len(sorted_returns))
     var_1d = -sorted_returns.iloc[index]
-    return var_1d * np.sqrt(horizon)  # square-root-of-time rule
+    return var_1d * np.sqrt(horizon)  # quy tắc căn bậc hai theo thời gian
 ```
 
-#### Parametric Implementation
+#### Cài đặt — tham số
 
 ```python
 from scipy.stats import norm
@@ -58,33 +63,35 @@ def parametric_var(returns: pd.Series, confidence: float = 0.95, horizon: int = 
     return var_1d * np.sqrt(horizon)
 ```
 
+> **Cảnh báo VN:** VaR tham số (giả định chuẩn) **đánh giá thấp rủi ro** vì lợi suất cổ phiếu VN fat-tail nặng. Ngược lại, VaR lịch sử **1 ngày** lại bị biên độ trần/sàn "ép" về tối đa ±7% → vẫn không thấy hết rủi ro chuỗi sàn. Khuyến nghị: dùng VaR lịch sử với **horizon 5–10 phiên**, hoặc tính trực tiếp trên drawdown, để bắt được rủi ro giải chấp nhiều phiên.
+
 ### 2. CVaR / ES (Conditional VaR / Expected Shortfall)
 
-**Definition**: the average loss beyond the VaR threshold, more conservative than VaR.
+**Định nghĩa**: mức lỗ bình quân vượt ngưỡng VaR — bảo thủ hơn VaR.
 
 ```python
 def historical_cvar(returns: pd.Series, confidence: float = 0.95) -> float:
-    """CVaR = the mean of all losses beyond VaR."""
+    """CVaR = trung bình mọi khoản lỗ vượt VaR."""
     var = historical_var(returns, confidence)
     tail_losses = returns[returns < -var]
     return -tail_losses.mean() if len(tail_losses) > 0 else var
 ```
 
-**VaR vs CVaR comparison**:
+**So sánh VaR vs CVaR**:
 
-| Metric | VaR(95%) | CVaR(95%) | Meaning |
+| Chỉ tiêu | VaR(95%) | CVaR(95%) | Ý nghĩa |
 |------|----------|-----------|------|
-| Typical value | -2.1% | -3.4% | CVaR is usually 1.3-1.8x VaR |
-| Subadditivity | Not satisfied | Satisfied | CVaR can be used for portfolio risk decomposition |
-| Regulation | Basel II | Basel III | Regulatory trend is shifting toward CVaR |
+| Giá trị điển hình | −2,5% | −4,0% | CVaR thường 1,3–1,8× VaR; với VN (chuỗi sàn) hệ số này có thể cao hơn |
+| Tính dưới cộng (subadditive) | Không thỏa | Thỏa | CVaR dùng được để phân rã rủi ro danh mục |
+| Quy định | Basel II | Basel III | Xu hướng chuyển sang CVaR |
 
-### 3. Maximum Drawdown Analysis
+### 3. Phân tích sụt giảm tối đa (Max Drawdown) — ⭐ chỉ tiêu cốt lõi cho VN
 
 ```python
 def max_drawdown_analysis(equity: pd.Series) -> dict:
     """
     Args:
-        equity: Net-value series
+        equity: Chuỗi giá trị tài sản ròng
     Returns:
         dict: max_drawdown, peak_date, trough_date, recovery_date, duration
     """
@@ -94,7 +101,7 @@ def max_drawdown_analysis(equity: pd.Series) -> dict:
     trough_idx = drawdown.idxmin()
     peak_idx = equity[:trough_idx].idxmax()
 
-    # Recovery date
+    # Ngày hồi phục
     recovery = equity[trough_idx:][equity[trough_idx:] >= equity[peak_idx]]
     recovery_date = recovery.index[0] if len(recovery) > 0 else None
 
@@ -108,22 +115,24 @@ def max_drawdown_analysis(equity: pd.Series) -> dict:
     }
 ```
 
-### 4. Monte Carlo Simulation
+> Vì biên độ ngày bị chặn, **drawdown (sụt giảm tích lũy nhiều phiên) phản ánh rủi ro VN tốt hơn VaR 1 ngày.** Tham chiếu lịch sử VN-Index: 2008 −66%, 2018 −27%, COVID 2020 −34% (trong ~1 tháng), 2022 −43% (đỉnh 1.530 → đáy ~870). Danh mục dùng margin có thể sụt sâu hơn nhiều do giải chấp.
 
-#### Geometric Brownian Motion (GBM)
+### 4. Mô phỏng Monte Carlo
+
+#### Chuyển động Brown hình học (GBM)
 
 ```python
 def monte_carlo_gbm(S0: float, mu: float, sigma: float,
                      T: int = 252, n_paths: int = 10000) -> np.ndarray:
     """
     Args:
-        S0: Initial price
-        mu: Annualized return
-        sigma: Annualized volatility
-        T: Number of simulation days
-        n_paths: Number of paths
+        S0: Giá ban đầu
+        mu: Lợi suất kỳ vọng/năm
+        sigma: Biến động/năm
+        T: Số phiên mô phỏng
+        n_paths: Số đường mô phỏng
     Returns:
-        Price matrix of shape (n_paths, T)
+        Ma trận giá (n_paths, T)
     """
     dt = 1 / 252
     Z = np.random.standard_normal((n_paths, T))
@@ -132,7 +141,9 @@ def monte_carlo_gbm(S0: float, mu: float, sigma: float,
     return prices
 ```
 
-#### Simulation Result Analysis
+> **Hạn chế GBM ở VN:** GBM giả định lợi suất chuẩn, độc lập → **không** tái hiện được chuỗi sàn (tự tương quan âm/dương theo cụm), biên độ trần/sàn, và rủi ro thanh khoản. Dùng GBM cho ước lượng thô; với đuôi trái nên kết hợp **bootstrap lịch sử** (lấy mẫu lại các đoạn khủng hoảng thật) hoặc mô phỏng có nhảy (jump).
+
+#### Phân tích kết quả mô phỏng
 
 ```python
 def analyze_mc_results(paths: np.ndarray, confidence: float = 0.95) -> dict:
@@ -151,167 +162,173 @@ def analyze_mc_results(paths: np.ndarray, confidence: float = 0.95) -> dict:
     }
 ```
 
-## Stress-Testing Framework
+## Khung kiểm định sức chịu đựng (Stress Test)
 
-### Historical Scenario Stress Tests
+### Kịch bản lịch sử (TTCK Việt Nam)
 
-| Scenario | Period | China A-share Drawdown | US Equity Drawdown | BTC Drawdown | 10Y Government Bonds |
-|------|--------|---------|---------|---------|---------|
-| 2008 financial crisis | 2008.01-2008.10 | -65% | -50% | N/A | yield ↓ 100bp |
-| 2015 China equity crash | 2015.06-2015.08 | -45% | -10% | -20% | yield ↓ 50bp |
-| 2018 trade war | 2018.01-2018.12 | -25% | -20% | -80% | yield ↓ 30bp |
-| 2020 COVID shock | 2020.01-2020.03 | -15% | -35% | -50% | yield ↓ 80bp |
-| 2022 hiking cycle | 2022.01-2022.10 | -20% | -25% | -65% | yield ↑ 200bp |
+| Kịch bản | Giai đoạn | VN-Index | Bối cảnh / cú sốc |
+|------|--------|---------|---------|
+| Khủng hoảng tài chính 2008 | 2007.10–2009.02 | **−66%** (1.170 → ~235) | Khủng hoảng toàn cầu + lạm phát/lãi suất VN tăng vọt |
+| Bất ổn vĩ mô 2011 | 2011 | −27% | Lạm phát ~18%, lãi suất điều hành rất cao, siết tín dụng |
+| Đỉnh 2018 / thương chiến | 2018.04–2018.12 | −27% (1.204 → ~880) | Thương chiến Mỹ–Trung, khối ngoại bán ròng, margin căng |
+| Sốc COVID 2020 | 2020.01–2020.03 | **−34%** (~990 → ~660) trong ~6 tuần | Bán tháo toàn cầu, sau đó hồi phục chữ V |
+| Khủng hoảng trái phiếu 2022 | 2022.04–2022.11 | **−43%** (1.530 → ~870) | Vạn Thịnh Phát/SCB, vỡ TPDN BĐS, giải chấp margin chuỗi sàn |
 
-### Hypothetical Scenario Design
+> Giai đoạn 2022 là kịch bản đặc thù VN quan trọng nhất: **vòng xoáy margin + đóng băng trái phiếu doanh nghiệp BĐS** → sàn hàng loạt nhiều phiên, thanh khoản bốc hơi. Mọi stress test danh mục VN nên có riêng kịch bản "giải chấp margin + đóng băng TPDN".
+
+### Thiết kế kịch bản giả định (sốc theo lớp tài sản VN)
 
 ```python
 STRESS_SCENARIOS = {
-    'rate_shock_up_100bp': {
-        'equity': -0.10,    # equities down 10%
-        'bond_10y': -0.08,  # 10-year bonds down 8%
-        'bond_2y': -0.02,   # short bonds down 2%
-        'gold': +0.05,      # gold up 5%
-        'btc': -0.15,       # BTC down 15%
+    'lai_suat_tang_200bp': {       # NHNN nâng lãi suất mạnh (như 2022)
+        'co_phieu': -0.20,         # cổ phiếu giảm 20% (nhạy lãi suất cao)
+        'tpcp_10y': -0.08,         # TPCP 10 năm giảm 8%
+        'tpdn_bds': -0.25,         # trái phiếu DN BĐS giảm mạnh / mất thanh khoản
+        'vang_sjc': +0.05,         # vàng SJC tăng
+        'usd_vnd': +0.03,          # tỷ giá tăng
     },
-    'credit_crisis': {
-        'equity': -0.25,
-        'bond_10y': +0.05,  # government bonds act as a safe haven
-        'credit_bond': -0.15,
-        'gold': +0.10,
-        'btc': -0.30,
+    'giai_chap_margin': {          # vòng xoáy call margin / force-sell
+        'co_phieu_largecap': -0.20,
+        'co_phieu_midsmall': -0.40, # mid/small bị xả mạnh hơn, chuỗi sàn
+        'tien_mat': 0.0,
+        'note': 'thanh khoản bốc hơi, khó thoát hàng đúng giá',
     },
-    'liquidity_dry_up': {
-        'equity': -0.20,
-        'bond_10y': -0.05,  # when liquidity is poor, everything falls
-        'gold': -0.05,
-        'btc': -0.40,
-        'cash': 0.0,
+    'khoi_ngoai_rut_von': {        # USD mạnh → khối ngoại bán ròng
+        'usd_vnd': +0.05,
+        'co_phieu_bluechip': -0.15, # VN30 bị bán ròng nặng
+        'tpcp': -0.03,
+        'co_phieu_midsmall': -0.10,
     },
-    'geopolitical_conflict': {
-        'equity': -0.15,
-        'bond_10y': +0.03,
-        'gold': +0.15,
-        'oil': +0.30,
-        'btc': -0.20,
+    'dong_bang_tpdn_bds': {        # khủng hoảng niềm tin TPDN BĐS (2022)
+        'co_phieu_bds': -0.45,
+        'co_phieu_nganhang': -0.25, # lo nợ xấu BĐS lây sang ngân hàng
+        'co_phieu_chung_khoan': -0.40,
+        'tpdn_bds': -0.50,
+        'vang_sjc': +0.10,
     },
 }
 ```
 
-### Stress-Test Implementation Steps
+### Các bước thực hiện stress test
 
-1. **Select a scenario**: either historical or hypothetical
-2. **Apply shocks**: multiply scenario shocks by the current positions
-3. **Compute portfolio loss**: `portfolio_loss = Σ(weight_i × shock_i × position_i)`
-4. **Assess adequacy**: compare loss vs risk budget and whether stop-loss thresholds are triggered
+1. **Chọn kịch bản**: lịch sử hoặc giả định.
+2. **Áp cú sốc**: nhân cú sốc kịch bản với vị thế hiện tại.
+3. **Tính lỗ danh mục**: `lỗ = Σ(tỷ_trọng_i × cú_sốc_i)`.
+4. **Đánh giá đủ vốn**: so lỗ với ngân sách rủi ro; kiểm tra **ngưỡng call margin** có bị kích hoạt không (đặc biệt nếu dùng đòn bẩy).
 
-## Tail-Risk Analysis (Extreme Value Theory, EVT)
+## Phân tích rủi ro đuôi (Extreme Value Theory, EVT)
 
-### POT Method (Peaks Over Threshold)
+### Phương pháp POT (Peaks Over Threshold)
 
 ```python
 from scipy.stats import genpareto
 
 def fit_gpd_tail(returns: pd.Series, threshold_pct: float = 5.0) -> dict:
     """
-    Fit the tail with a generalized Pareto distribution.
+    Khớp đuôi phân phối bằng Generalized Pareto Distribution.
     Args:
-        returns: Daily returns
-        threshold_pct: Threshold percentile (take the worst X%)
+        returns: Lợi suất ngày
+        threshold_pct: Phân vị ngưỡng (lấy X% xấu nhất)
     """
     threshold = np.percentile(returns, threshold_pct)
-    exceedances = threshold - returns[returns < threshold]  # make positive
+    exceedances = threshold - returns[returns < threshold]  # đổi sang dương
 
-    # Fit GPD
     shape, loc, scale = genpareto.fit(exceedances)
 
     return {
         'threshold': threshold,
         'n_exceedances': len(exceedances),
-        'shape_xi': shape,      # ξ>0 fat tail, ξ=0 exponential tail, ξ<0 bounded tail
+        'shape_xi': shape,      # ξ>0 đuôi béo, ξ=0 đuôi mũ, ξ<0 đuôi chặn
         'scale_sigma': scale,
-        'tail_type': 'fat tail (dangerous)' if shape > 0 else 'thin tail (safer)',
+        'tail_type': 'đuôi béo (nguy hiểm)' if shape > 0 else 'đuôi mỏng (an toàn hơn)',
     }
 ```
 
-### Tail-Risk Metrics
+> **Lưu ý EVT cho VN:** biên độ trần/sàn tạo "đuôi chặn" giả tạo ở mức ±7% trên dữ liệu 1 ngày → ξ có thể ra âm một cách đánh lừa. Nên chạy EVT trên **lợi suất tích lũy 5 phiên** để lộ đuôi béo thật từ chuỗi sàn.
 
-| Metric | Calculation | Meaning |
+### Chỉ tiêu rủi ro đuôi
+
+| Chỉ tiêu | Cách tính | Ý nghĩa |
 |------|------|------|
-| Kurtosis | `returns.kurtosis()` | >3 indicates fat tails; China A-shares are often in the 4-8 range |
-| Skewness | `returns.skew()` | <0 means left-skewed (large drops are more common than large rallies) |
-| Tail ratio | worst 5% / best 5% | >1 means larger downside risk |
-| Hill estimator | Tail index | `α<2` implies extremely fat tails |
+| Độ nhọn (Kurtosis) | `returns.kurtosis()` | >3 = đuôi béo; cổ phiếu VN thường cao do sóng đầu cơ + chuỗi trần/sàn |
+| Độ lệch (Skewness) | `returns.skew()` | <0 = lệch trái (cú giảm sâu nhiều hơn cú tăng sốc) |
+| Tỷ lệ đuôi | 5% xấu nhất / 5% tốt nhất | >1 = rủi ro giảm lớn hơn |
+| Hill estimator | Chỉ số đuôi | `α<2` = đuôi cực béo |
 
-## Analysis Framework
+## Khung phân tích
 
-### Input Requirements
+### Dữ liệu đầu vào
 
 ```
-Required:
-- Return series (daily or higher frequency) or net-value series
-- Portfolio weights (if it is a portfolio)
+Bắt buộc:
+- Chuỗi lợi suất (ngày trở lên) hoặc chuỗi NAV
+- Tỷ trọng danh mục (nếu là danh mục)
 
-Optional:
-- Benchmark returns (for relative risk analysis)
-- Risk budget / constraint settings
+Tùy chọn:
+- Lợi suất benchmark (VN-Index/VN30 — cho rủi ro tương đối)
+- Ngân sách rủi ro / ràng buộc; mức margin/đòn bẩy đang dùng
 ```
 
-### Analysis Steps
+### Các bước phân tích
 
-1. **Data preprocessing**: compute returns, check missing values, and handle outliers
-2. **Descriptive statistics**: mean / volatility / skewness / kurtosis / maximum drawdown
-3. **VaR/CVaR calculation**: compare three methods at both 95% and 99% confidence levels
-4. **Monte Carlo simulation**: 10,000 paths, output distribution statistics and VaR
-5. **Stress testing**: at least 3 historical scenarios + 2 hypothetical scenarios
-6. **Tail analysis**: fit GPD and determine tail type
-7. **Risk-control recommendations**: provide concrete recommendations based on the results
+1. **Tiền xử lý**: tính lợi suất, kiểm tra khuyết, xử lý ngoại lai (lưu ý phiên trần/sàn, phiên nghỉ giao dịch).
+2. **Thống kê mô tả**: trung bình / biến động / độ lệch / độ nhọn / sụt giảm tối đa.
+3. **VaR/CVaR**: so 3 phương pháp ở cả 95% và 99%; **kèm horizon 5–10 phiên** cho rủi ro chuỗi sàn.
+4. **Monte Carlo**: 10.000 đường; cân nhắc bootstrap lịch sử cho đuôi.
+5. **Stress test**: tối thiểu 3 kịch bản lịch sử VN + 2 kịch bản giả định (bắt buộc có "giải chấp margin").
+6. **Phân tích đuôi**: khớp GPD, xác định loại đuôi (chạy thêm trên lợi suất 5 phiên).
+7. **Khuyến nghị kiểm soát rủi ro**.
 
-## Output Format
+## Mẫu output
 
 ```markdown
-## Risk Analysis Report
+## Báo cáo phân tích rủi ro (minh họa)
 
-### Core Risk Metrics
-| Metric | Value |
+### Chỉ tiêu rủi ro cốt lõi
+| Chỉ tiêu | Giá trị |
 |------|-----|
-| Daily volatility | 1.85% |
-| Annualized volatility | 29.3% |
-| Maximum drawdown | -32.5% (2024.09.15 → 2024.11.20) |
-| VaR(95%, 1D) | -2.8% |
-| CVaR(95%, 1D) | -4.2% |
-| Skewness | -0.45 |
-| Kurtosis | 5.2 (fat tail) |
+| Biến động ngày | 1,9% |
+| Biến động/năm | 30,2% |
+| Sụt giảm tối đa | −38,5% (đỉnh 2022.04 → đáy 2022.11) |
+| VaR(95%, 1 phiên) | −2,6% (bị biên độ chặn) |
+| VaR(95%, 10 phiên) | −12,8% (bắt rủi ro chuỗi sàn) |
+| CVaR(95%, 1 phiên) | −4,1% |
+| Độ lệch | −0,55 |
+| Độ nhọn | 6,8 (đuôi béo) |
 
-### Stress-Test Results
-| Scenario | Portfolio Loss | Stop Triggered |
+### Kết quả stress test
+| Kịch bản | Lỗ danh mục | Kích hoạt call margin? |
 |------|---------|----------|
-| 2020 COVID replay | -18.5% | No |
-| Rates +100bp | -12.3% | No |
-| Liquidity dry-up | -28.7% | Yes |
+| Tái hiện COVID 2020 | −22,5% | Không |
+| Lãi suất +200bp | −16,3% | Không |
+| Giải chấp margin (mid/small) | −34,7% | CÓ |
+| Đóng băng TPDN BĐS 2022 | −31,0% | CÓ |
 
-### Monte Carlo Simulation (252 days, 10000 paths)
-| Statistic | Value |
+### Monte Carlo (252 phiên, 10.000 đường)
+| Thống kê | Giá trị |
 |------|-----|
-| Expected return | +8.2% |
-| Loss probability | 35% |
-| Worst 5% scenario | -22.4% |
+| Lợi suất kỳ vọng | +9,2% |
+| Xác suất lỗ | 38% |
+| Kịch bản 5% xấu nhất | −26,4% |
 
-### Risk-Control Recommendations
-1. Recommend setting a portfolio stop-loss at -15%
-2. Tail risk is elevated; consider allocating 5% to gold as a hedge
-3. Correlations rise in stressed markets, so diversification benefits will be discounted
+### Khuyến nghị kiểm soát rủi ro
+1. Đặt ngưỡng cắt lỗ danh mục quanh −15% đến −20% (biên độ VN rộng, đừng đặt quá sát).
+2. Giảm/khử đòn bẩy margin trước vùng rủi ro để tránh vòng xoáy giải chấp.
+3. Phòng hộ beta bằng **short VN30F** hoặc **nâng tiền mặt** (KHÔNG short được cổ phiếu).
+4. Tương quan tăng vọt trong khủng hoảng → lợi ích đa dạng hóa bị chiết khấu mạnh; giảm tập trung mid/small thanh khoản kém.
 ```
 
-## Notes
+## Lưu ý quan trọng
 
-1. **VaR is not the maximum loss**: VaR only says "with 95% probability, losses will not exceed X"; the remaining 5% can be far worse
-2. **Normality assumption is dangerous**: financial returns are almost always fat-tailed, so parametric VaR underestimates risk
-3. **History does not equal the future**: historical simulation fails when structural breaks occur (for example, the first negative oil price)
-4. **Correlation is unstable**: correlation matrices observed in normal markets can collapse in crises (correlations trend toward 1)
-5. **Monte Carlo seed**: set a random seed for reproducibility, and use at least 10,000 paths for stability
-6. **Holding-period scaling**: the square-root-of-time rule only applies under i.i.d. returns; it becomes inaccurate under autocorrelation
-7. **Risk in backtests**: `metrics.csv` already includes `max_drawdown` and `sharpe`; this skill provides deeper analysis
+1. **VaR không phải mức lỗ tối đa**: VaR chỉ nói "95% xác suất lỗ không vượt X"; 5% còn lại có thể tệ hơn nhiều — ở VN là chuỗi sàn.
+2. **Giả định chuẩn rất nguy hiểm**: lợi suất cổ phiếu VN gần như luôn fat-tail → VaR tham số đánh giá thấp rủi ro.
+3. **Biên độ trần/sàn che giấu rủi ro 1 ngày**: phải đo trên nhiều phiên / drawdown mới thấy rủi ro thật.
+4. **Lịch sử ≠ tương lai**: mô phỏng lịch sử thất bại khi có đứt gãy cấu trúc (vd khủng hoảng TPDN 2022 là mới với thị trường).
+5. **Tương quan bất ổn**: ma trận tương quan thời bình sụp đổ trong khủng hoảng (tương quan → 1, sàn la liệt 2022).
+6. **Seed Monte Carlo**: đặt seed để tái lập; tối thiểu 10.000 đường.
+7. **Quy tắc căn bậc hai theo thời gian** chỉ đúng khi lợi suất i.i.d.; sai khi có tự tương quan — mà chuỗi sàn VN có tự tương quan mạnh.
+8. **Đòn bẩy margin là biến rủi ro số 1 ở VN**: stress test phải mô phỏng kích hoạt call margin / force-sell, không chỉ lỗ NAV.
+9. **Rủi ro trong backtest**: `metrics.csv` đã có `max_drawdown` và `sharpe`; skill này phân tích sâu hơn.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

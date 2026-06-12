@@ -1,91 +1,93 @@
 ---
 name: execution-model
-description: Trade execution modeling (backtest only) — slippage formulas (linear / square-root impact), VWAP/TWAP execution logic, market-impact cost estimation, and execution-assumption configuration.
+description: "Mô hình hóa thực thi lệnh (chỉ cho backtest) trên TTCK VN — công thức trượt giá (slippage), tác động thị trường tuyến tính/căn bậc hai, logic VWAP/TWAP theo khung phiên HOSE, ước lượng chi phí giao dịch (phí môi giới + thuế bán 0,1%). Lưu ý đặc thù: thanh toán T+2 (không bán cổ phiếu vừa mua cùng phiên), mã trần/sàn không khớp được, bước giá & lô 100, room ngoại."
 category: strategy
 ---
 
-# Trade Execution Modeling
+# Mô hình hóa thực thi lệnh (Việt Nam)
 
-## Overview
+## Mục đích
 
-Provide more realistic execution assumptions for backtests, including slippage models, market-impact estimation, and execution-algorithm principles. This skill is for backtest simulation only and does not involve live order execution.
+Cung cấp giả định thực thi sát thực tế hơn cho backtest: mô hình trượt giá, ước lượng tác động thị trường, nguyên lý thuật toán thực thi. Skill này **chỉ phục vụ mô phỏng backtest**, không thực thi lệnh thật.
 
-## Slippage Models
+> **Đặc thù thực thi TTCK VN — đọc trước tiên:**
+> - **Thanh toán T+2**: mua phiên T, cổ phiếu về tài khoản chiều T+2 → **không thể bán cổ phiếu vừa mua trong cùng phiên / ngày kế tiếp**. Backtest phải trễ tín hiệu và khóa vị thế mới mua.
+> - **Biên độ trần/sàn** (HOSE ±7%, HNX ±10%, UPCoM ±15%): khi mã **dư mua trần / dư bán sàn**, gần như **không khớp được** → phải bỏ qua phiên đó trong backtest, đừng giả định fill.
+> - **Lô chẵn 100 cp** (HOSE), **bước giá** theo mức giá; **room ngoại** cạn → NĐT nước ngoài không mua được.
 
-### Why Slippage Models Are Needed
+## Mô hình trượt giá (Slippage)
+
+### Vì sao cần mô hình trượt giá
 
 ```
-Idealized backtest: filled at the close, zero slippage
-Real world:
-1. The order book has a bid-ask spread
-2. Large orders push prices (market impact)
-3. Execution is delayed (there is latency from signal to fill)
+Backtest lý tưởng: khớp tại giá đóng cửa, trượt giá = 0
+Thực tế:
+1. Sổ lệnh có chênh mua–bán (bid-ask spread)
+2. Lệnh lớn đẩy giá (market impact) — đặc biệt mã mid/small thanh khoản thấp
+3. Có độ trễ từ tín hiệu đến khi khớp
 
-No slippage model -> overly optimistic backtest -> losses in live trading
+Không mô hình trượt giá → backtest quá lạc quan → thua khi giao dịch thật.
 ```
 
-### 1. Fixed Slippage Model
+### 1. Trượt giá cố định
 
 ```python
-def fixed_slippage(price: float, direction: int, bps: float = 5.0) -> float:
+def fixed_slippage(price: float, direction: int, bps: float = 10.0) -> float:
     """
     Args:
-        price: Original price
-        direction: 1=buy, -1=sell
-        bps: Slippage in basis points (1bp = 0.01%), default 5bp
+        price: Giá gốc
+        direction: 1=mua, -1=bán
+        bps: Trượt giá tính theo điểm cơ bản (1bp = 0,01%), mặc định 10bp
     Returns:
-        Execution price after slippage
+        Giá khớp sau trượt
     """
     slippage = price * bps / 10000
     return price + direction * slippage
 ```
 
-**Reference fixed-slippage assumptions by market:**
+**Tham chiếu trượt giá cố định theo nhóm thanh khoản VN:**
 
-| Market | Instrument | Suggested Slippage (bps) | Notes |
+| Nhóm | Ví dụ | Trượt giá gợi ý (bps) | Ghi chú |
 |------|------|-------------|------|
-| China A-share large cap | CSI 300 constituents | 3-5 | Good liquidity |
-| China A-share small cap | CSI 1000 constituents | 5-10 | Average liquidity |
-| China micro-cap | market cap < 5 billion RMB | 10-30 | Poor liquidity |
-| US large cap | AAPL / MSFT | 1-3 | Excellent liquidity |
-| Hong Kong stocks | Hang Seng constituents | 5-10 | Less liquid than A / US |
-| BTC spot | BTC-USDT | 2-5 | Good OKX liquidity |
-| ETH spot | ETH-USDT | 3-8 | Slightly worse than BTC |
-| Small altcoins | other `-USDT` pairs | 10-50 | Liquidity varies widely |
+| Bluechip VN30 | VCB, FPT, HPG, VNM | 5–10 | Thanh khoản tốt nhất TTCK VN |
+| Midcap (VNMidcap) | DGC, PVD, DCM | 10–20 | Thanh khoản khá |
+| Smallcap HOSE | các mã ngoài VN100 | 20–40 | Thanh khoản trung bình |
+| Penny / UPCoM | mã GTGD thấp | 40–100+ | Thanh khoản kém, bước giá rộng, dễ trần/sàn |
 
-### 2. Linear Impact Model
+> Lưu ý **bước giá tối thiểu** đã là một sàn trượt giá tự nhiên: HOSE <10.000đ → 10đ; 10.000–49.950đ → 50đ; ≥50.000đ → 100đ. Mã giá thấp có bước giá chiếm tỷ lệ % lớn → trượt giá thực tế cao hơn cảm giác.
+
+### 2. Mô hình tác động tuyến tính
 
 ```python
 def linear_impact(price: float, direction: int,
                   volume_traded: float, adv: float,
                   impact_coeff: float = 0.1) -> float:
     """
-    Linear market impact: impact ∝ traded volume / ADV
+    Tác động thị trường tuyến tính: impact ∝ khối lượng giao dịch / ADV
 
     Args:
-        price: Original price
-        direction: 1=buy, -1=sell
-        volume_traded: Trade size (shares or notional)
-        adv: Average Daily Volume
-        impact_coeff: Impact coefficient, usually 0.05-0.2
+        price: Giá gốc
+        direction: 1=mua, -1=bán
+        volume_traded: Quy mô lệnh (cp hoặc giá trị)
+        adv: Khối lượng giao dịch bình quân ngày (Average Daily Volume)
+        impact_coeff: Hệ số tác động, thường 0,05–0,2
     Returns:
-        Execution price after impact
+        Giá khớp sau tác động
     """
     participation_rate = volume_traded / adv
     impact = impact_coeff * participation_rate
     return price * (1 + direction * impact)
 ```
 
-**Reference impact coefficients:**
+**Tham chiếu hệ số tác động:**
 
-| Market | impact_coeff | Notes |
+| Nhóm | impact_coeff | Ghi chú |
 |------|-------------|------|
-| China A-share large cap | 0.05-0.10 | 10% daily price-limit system |
-| China A-share small cap | 0.10-0.20 | Liquidity premium |
-| US equities | 0.03-0.08 | Market-maker buffering |
-| Crypto | 0.05-0.15 | 24h trading is dispersed |
+| Bluechip VN30 | 0,05–0,10 | Biên độ ±7%, sổ lệnh dày |
+| Midcap | 0,10–0,20 | Phần bù thanh khoản |
+| Smallcap / penny | 0,20–0,40 | Sổ lệnh mỏng, dễ đẩy trần/sàn |
 
-### 3. Square-Root Impact Model (Almgren-Chriss)
+### 3. Mô hình tác động căn bậc hai (Almgren-Chriss)
 
 ```python
 import numpy as np
@@ -94,259 +96,279 @@ def sqrt_impact(price: float, direction: int,
                 volume_traded: float, adv: float,
                 volatility: float, eta: float = 0.5) -> float:
     """
-    Square-root market impact (more accepted in academia):
+    Tác động căn bậc hai (được học thuật chấp nhận rộng rãi):
     impact = η × σ × sqrt(V/ADV)
 
     Args:
-        price: Original price
-        direction: 1=buy, -1=sell
-        volume_traded: Trade size
-        adv: Average daily volume
-        volatility: Daily volatility (standard deviation)
-        eta: Impact elasticity coefficient, usually 0.3-0.8
+        price: Giá gốc
+        direction: 1=mua, -1=bán
+        volume_traded: Quy mô lệnh
+        adv: Khối lượng giao dịch bình quân ngày
+        volatility: Biến động ngày (độ lệch chuẩn)
+        eta: Hệ số đàn hồi tác động, thường 0,3–0,8
     Returns:
-        Execution price after impact
+        Giá khớp sau tác động
     """
     participation = volume_traded / adv
     impact = eta * volatility * np.sqrt(participation)
     return price * (1 + direction * impact)
 ```
 
-**Advantages of the square-root model**:
-- Strongest empirical support (standard in financial literature)
-- Marginal impact declines for larger orders (intuitive)
-- Parameters can be estimated from historical data
+**Ưu điểm mô hình căn bậc hai**:
+- Được hậu thuẫn thực nghiệm mạnh nhất (chuẩn trong tài liệu tài chính).
+- Tác động biên giảm dần khi lệnh lớn hơn (trực giác đúng).
+- Tham số ước lượng được từ dữ liệu lịch sử.
 
-### Slippage Model Selection Decision Tree
-
-```
-Backtest capital vs instrument ADV:
-├── Capital < 0.5% of ADV -> fixed slippage (5bps) is enough
-├── Capital 0.5-5% -> linear impact model
-└── Capital > 5% -> square-root impact model (required)
-```
-
-## Execution Algorithm Principles
-
-### VWAP (Volume Weighted Average Price)
+### Cây quyết định chọn mô hình trượt giá
 
 ```
-Goal: execute at the day's volume-weighted average price
+Vốn backtest so với ADV của mã:
+├── Vốn < 0,5% ADV   → trượt giá cố định (10bps) là đủ
+├── Vốn 0,5–5% ADV   → mô hình tác động tuyến tính
+└── Vốn > 5% ADV     → mô hình căn bậc hai (bắt buộc)
 
-VWAP = Σ(Price_i × Volume_i) / Σ(Volume_i)
-
-Execution logic:
-1. Forecast the intraday volume profile (typically U-shaped)
-2. Split the order according to the predicted profile
-3. Execute proportionally in each time slice
-
-Typical China A-share VWAP volume profile (U-shaped):
-09:30-10:00  15%  (active open)
-10:00-11:30  25%  (normal morning session)
-13:00-14:00  15%  (weak afternoon session)
-14:00-14:30  15%  (afternoon recovery)
-14:30-15:00  30%  (active close)
-
-VWAP in backtests:
-- Daily backtest: use the VWAP field directly as the fill price
-- Minute backtest: simulate VWAP order slicing
+Lưu ý VN: nhiều mã mid/small có ADV rất thấp → ngay cả vốn vừa phải cũng vượt 5% ADV.
+Với quỹ quy mô lớn, phần lớn rổ ngoài VN30 rơi vào ngưỡng căn bậc hai.
 ```
 
-### TWAP (Time Weighted Average Price)
+## Nguyên lý thuật toán thực thi
+
+### VWAP (giá bình quân gia quyền khối lượng)
 
 ```
-Goal: execute evenly over a specified time window
+Mục tiêu: khớp quanh giá bình quân gia quyền khối lượng trong phiên.
 
-TWAP = simple time-sliced execution
+VWAP = Σ(Giá_i × KL_i) / Σ(KL_i)
 
-Execution logic:
-1. Define an execution window (for example 09:30-11:30)
-2. Divide it into N time buckets
-3. Execute total_size / N in each bucket
+Logic thực thi:
+1. Dự báo phân bố khối lượng trong phiên (VN thường dạng chữ U, dồn về ATO/ATC).
+2. Chẻ lệnh theo phân bố dự báo.
+3. Khớp theo tỷ lệ trong từng lát thời gian.
 
-Pros and cons:
-+ Simple, no need to forecast volume
-- Easier to cause impact during low-volume periods
-- Less adaptive than VWAP
+Khung phiên HOSE & phân bố khối lượng điển hình (dạng chữ U):
+09:00–09:15  ATO (khớp định kỳ mở cửa)      ~12%
+09:15–11:30  Khớp liên tục sáng (sôi động)  ~33%
+11:30–13:00  NGHỈ TRƯA (không giao dịch)
+13:00–14:30  Khớp liên tục chiều            ~30%
+14:30–14:45  ATC (khớp định kỳ đóng cửa)    ~25%  ← thường nặng nhất, NĐT/quỹ tranh giá đóng cửa
+
+VWAP trong backtest:
+- Backtest ngày: dùng thẳng trường VWAP làm giá khớp (nếu có).
+- Backtest phút: mô phỏng chẻ lệnh theo phân bố trên.
 ```
 
-### Simulating Execution Delay in Backtests
+> Lưu ý đặc thù VN: phiên **ATC (14:30–14:45)** thường dồn khối lượng rất lớn do quỹ/ETF và NĐT chốt theo giá đóng cửa; biến động giá ATC có thể mạnh. HNX/UPCoM khung phiên tương tự nhưng UPCoM không có ATO/ATC (chỉ khớp liên tục).
+
+### TWAP (giá bình quân gia quyền thời gian)
+
+```
+Mục tiêu: khớp đều trong một khoảng thời gian định trước.
+
+TWAP = chẻ lệnh đều theo thời gian.
+
+Logic:
+1. Định cửa sổ thực thi (vd 09:15–11:30).
+2. Chia N lát thời gian.
+3. Khớp tổng_lệnh / N trong mỗi lát.
+
+Ưu/nhược:
++ Đơn giản, không cần dự báo khối lượng.
+- Dễ gây tác động trong lát thanh khoản thấp (đầu/giữa phiên VN thường mỏng hơn ATC).
+- Kém thích nghi hơn VWAP.
+```
+
+### Mô phỏng độ trễ thực thi trong backtest
 
 ```python
 def delayed_execution(signal_series: pd.Series, delay_bars: int = 1) -> pd.Series:
     """
-    Simulate the delay from signal generation to execution
+    Mô phỏng độ trễ từ lúc phát tín hiệu đến lúc khớp.
 
     Args:
-        signal_series: Original signal
-        delay_bars: Number of bars to delay, default 1 (T+1 execution)
+        signal_series: Tín hiệu gốc
+        delay_bars: Số nến trễ, mặc định 1 (tín hiệu cuối phiên T → khớp phiên T+1)
     Returns:
-        Delayed signal
+        Tín hiệu đã trễ
 
-    China A-shares: delay_bars=1 (T+1 rule)
-    Crypto: delay_bars=0 or 1
+    TTCK VN: delay_bars=1 (khớp phiên kế tiếp). NGOÀI RA, do thanh toán T+2,
+    cổ phiếu vừa mua KHÔNG bán được ngay — backtest phải khóa vị thế mới mua
+    (xem chú thích phía dưới).
     """
     return signal_series.shift(delay_bars)
 ```
 
-## Integrated Transaction-Cost Model
+> **Quan trọng — khóa T+2:** ngoài độ trễ tín hiệu 1 phiên, engine còn phải đảm bảo **không bán cổ phiếu trong vòng ~2 phiên kể từ khi mua** (cổ phiếu chưa về tài khoản). Nếu bỏ qua, backtest sẽ tạo ra các vòng quay nhanh không thể thực hiện ở VN và phóng đại lợi nhuận.
 
-### Total Cost Breakdown
+## Mô hình chi phí giao dịch tổng hợp
+
+### Phân rã tổng chi phí
 
 ```
-Total trading cost = explicit cost + implicit cost
+Tổng chi phí = chi phí hiện (explicit) + chi phí ẩn (implicit)
 
-Explicit cost:
-- Commission: China A-shares 2-3 bps, crypto 0.02-0.1%
-- Stamp duty (China A-share sell side): 0.05% (sell orders only)
-- Transfer fee: negligible
+Chi phí hiện:
+- Phí môi giới: ~0,10–0,35% mỗi chiều (online thường ~0,15%; thỏa thuận theo quy mô).
+- Thuế TNCN chuyển nhượng: 0,10% trên GIÁ TRỊ BÁN (chỉ tính chiều bán).
+- Phí lưu ký VSD: rất nhỏ (~vài chục đồng/cp/tháng) — bỏ qua được.
+  (VN KHÔNG có stamp duty kiểu HK/TQ; thuế bán 0,1% đóng vai trò tương tự.)
 
-Implicit cost:
-- Bid-ask spread: 0.5-5bps
-- Market impact: depends on trade size and liquidity
-- Opportunity cost: loss from not filling at the best price
+Chi phí ẩn:
+- Chênh mua–bán: phụ thuộc bước giá & thanh khoản.
+- Tác động thị trường: theo quy mô lệnh & thanh khoản.
+- Chi phí cơ hội: lỡ giá tốt do không khớp / mã trần-sàn.
 ```
 
-### Reference Trading Costs by Market
+### Tham chiếu chi phí giao dịch (TTCK VN)
 
-| Cost Item | China A-shares | Hong Kong | US | Crypto (OKX) |
-|--------|-----|------|------|-----------|
-| Commission (one way) | 0.025% | 0.05% | 0 (zero commission) | 0.08% (maker) |
-| Stamp duty | 0.05% (sell) | 0.1% (both sides) | 0 | 0 |
-| Bid-ask spread | 0.03-0.1% | 0.05-0.2% | 0.01-0.05% | 0.01-0.05% |
-| Total one-way | ~0.1% | ~0.2% | ~0.03% | ~0.1% |
-| Total round-trip | ~0.2% | ~0.4% | ~0.06% | ~0.2% |
+| Khoản mục | Mức điển hình |
+|--------|-----|
+| Phí môi giới (1 chiều) | 0,15% (online; có thể 0,10–0,35%) |
+| Thuế chuyển nhượng | 0,10% (chỉ chiều BÁN) |
+| Phí lưu ký | ~0% (bỏ qua) |
+| Chênh mua–bán (ẩn) | 0,05–0,3% tùy thanh khoản |
+| **Tổng 1 chiều mua** | ~0,15–0,20% |
+| **Tổng 1 chiều bán** | ~0,25–0,30% (gồm thuế 0,1%) |
+| **Tổng vòng (mua+bán)** | **~0,40–0,55%** |
 
-### Cost Settings in Backtests
+### Cấu hình chi phí trong backtest
 
 ```json
 {
-  "commission": 0.001,
-  "comment": "0.1% one-way commission, already includes stamp duty and spread"
+  "commission": 0.0025,
+  "comment": "0,25% mỗi chiều (bảo thủ: gồm phí môi giới + ~thuế bán phân bổ + chênh giá)"
 }
 ```
 
-**Recommendations**:
-- China A-shares: `commission = 0.001` (conservative, includes all costs)
-- Crypto: `commission = 0.001` (including slippage)
-- Hong Kong / US equities: `commission = 0.001-0.002`
+**Khuyến nghị**:
+- VN bluechip VN30: `commission = 0,002–0,0025` (đã gồm mọi chi phí, bảo thủ).
+- VN mid/smallcap: `commission = 0,003–0,005` (thanh khoản kém, trượt giá cao hơn).
+- Lưu ý phí **bất đối xứng**: chiều bán đắt hơn chiều mua đúng 0,1% (thuế) — chiến lược vòng quay cao chịu thiệt rõ.
 
-## Backtest Execution Assumptions
+## Giả định thực thi trong backtest
 
-### Relevant `config.json` Settings
+### Cấu hình `config.json` liên quan
 
 ```json
 {
-  "commission": 0.001,
+  "commission": 0.0025,
   "engine": "daily",
   "interval": "1D"
 }
 ```
 
-### Advanced Execution Assumptions (implemented in `signal_engine.py`)
+### Giả định thực thi nâng cao (cài trong `signal_engine.py`)
 
 ```python
 class SignalEngine:
     def __init__(self):
-        # Execution assumption parameters
-        self.execution_delay = 1       # T+1 delay
-        self.slippage_bps = 5          # Fixed 5bps slippage
-        self.max_participation = 0.05  # Maximum participation rate 5%
+        # Tham số giả định thực thi
+        self.execution_delay = 1       # trễ 1 phiên (T → T+1)
+        self.settlement_lock = 2       # khóa T+2: cổ phiếu mới mua chưa bán được
+        self.slippage_bps = 10         # trượt giá cố định 10bps (bluechip)
+        self.max_participation = 0.05  # tỷ lệ tham gia tối đa 5% ADV
 
     def generate(self, data_map):
         for code, df in data_map.items():
-            # 1. Generate raw signal
+            # 1. Sinh tín hiệu gốc
             raw_signal = self._compute_signal(df)
 
-            # 2. Apply execution delay
+            # 2. Áp độ trễ thực thi
             delayed_signal = raw_signal.shift(self.execution_delay)
 
-            # 3. Apply volume filter (do not trade when liquidity is too low)
+            # 3. Lọc thanh khoản (không giao dịch khi KL quá thấp so với nền)
             volume_ok = df['volume'] > df['volume'].rolling(20).mean() * 0.3
             delayed_signal[~volume_ok] = 0
+
+            # 4. Bỏ qua phiên trần/sàn (không khớp được)
+            #    vd: nếu high==low==trần hoặc giá chạm trần/sàn cả phiên → skip
+            #    (chèn logic kiểm tra biên độ theo sàn niêm yết)
 
             signals[code] = delayed_signal
 ```
 
-## Analysis Framework
+## Khung phân tích
 
-### Evaluate the Impact of Transaction Costs
+### Đánh giá tác động của chi phí giao dịch
 
 ```
-Step 1: Estimate annual turnover
-  Annual turnover = annual trade count × 2 (buy + sell) / number of positions
+Bước 1: Ước lượng vòng quay danh mục/năm
+  Vòng quay/năm = số lệnh/năm × 2 (mua + bán) / số vị thế
 
-Step 2: Compute annual cost drag
-  Annual cost = annual turnover × total one-way cost
+Bước 2: Tính lực cản chi phí/năm
+  Chi phí/năm = vòng quay/năm × tổng chi phí 1 vòng
 
-Step 3: Evaluate the impact on returns
-  Net return = gross return - annual cost
+Bước 3: Đánh giá ảnh hưởng lên lợi suất
+  Lợi suất ròng = lợi suất gộp − chi phí/năm
 
-Example:
-  Annual turnover = 12 (monthly rebalance)
-  One-way cost = 0.1%
-  Annual cost = 12 × 0.1% = 1.2%
-  If annualized return is only 5% -> costs eat 24% of returns!
+Ví dụ (VN):
+  Vòng quay = 12 (tái cơ cấu hàng tháng)
+  Chi phí 1 vòng (mua+bán) = ~0,45%
+  Chi phí/năm = 12 × 0,45% = 5,4%
+  Nếu lợi suất/năm chỉ 10% → chi phí ngốn hơn nửa lợi nhuận!
+  → Chiến lược vòng quay cao ở VN bị phí + thuế bán bào mòn rất nặng.
 ```
 
-### Sensitivity Analysis for Execution Assumptions
+### Phân tích độ nhạy với giả định thực thi
 
 ```markdown
-### Backtest Results Under Different Slippage Assumptions
+### Kết quả backtest theo các mức trượt giá
 
-| Slippage (bps) | Annual Return | Sharpe | Max Drawdown |
+| Trượt giá (bps) | Lợi suất/năm | Sharpe | Sụt giảm tối đa |
 |-----------|---------|--------|---------|
-| 0 (ideal) | 15.2% | 1.35 | -18.5% |
-| 3 | 13.8% | 1.22 | -19.0% |
-| 5 | 12.9% | 1.15 | -19.2% |
-| 10 | 11.1% | 0.98 | -19.8% |
-| 20 | 7.5% | 0.65 | -20.5% |
+| 0 (lý tưởng) | 18,2% | 1,05 | −22,5% |
+| 10 | 15,8% | 0,92 | −23,0% |
+| 20 | 13,1% | 0,78 | −23,5% |
+| 40 | 8,5% | 0,52 | −24,2% |
 
-Conclusion: the strategy still has meaningful profitability under 10bps slippage
+Kết luận: chiến lược còn khả năng sinh lời ở mức trượt 20bps; ở 40bps (mã smallcap)
+biên lợi nhuận mỏng → chỉ nên áp dụng cho rổ thanh khoản cao.
 ```
 
-## Output Format
+## Mẫu output
 
 ```markdown
-## Execution Cost Analysis
+## Phân tích chi phí thực thi (minh họa)
 
-### Strategy Trading Characteristics
-| Metric | Value |
+### Đặc điểm giao dịch của chiến lược
+| Chỉ tiêu | Giá trị |
 |------|-----|
-| Average annual trade count | 48 |
-| Annual turnover | 4.8x |
-| Average holding days | 25 |
-| Average order size | ¥50,000 |
+| Số lệnh bình quân/năm | 48 |
+| Vòng quay danh mục/năm | 4,8 lần |
+| Số phiên nắm giữ bình quân | 25 |
+| Quy mô lệnh bình quân | 500 triệu đồng |
 
-### Cost Estimate
-| Cost Item | Per Trade | Annualized |
+### Ước lượng chi phí
+| Khoản mục | Mỗi lệnh | Quy năm |
 |--------|------|------|
-| Commission | 0.025% | 0.24% |
-| Stamp duty | 0.025% | 0.12% |
-| Estimated slippage | 0.03% | 0.29% |
-| **Total** | **0.08%** | **0.65%** |
+| Phí môi giới | 0,15% | 1,44% |
+| Thuế bán (0,1% × chiều bán) | 0,05% | 0,48% |
+| Trượt giá ước tính | 0,10% | 0,96% |
+| **Tổng** | **0,30%** | **2,88%** |
 
-### Cost Impact
-- Gross return: 12.5%
-- Net return: 11.85%
-- Cost drag: -0.65% (5.2% of gross return)
-- Conclusion: cost impact is manageable
+### Ảnh hưởng chi phí
+- Lợi suất gộp: 15,0%
+- Lợi suất ròng: 12,1%
+- Lực cản chi phí: −2,88% (~19% lợi suất gộp)
+- Kết luận: chi phí đáng kể; nên giảm vòng quay & tránh mã thanh khoản thấp.
 
-### Optimization Suggestions
-1. Lower turnover (lengthen holding period)
-2. Avoid trading during low-liquidity windows
-3. Use limit orders instead of market orders
+### Đề xuất tối ưu
+1. Giảm vòng quay (kéo dài kỳ nắm giữ) — thuế bán 0,1%/lần khiến trading dày bị phạt nặng.
+2. Tránh giao dịch trong khung thanh khoản thấp; ưu tiên ATC cho lệnh lớn.
+3. Dùng lệnh giới hạn (LO) thay lệnh thị trường; tránh "đu trần" mã đang trần.
 ```
 
-## Notes
+## Lưu ý quan trọng
 
-1. **Backtest only**: this system does not execute live trades; the execution model is used only to improve backtest realism
-2. **Conservative assumptions**: in backtests, it is better to overestimate transaction costs than to underestimate them
-3. **China A-share T+1 rule**: trades cannot be executed on the same day the signal is generated, so execution must be delayed by 1 day
-4. **Price-limit constraints**: when China A-shares are locked at limit-up / limit-down, no fill is possible; those dates should be skipped in backtests
-5. **Volume constraints**: order size should not exceed 5-10% of the day’s traded volume, otherwise the impact model becomes invalid
-6. **Backtest overfitting**: even with slippage included, the strategy may still overfit; out-of-sample validation matters more
-7. **`commission` in config**: the default `0.001` (0.1%) is a reasonable all-in cost estimate
+1. **Chỉ dùng cho backtest**: hệ thống không thực thi lệnh thật; mô hình này chỉ để tăng tính thực tế của backtest.
+2. **Giả định bảo thủ**: thà ước lượng chi phí cao còn hơn thấp.
+3. **Thanh toán T+2**: không thể bán cổ phiếu trong cùng phiên mua; cổ phiếu về chiều T+2 → backtest phải trễ tín hiệu **và** khóa vị thế mới mua.
+4. **Ràng buộc trần/sàn**: khi mã dư mua trần / dư bán sàn cả phiên, không khớp được → bỏ qua phiên đó trong backtest (đừng giả định fill tại giá trần/sàn).
+5. **Ràng buộc khối lượng**: quy mô lệnh không nên vượt 5–10% khối lượng phiên, nếu không mô hình tác động mất hiệu lực — ngưỡng này dễ chạm với mã mid/small VN.
+6. **Lô & bước giá**: HOSE lô chẵn 100 cp; bước giá theo mức giá (10/50/100đ). Lệnh lẻ và mã giá thấp chịu ma sát cao hơn.
+7. **Room ngoại**: với danh mục của NĐT nước ngoài, khi mã hết room → không mua được trên sàn (phải mua thỏa thuận, thường giá cao hơn) — backtest cho quỹ ngoại cần tính ràng buộc này.
+8. **Phí bất đối xứng**: chiều bán đắt hơn chiều mua 0,1% (thuế) — phạt chiến lược vòng quay cao.
+9. **Overfitting backtest**: dù đã tính trượt giá, chiến lược vẫn có thể overfit; kiểm chứng ngoài mẫu quan trọng hơn.
+10. **`commission` trong config**: mặc định nên đặt ~`0,0025` (0,25%/chiều) là ước lượng all-in hợp lý cho cổ phiếu VN.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
