@@ -1,54 +1,54 @@
 ---
 name: volatility
-description: Volatility strategy. Trades mean reversion based on percentile ranking of historical volatility (HV). Suitable for any OHLCV data.
+description: "Chiến lược biến động (volatility) cho TTCK VN. Giao dịch hồi quy về trung bình dựa trên xếp hạng phân vị của biến động lịch sử (HV). Dùng được cho mọi dữ liệu OHLCV (cổ phiếu .VN, chỉ số VN-Index/VN30)."
 category: strategy
 ---
-# Volatility Strategy
+# Chiến lược biến động (Việt Nam)
 
-## Purpose
+## Mục đích
 
-Uses percentile ranking of historical volatility (HV) to capture volatility mean reversion: build positions in low-volatility regimes while waiting for volatility expansion, and exit or short in high-volatility regimes to capture contraction.
+Dùng xếp hạng phân vị của biến động lịch sử (HV) để bắt hồi quy về trung bình của biến động: mở vị thế trong vùng biến động thấp và chờ biến động mở rộng, thoát hoặc đảo chiều trong vùng biến động cao để bắt pha co lại.
 
-## Signal Logic
+## Logic tín hiệu
 
-1. **Compute HV**: annualized standard deviation of returns over the past `hv_window` days
-2. **Percentile ranking**: percentile position of HV within the past `lookback` days (0-100)
-3. **Signal generation**:
-   - Percentile < `low_pct` → go long (volatility is low, waiting for expansion)
-   - Percentile > `high_pct` → exit / go short (volatility is high, waiting for contraction)
-   - Middle region → keep the current position
+1. **Tính HV**: độ lệch chuẩn của lợi suất theo năm trong `hv_window` phiên gần nhất
+2. **Xếp hạng phân vị**: vị trí phân vị của HV trong `lookback` phiên gần nhất (0–100)
+3. **Sinh tín hiệu**:
+   - Phân vị < `low_pct` → mở mua (biến động thấp, chờ mở rộng)
+   - Phân vị > `high_pct` → thoát / đảo chiều (biến động cao, chờ co lại)
+   - Vùng giữa → giữ nguyên vị thế hiện tại
 
-## Key Implementation Details
+## Chi tiết triển khai then chốt
 
-- HV = `returns.rolling(hv_window).std() * sqrt(252)` (annualized)
-- Percentile = `hv.rolling(lookback).rank(pct=True) * 100`
-- For cryptocurrencies, use 365 instead of 252 as the annualization factor
+- HV = `returns.rolling(hv_window).std() * sqrt(252)` (quy năm)
+- Phân vị = `hv.rolling(lookback).rank(pct=True) * 100`
+- Hệ số quy năm: **252** phiên cho cổ phiếu/chỉ số VN
 
-## Parameters
+## Tham số
 
-| Parameter | Default | Description |
+| Tham số | Mặc định | Mô tả |
 |------|--------|------|
-| hv_window | 20 | Historical volatility calculation window |
-| lookback | 120 | Lookback period for percentile ranking |
-| low_pct | 20.0 | Low-volatility threshold (percentile) |
-| high_pct | 80.0 | High-volatility threshold (percentile) |
-| annualize | 252 | Annualization factor (252 for China A-shares, 365 for crypto) |
+| hv_window | 20 | Cửa sổ tính biến động lịch sử |
+| lookback | 120 | Kỳ nhìn lại để xếp hạng phân vị |
+| low_pct | 20.0 | Ngưỡng biến động thấp (phân vị) |
+| high_pct | 80.0 | Ngưỡng biến động cao (phân vị) |
+| annualize | 252 | Hệ số quy năm (252 cho cổ phiếu VN) |
 
-## Common Pitfalls
+## Lỗi thường gặp
 
-- Before the lookback window is filled, there is not enough data to compute percentiles, so the signal should be 0 (`fillna`)
-- Volatility is not direction. Going long in low-volatility regimes does not guarantee price appreciation; it only means volatility expansion is statistically more likely
-- Cryptocurrencies trade 7x24, so `annualize` should be set to 365
+- Trước khi cửa sổ `lookback` được lấp đầy, chưa đủ dữ liệu để tính phân vị → tín hiệu nên đặt 0 (`fillna`)
+- Biến động KHÔNG phải hướng giá. Mua trong vùng biến động thấp không bảo đảm giá tăng; chỉ nghĩa là biến động có xác suất mở rộng cao hơn về mặt thống kê
+- **Lưu ý TTCK VN**: biên độ trần/sàn (HOSE ±7%, HNX ±10%, UPCoM ±15%) chặn đuôi biến động — HV của mã VN bị "ép trần" trong các phiên kịch biên, nên phân vị biến động có thể bị nén so với thị trường không có biên độ. Cẩn trọng khi diễn giải mã hay nằm sàn/trần.
 
-## Dependencies
+## Phụ thuộc
 
 ```bash
 pip install pandas numpy
 ```
 
-## Signal Convention
+## Quy ước tín hiệu
 
-- `1` = long (low-volatility regime), `-1` = short (high-volatility regime), `0` = stand aside
+- `1` = mua (vùng biến động thấp), `-1` = đảo chiều/thoát (vùng biến động cao), `0` = đứng ngoài
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

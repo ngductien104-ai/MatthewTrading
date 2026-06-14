@@ -1,302 +1,297 @@
 ---
 name: market-microstructure
-description: "Market microstructure: bid-ask spread analysis, order-flow toxicity metrics (VPIN / Kyle lambda), liquidity measures (Amihud / Roll), price-impact models, limit-order-book analysis, and China A-share call auction / block trade mechanics."
+description: "Cấu trúc vi mô thị trường (TTCK VN): phân tích chênh mua–bán, chỉ số độc tính dòng lệnh (VPIN / Kyle lambda), thước đo thanh khoản (Amihud / Roll), mô hình tác động giá, phân tích sổ lệnh, và đặc thù vi mô VN — khớp lệnh định kỳ ATO/ATC, giao dịch thỏa thuận (block), biên độ trần/sàn, T+2, room ngoại."
 category: analysis
 ---
 
-# Market Microstructure
+# Cấu trúc vi mô thị trường (Việt Nam)
 
-## Overview
+## Mục đích
 
-Study the micro-level mechanisms of price formation: who is trading, how they are trading, and how trades affect prices. For quantitative strategies, this matters because it improves transaction-cost estimation, identifies informed trading, and optimizes execution.
+Nghiên cứu cơ chế hình thành giá ở cấp vi mô: ai đang giao dịch, giao dịch thế nào, và giao dịch tác động ra sao lên giá. Với chiến lược định lượng, điều này quan trọng vì giúp ước lượng chi phí giao dịch chính xác hơn, nhận diện dòng tiền thông minh, và tối ưu thực thi.
 
-Applicable scenarios:
-- Precise estimation of strategy trading costs (instead of simply assuming a flat 0.1% fee)
-- Designing large-order execution strategies (`TWAP / VWAP / IS`)
-- Detecting order-flow toxicity (avoid time windows dominated by informed traders)
-- Quantifying liquidity risk (flash-crash warning)
-- Capturing China A-share-specific microstructure features (call auction / closing auction / block trades)
+Tình huống áp dụng:
+- Ước lượng chính xác chi phí giao dịch của chiến lược (thay vì giả định một mức phí phẳng 0,1%)
+- Thiết kế chiến lược thực thi lệnh lớn (`TWAP / VWAP / IS`)
+- Phát hiện độc tính dòng lệnh (tránh khung giờ bị NĐT có thông tin chi phối)
+- Định lượng rủi ro thanh khoản (cảnh báo "trắng bên mua" / nằm sàn)
+- Khai thác đặc thù vi mô TTCK VN (khớp định kỳ ATO/ATC, giao dịch thỏa thuận, biên độ trần/sàn)
 
-## Core Concepts
+> **Đặc thù vi mô TTCK VN — đọc trước tiên:**
+> - **Biên độ trần/sàn**: HOSE ±7%, HNX ±10%, UPCoM ±15%. Khi mã **dư mua trần / dư bán sàn**, sổ lệnh một chiều → gần như không khớp được; mọi thước đo thanh khoản/tác động đều mất ý nghĩa trong phiên đó.
+> - **Thanh toán T+2**: cổ phiếu mua phiên T về tài khoản chiều T+2 → không có hành vi "lướt T0" hợp pháp; cấu trúc dòng lệnh khác hẳn thị trường cho bán khống/T0.
+> - **Lô chẵn 100 cp** (HOSE), **bước giá** theo mức giá → tạo sàn tự nhiên cho chênh mua–bán.
+> - **Room ngoại**: mã hết room → NĐT nước ngoài không mua được trên sàn (chỉ qua thỏa thuận, thường giá cao hơn).
+> - **Không có nhà tạo lập (market maker) bắt buộc** cho cổ phiếu thường → thanh khoản hoàn toàn do lệnh NĐT; mã ngoài VN30 sổ lệnh rất mỏng.
 
-### Bid-Ask Spread
+## Khái niệm cốt lõi
 
-**Three measurements:**
-| Metric | Formula | Meaning |
+### Chênh mua–bán (Bid-Ask Spread)
+
+**Ba cách đo:**
+| Thước đo | Công thức | Ý nghĩa |
 |------|------|------|
-| Quoted spread | `Ask - Bid` | Best spread shown in the limit order book |
-| Effective spread | `2 × |trade price - mid price|` | Actual spread paid by the trader |
-| Realized spread | `2 × direction × (trade price - mid price 5min later)` | True market-maker profit |
+| Quoted spread | `Ask − Bid` | Chênh giá tốt nhất hiển thị trên sổ lệnh |
+| Effective spread | `2 × |giá khớp − giá giữa|` | Chênh thực tế NĐT phải trả |
+| Realized spread | `2 × hướng × (giá khớp − giá giữa sau 5 phút)` | Lợi nhuận thực của bên cung thanh khoản |
 
 ```
-China A-share example:
-  Instrument: 600519.SH Kweichow Moutai
-  Best bid: 1680.00  Best ask: 1680.50
-  Quoted spread: 0.50 RMB = 0.03%
+Ví dụ minh họa (TTCK VN):
+  Mã: VCB (bluechip VN30)
+  Giá mua tốt nhất: 90.000   Giá bán tốt nhất: 90.100
+  Bước giá ≥50.000đ = 100đ → Quoted spread: 100đ = 0,11%
 
-  Instrument: 000001.SZ Ping An Bank
-  Best bid: 11.05  Best ask: 11.06
-  Quoted spread: 0.01 RMB = 0.09%
+  Mã: smallcap ngoài VN100 (giá thấp, thanh khoản kém)
+  Giá mua: 12.000   Giá bán: 12.100
+  Bước giá 10.000–49.950đ = 50đ; ở đây dư 100đ → Quoted spread ≈ 0,83%
 
-Spread decomposition (Roll):
-  Spread = adverse-selection cost + inventory cost + order-processing cost
-  In China A-shares: adverse selection accounts for 60-70% (mixture of retail and informed traders)
+Phân rã chênh giá (Roll):
+  Spread = chi phí lựa chọn bất lợi + chi phí tồn kho + chi phí xử lý lệnh
+  TTCK VN: tỷ trọng lựa chọn bất lợi cao (NĐT cá nhân chiếm ~85% GTGD,
+  trộn lẫn dòng tiền thông minh) → khó ước lượng, biến động theo tin.
 
-Spread drivers:
-  - Larger market cap -> smaller spread (Moutai 0.03% vs small-cap 0.5%)
-  - Higher volatility -> wider spread (market-maker risk premium)
-  - Higher volume -> narrower spread (greater competition)
-  - Higher information asymmetry -> wider spread (adverse selection)
+Yếu tố chi phối chênh giá:
+  - Vốn hóa lớn hơn   → spread hẹp hơn (VN30 vs penny)
+  - Biến động cao hơn → spread rộng hơn
+  - Khối lượng lớn hơn→ spread hẹp hơn (cạnh tranh đặt lệnh nhiều)
+  - Bất cân xứng thông tin cao → spread rộng hơn (lựa chọn bất lợi)
+  - BƯỚC GIÁ là sàn cứng: mã giá thấp có bước giá chiếm % lớn → spread tối thiểu cao
 ```
 
-### Order-Flow Toxicity Metrics
+### Chỉ số độc tính dòng lệnh
 
 **VPIN (Volume-Synchronized Probability of Informed Trading):**
 ```
-Principle: replace clock time with volume time to measure the probability of informed trading
+Nguyên lý: thay thời gian đồng hồ bằng "thời gian khối lượng" để đo xác suất giao dịch có thông tin
 
-Calculation steps:
-  1. Bucket trades by fixed volume (Volume Bucket)
-     Bucket size V = average daily volume / 50 (about 5-10 minutes per bucket)
+Các bước tính:
+  1. Gom lệnh theo lô khối lượng cố định (Volume Bucket)
+     Kích thước lô V = KLGD bình quân ngày / 50 (mỗi lô ~5–10 phút)
 
-  2. Classify buy and sell volume in each bucket (Bulk Volume Classification):
-     buy_volume = V × Φ(ΔP / σ)  (standard normal CDF)
-     sell_volume = V - buy_volume
+  2. Phân loại khối lượng mua/bán trong mỗi lô (Bulk Volume Classification):
+     buy_volume  = V × Φ(ΔP / σ)   (CDF chuẩn tắc)
+     sell_volume = V − buy_volume
 
-  3. Compute order-flow imbalance:
-     OI_i = |buy_volume_i - sell_volume_i|
+  3. Tính mất cân bằng dòng lệnh:
+     OI_i = |buy_volume_i − sell_volume_i|
 
-  4. VPIN = Σ(OI_i) / (n × V)  (n=50-bucket rolling window)
+  4. VPIN = Σ(OI_i) / (n × V)   (cửa sổ trượt n = 50 lô)
 
-Interpretation:
-  VPIN < 0.3 -> normal, low informed-trading share
-  VPIN 0.3-0.5 -> caution, informed trading rising
-  VPIN > 0.5 -> dangerous, high probability that major information is about to be released
+Diễn giải:
+  VPIN < 0,3   → bình thường, tỷ trọng giao dịch có thông tin thấp
+  VPIN 0,3–0,5 → cảnh giác, dòng tiền thông minh đang tăng
+  VPIN > 0,5   → nguy hiểm, xác suất cao sắp có thông tin lớn
 
-China A-share usage:
-  A sudden VPIN spike in a stock may foreshadow:
-  - insider trading ahead of a major announcement
-  - institutional position building / distribution
-  Before the 2015 China A-share flash crashes, VPIN stayed above 0.6 for a prolonged period
+Ứng dụng TTCK VN:
+  VPIN tăng đột biến ở một mã có thể báo trước:
+  - giao dịch nội gián trước tin lớn (phát hành, M&A, KQKD đột biến)
+  - tổ chức/"đội lái" gom hàng hoặc phân phối
+  Cẩn trọng với mã smallcap bị làm giá: VPIN nhiễu do khối lượng "tự mua tự bán".
 ```
 
-**Kyle's Lambda (price impact coefficient)**:
+**Kyle's Lambda (hệ số tác động giá)**:
 ```
-Model: ΔP = λ × OrderFlow + ε
-  where OrderFlow = buy volume - sell volume
+Mô hình: ΔP = λ × OrderFlow + ε
+  với OrderFlow = khối lượng mua − khối lượng bán
 
-Estimation method:
-  1. Compute ΔP and OrderFlow in 5-minute windows
-  2. Regress ΔP = α + λ × OrderFlow
-  3. λ = price change caused by one unit of order flow
+Cách ước lượng:
+  1. Tính ΔP và OrderFlow theo cửa sổ 5 phút
+  2. Hồi quy ΔP = α + λ × OrderFlow
+  3. λ = mức thay đổi giá do một đơn vị dòng lệnh gây ra
 
-Interpretation:
-  Large λ -> poor liquidity, high impact
-  Small λ -> good liquidity, large orders can be executed cheaply
+Diễn giải:
+  λ lớn → thanh khoản kém, tác động cao
+  λ nhỏ → thanh khoản tốt, lệnh lớn khớp rẻ
 
-Typical China A-share values:
-  Large cap (CSI 300): λ ≈ 0.001-0.005
-  Mid cap (CSI 500): λ ≈ 0.005-0.02
-  Small cap (CSI 1000): λ ≈ 0.02-0.1
+Phân nhóm TTCK VN (giá trị minh họa — phải HIỆU CHỈNH trên dữ liệu thực):
+  Bluechip VN30        : λ thấp nhất (sổ lệnh dày)
+  Midcap (VNMidcap)    : λ trung bình
+  Smallcap / penny     : λ cao, dễ "đẩy" trần/sàn chỉ với lệnh vừa
 ```
 
-### Liquidity Measures
+### Thước đo thanh khoản
 
-| Metric | Formula | Advantages | Disadvantages |
+| Thước đo | Công thức | Ưu điểm | Nhược điểm |
 |------|------|------|------|
-| Amihud illiquidity | `|R_t| / Volume_t` | Requires only daily data | Sensitive to extreme returns |
-| Roll implied spread | `2√(-Cov(R_t, R_{t-1}))` | Requires only daily data | Fails when covariance is positive |
-| LOT zero-return ratio | zero-return days / total days | Intuitive | Too coarse |
-| Turnover ratio | volume / free float | Simple and intuitive | Does not reflect price impact |
-| Traded value | average daily notional | Absolute liquidity | Does not reflect relative impact |
+| Amihud illiquidity | `|R_t| / GTGD_t` | Chỉ cần dữ liệu ngày | Nhạy với lợi suất cực trị |
+| Roll implied spread | `2√(−Cov(R_t, R_{t−1}))` | Chỉ cần dữ liệu ngày | Vô hiệu khi hiệp phương sai dương |
+| Tỷ lệ phiên lợi suất 0 | số phiên R=0 / tổng phiên | Trực quan | Quá thô |
+| Vòng quay (turnover) | KLGD / free float | Đơn giản | Không phản ánh tác động giá |
+| Giá trị giao dịch | GTGD bình quân ngày | Thanh khoản tuyệt đối | Không phản ánh tác động tương đối |
 
 ```
-Amihud calculation (China A-shares):
-  ILLIQ = (1/D) × Σ(|R_d| / VOL_d)  (D=trading days, monthly)
+Tính Amihud (TTCK VN):
+  ILLIQ = (1/D) × Σ(|R_d| / GTGD_d)   (D = số phiên, theo tháng)
+  Chuẩn hóa: ILLIQ × 10^6 cho dễ đọc
 
-  Normalization: ILLIQ × 10^6 (for readability)
-
-  Screening rules:
-    ILLIQ < 0.5 -> high liquidity (large-cap blue chips)
-    ILLIQ 0.5-5 -> medium liquidity
-    ILLIQ > 5 -> low liquidity (trade cautiously)
-
-  Strategy application:
-    - Liquidity factor: low-liquidity stocks tend to earn long-run excess return (liquidity premium)
-    - Liquidity monitor: sudden rise in ILLIQ -> warning of liquidity drying up
+  Ứng dụng:
+    - Nhân tố thanh khoản: mã thanh khoản thấp thường có phần bù lợi suất dài hạn
+      (liquidity premium) — NHƯNG ở VN dễ trùng với rủi ro làm giá, cần lọc kỹ.
+    - Giám sát thanh khoản: ILLIQ tăng vọt → cảnh báo thanh khoản cạn kiệt.
+  Lưu ý: ngưỡng phân loại cao/thấp phải hiệu chỉnh trên rổ .VN, không bê nguyên
+  ngưỡng từ thị trường khác.
 ```
 
-## Analysis Framework
+## Khung phân tích
 
-### 1. Price-Impact Models
+### 1. Mô hình tác động giá
 
-**Linear impact (Almgren-Chriss)**:
+**Tác động tuyến tính (Almgren-Chriss)**:
 ```
-Model: impact = η × σ × (Q / V)^0.6
-  η: impact coefficient, about 0.5-1.5 for China A-shares
-  σ: daily volatility
-  Q: traded quantity (shares)
-  V: average daily volume (shares)
+Mô hình: impact = η × σ × (Q / V)^0,6
+  η: hệ số tác động
+  σ: biến động ngày
+  Q: khối lượng giao dịch (cp)
+  V: KLGD bình quân ngày (cp)
 
-Example:
-  Sell 100,000 shares of Kweichow Moutai
-  Average daily volume 5,000,000 shares, daily volatility 1.8%
-  impact = 1.0 × 0.018 × (100000/5000000)^0.6
-         = 0.018 × 0.0085
-         = 0.015% (1.5bp, acceptable)
+Ví dụ minh họa:
+  Bán 100.000 cp một bluechip VN30
+  KLGD bình quân 5.000.000 cp, biến động ngày 1,8%
+  impact = 1,0 × 0,018 × (100000/5000000)^0,6
+         ≈ 0,018 × 0,0085 ≈ 0,015% (1,5bp, chấp nhận được)
 
-  Sell 100,000 shares of a small-cap stock
-  Average daily volume 500,000 shares, daily volatility 3.0%
-  impact = 1.0 × 0.03 × (100000/500000)^0.6
-         = 0.03 × 0.076
-         = 0.23% (23bp, should be executed in slices)
+  Bán 100.000 cp một mã smallcap
+  KLGD bình quân 500.000 cp, biến động ngày 3,0%
+  impact = 1,0 × 0,03 × (100000/500000)^0,6
+         ≈ 0,03 × 0,076 ≈ 0,23% (23bp, nên chẻ lệnh)
 
-Execution-splitting methods:
-  TWAP: uniform in clock time -> simple but ignores market state
-  VWAP: volume-profile execution -> better matches market rhythm
-  IS: minimize Implementation Shortfall -> optimal but requires real-time optimization
+Phương pháp chẻ lệnh:
+  TWAP: đều theo thời gian → đơn giản nhưng bỏ qua trạng thái thị trường
+  VWAP: theo phân bố khối lượng → khớp nhịp thị trường tốt hơn
+  IS:   tối thiểu Implementation Shortfall → tối ưu nhưng cần tối ưu hóa thời gian thực
 ```
 
-**Nonlinear impact (square-root model)**:
+**Tác động phi tuyến (mô hình căn bậc hai)**:
 ```
 impact = σ × √(Q / (ADV × T))
-  σ: daily volatility
-  Q: total trade size
-  ADV: average daily traded value
-  T: execution days
+  σ: biến động ngày
+  Q: tổng quy mô lệnh
+  ADV: giá trị giao dịch bình quân ngày
+  T: số phiên thực thi
 
-Applicable to: large trades (Q/ADV > 5%)
+Áp dụng cho: lệnh lớn (Q/ADV > 5%). Ở VN, mã mid/small chạm ngưỡng này rất sớm.
 ```
 
-### 2. Limit Order Book Analysis
+### 2. Phân tích sổ lệnh (LOB)
 
 ```
-Depth metrics:
-  Level 1 depth: queue size at the best bid and best ask
-  Level 5 depth: total queue size across the first 5 levels
-  Depth asymmetry: (Bid depth - Ask depth) / (Bid depth + Ask depth)
-    > 0 -> stronger bid side, price tends to rise
-    < 0 -> stronger ask side, price tends to fall
+Thước đo độ sâu:
+  Độ sâu mức 1: khối lượng chờ tại giá mua/bán tốt nhất
+  Độ sâu 3 mức: tổng khối lượng 3 mức đầu (HOSE công bố 3 bước giá mỗi chiều)
+  Bất cân xứng độ sâu: (Bid − Ask) / (Bid + Ask)
+    > 0 → bên mua mạnh hơn, giá có xu hướng tăng
+    < 0 → bên bán mạnh hơn, giá có xu hướng giảm
 
-Resilience:
-  The speed at which the book recovers after a large-order impact
-  Fast recovery -> good liquidity, temporary impact
-  Slow recovery -> poor liquidity, persistent impact
+Độ đàn hồi (resilience):
+  Tốc độ sổ lệnh hồi phục sau cú sốc lệnh lớn
+  Hồi nhanh → thanh khoản tốt, tác động tạm thời
+  Hồi chậm → thanh khoản kém, tác động kéo dài
 
-China A-share LOB characteristics:
-  - The shallowest depth is in the 15 minutes before the open (highest information asymmetry)
-  - Depth improves from 10:00-10:30 (institutions begin participating)
-  - Best depth is from 14:00-14:57 (most intraday information has been digested)
-  - During the 14:57-15:00 closing auction, depth changes sharply (late-day grabbing / dumping)
+Đặc điểm sổ lệnh theo khung phiên HOSE:
+  - Mỏng nhất quanh ATO (09:00–09:15) — bất cân xứng thông tin cao nhất
+  - Cải thiện dần phiên sáng khi tổ chức tham gia
+  - Tốt nhất đầu phiên chiều (13:00–14:15) — phần lớn thông tin đã được tiêu hóa
+  - Phiên ATC (14:30–14:45) độ sâu biến động mạnh (tranh giá đóng cửa, quỹ/ETF cơ cấu)
 
-Order-book imbalance signal:
-  OIR = (Bid_vol - Ask_vol) / (Bid_vol + Ask_vol)
-  Rolling 5-minute OIR > 0.3 -> short-term bullish signal (accuracy about 55-60%)
-  Note: in China A-shares, large orders are often rapidly added and canceled (icebergs / spoofing), so OIR signals need filtering
+Tín hiệu mất cân bằng sổ lệnh:
+  OIR = (Bid_vol − Ask_vol) / (Bid_vol + Ask_vol)
+  OIR trượt 5 phút > 0,3 → tín hiệu tăng ngắn hạn (độ chính xác ~55–60%)
+  Lưu ý VN: chỉ thấy 3 bước giá; lệnh lớn hay bị treo rồi hủy (kê giá ảo) → lọc nhiễu OIR.
 ```
 
-### 3. Flash-Crash Mechanism and Prevention
+### 3. Cơ chế "trắng bên mua" / nằm sàn và phòng ngừa
 
 ```
-Flash-crash characteristics:
-  1. Price drops more than 5% within minutes
-  2. Volume first expands, then collapses (liquidity evaporates)
-  3. Bid-ask spread widens sharply (market makers pull quotes)
-  4. Followed by a V-shaped rebound (not always fully recovered)
+Đặc điểm (thay cho "flash crash" ở thị trường có market maker):
+  1. Giá rơi nhanh về giá sàn (−7% HOSE) trong thời gian ngắn
+  2. Khối lượng phình rồi cạn (thanh khoản bốc hơi)
+  3. Chênh mua–bán giãn mạnh; bên mua biến mất ("trắng bên mua")
+  4. Mã nằm sàn, dư bán sàn chất đống → KHÔNG khớp được (đặc thù VN: khóa sàn)
 
-Triggers:
-  - Large market order + thin liquidity -> punches through multiple levels instantly
-  - Stop-loss chain -> initial selloff triggers more stop orders
-  - Algo resonance -> multiple trend-following algos sell simultaneously
-  - ETF discount arbitrage -> ETF redemption and constituent selling intensify the drop
+Tác nhân:
+  - Lệnh bán lớn + thanh khoản mỏng → xuyên thủng nhiều bước giá tức thì
+  - Call margin dây chuyền (force-sell) → bán giải chấp kéo theo bán giải chấp
+    (cú sập do margin cuối 2022 là ví dụ điển hình: hàng loạt mã nằm sàn nhiều phiên)
+  - Cộng hưởng tâm lý NĐT cá nhân → bán tháo đồng loạt
+  - Bán chéo ETF/quỹ → rút chứng chỉ quỹ + bán cổ phiếu thành phần khuếch đại đà giảm
 
-Preventive measures:
-  1. Use limit orders instead of market orders: specify the maximum acceptable price
-  2. Monitor VPIN: if VPIN breaks above 0.5 -> stop trading
-  3. Liquidity threshold: exclude instruments with Amihud > 10
-  4. Spread monitor: if spread widens suddenly to >5x normal -> pause orders
-  5. Time avoidance: do not execute large orders in the first 15 minutes after open or the last 5 minutes before close
-
-China A-share flash-crash cases:
-  2015 Jun-Jul: thousands of stocks hit limit-down, with VPIN staying elevated
-  2020-07-13: Shanghai Composite plunged and then rebounded in a V-shape
-  Pattern: liquidity dries up -> limit-down locking (China-specific) -> next-day panic selling
+Biện pháp phòng ngừa:
+  1. Dùng lệnh giới hạn (LO) thay lệnh thị trường (MP) — đặt giá tối đa chấp nhận
+  2. Giám sát VPIN: vượt 0,5 → ngừng giao dịch
+  3. Ngưỡng thanh khoản: loại mã Amihud quá cao
+  4. Giám sát spread: giãn đột ngột >5 lần bình thường → tạm dừng đặt lệnh
+  5. Tránh khung giờ: không đẩy lệnh lớn quanh ATO và sát ATC
+  6. Quản trị margin: hạ tỷ lệ vay trước vùng rủi ro để tránh bị force-sell ở giá sàn
 ```
 
-### 4. China A-Share-Specific Microstructure
+### 4. Đặc thù vi mô TTCK VN
 
 ```
-Call-auction strategy:
-  9:15-9:20: orders can be entered and canceled, mostly probing quotes (low reference value)
-  9:20-9:25: orders can be entered but not canceled, so real intent is revealed
-  Signal: after 9:20, buy orders far exceed sell orders -> likely gap-up open
+Khớp lệnh định kỳ MỞ CỬA (ATO 09:00–09:15):
+  - Lệnh ATO/LO tham gia xác định giá mở cửa; HOSE: trong phiên định kỳ
+    KHÔNG được hủy/sửa lệnh → ý định thật bộc lộ rõ hơn phiên liên tục.
+  - Tín hiệu: dư mua áp đảo dư bán trước 09:15 → khả năng mở cửa tăng giá.
+  - Rủi ro: lệnh ATO không có giá; khớp tại giá mở cửa, có thể lệch kỳ vọng.
 
-  Execution: place orders at 9:24:50 (last 10 seconds of the call auction)
-  Risk: cannot cancel, and the final execution price may deviate from expectation
+Khớp lệnh định kỳ ĐÓNG CỬA (ATC 14:30–14:45):
+  - Giá đóng cửa quyết định trong 15 phút; tập trung cơ cấu của tổ chức và quỹ chỉ số/ETF.
+  - HOSE: trong ATC cũng KHÔNG được hủy/sửa lệnh.
+  - Tín hiệu: KL phiên ATC > 10% cả ngày → tổ chức/ETF đang cơ cấu.
+  - Ứng dụng:
+    * Thuật toán VWAP nên hoàn tất phần lớn trước 14:25, để phần nhỏ vào ATC.
+    * Tránh đặt lệnh lớn sát 14:45 (bất định giá cao).
+  - Lưu ý: UPCoM KHÔNG có ATO/ATC (chỉ khớp liên tục); HNX có ATC, không có ATO.
 
-Closing call auction (14:57-15:00):
-  Feature: closing price is decided within 3 minutes, with concentrated institutional rebalancing and index-fund flows
-  Signal: closing-auction volume > 10% of the whole day -> institutions are rebalancing
-
-  Strategy application:
-  - VWAP algos should finish most of execution before 14:50, leaving a small residual for the close
-  - Avoid placing large orders after 14:57 (high price uncertainty)
-
-Block-trade discount signal:
-  Discount = (block-trade price - closing price) / closing price
-  Discount < -5%: seller is eager to exit -> short-term bearish
-  Discount > -2%: traded near market price -> may be turnover rather than reduction
-
-  Buyer identity:
-  Well-known institutional seat buys -> positive signal
-  Same broker on both sides -> may be wash trading (neutral)
+Giao dịch thỏa thuận (block / put-through):
+  - Tín hiệu chiết khấu = (giá thỏa thuận − giá tham chiếu) / giá tham chiếu
+    Chiết khấu < −5%: bên bán nóng lòng thoát → tiêu cực ngắn hạn
+    Quanh giá sàn/tham chiếu: có thể chỉ là sang tay, không phải phân phối
+  - Bên mua là tổ chức/quỹ uy tín → tín hiệu tích cực
+  - Cùng một công ty chứng khoán đứng hai chiều → có thể là sang tay nội bộ (trung tính)
+  - Thỏa thuận khối ngoại: thường dùng khi mã HẾT ROOM (mua sàn không được).
 ```
 
-## Output Format
+## Mẫu output
 
-Microstructure analysis report:
+Báo cáo phân tích vi mô (minh họa — số liệu phải lấy từ DataPro/nguồn thật):
 ```
-=== Liquidity Diagnosis ===
-Instrument: 000858.SZ Wuliangye
-Date: 2026-03-28
-Average daily traded value: 2.8 billion RMB  Turnover ratio: 0.85%
-Amihud: 0.32 (high liquidity)
-Effective spread: 0.05% (2.5bp)
-Kyle Lambda: 0.003
+=== Chẩn đoán thanh khoản ===
+Mã: <bluechip VN30>
+Ngày: 2026-03-28
+GTGD bình quân ngày: <x> tỷ đồng   Vòng quay: <x>%
+Amihud: <x> (thanh khoản cao)
+Effective spread: <x>% (<x>bp)
+Kyle Lambda: <x>
 
-=== Order-Flow Analysis ===
-VPIN: 0.28 (normal)
-Order-book imbalance (OIR): +0.12 (mild bid-side bias)
-Net large-order buying: +230 million RMB (institutional buying bias)
+=== Phân tích dòng lệnh ===
+VPIN: <x> (bình thường)
+Mất cân bằng sổ lệnh (OIR): <±x> (lệch nhẹ bên mua)
+Mua ròng lệnh lớn / khối ngoại: <±x> tỷ đồng
 
-=== Trading-Cost Estimate ===
-Planned trade size: 500,000 shares (about 40 million RMB)
-Estimated impact cost: 0.08% (32k RMB)
-Commission: 0.025% (10k RMB)
-Stamp duty: 0.05% (20k RMB, sell side)
-Total one-way transaction cost: about 0.16%
+=== Ước lượng chi phí giao dịch ===
+Quy mô lệnh dự kiến: <x> cp (~<x> tỷ đồng)
+Tác động giá ước tính: <x>%
+Phí môi giới: 0,15%
+Thuế chuyển nhượng (chỉ chiều BÁN): 0,10%
+Tổng chi phí 1 chiều mua: ~0,15–0,20% | bán: ~0,25–0,30%
 
-=== Execution Suggestion ===
-Recommended strategy: VWAP
-Execution window: 10:00-14:50 (avoid the open and the close)
-Number of slices: 5-8 (about 60k-100k shares per slice)
-Time sensitivity: low (VPIN is normal, no urgency to execute)
+=== Đề xuất thực thi ===
+Chiến lược gợi ý: VWAP
+Cửa sổ thực thi: 13:00–14:25 (tránh ATO và sát ATC)
+Số lát chẻ lệnh: 5–8
+Độ nhạy thời gian: thấp (VPIN bình thường, không gấp)
 ```
 
-## Notes
+## Lưu ý quan trọng
 
-1. **Data requirement is high**: microstructure analysis requires tick-level / Level-2 data, while ordinary daily data only supports rough measures such as Amihud / Roll
-2. **China A-share Level-2 data**: ten-level depth data from SSE / SZSE requires a paid subscription, costing roughly 50k-200k RMB per year
-3. **High-frequency trading restrictions**: China A-shares strictly prohibit programmatic quote-cancel manipulation (`spoofing`), so microstructure signals are for analysis only, not for HFT strategies
-4. **VPIN calibration**: bucket size has a large impact on results and must be adjusted for instrument liquidity; one parameter does not fit all
-5. **Cross-market differences**: China A-share `T+1` settlement and daily price limits make its microstructure significantly different from textbook US-equity models
-6. **Illusion of liquidity**: high turnover in some China A-shares comes from speculative matched trading and does not represent true liquidity
-
-## Dependencies
-
-```bash
-pip install pandas numpy scipy
-```
+1. **Yêu cầu dữ liệu cao**: phân tích vi mô cần dữ liệu tick / sổ lệnh; dữ liệu ngày thường chỉ đủ cho thước đo thô như Amihud / Roll.
+2. **Dữ liệu tick/intraday VN**: lấy qua DataPro (`get_tick`, `get_minute`) hoặc bảng giá môi giới; HOSE chỉ công bố **3 bước giá** mỗi chiều (không có Level-2 sâu 10 mức như một số thị trường).
+3. **Hiệu chỉnh VPIN**: kích thước lô ảnh hưởng lớn đến kết quả, phải điều chỉnh theo thanh khoản từng mã — một tham số không hợp cho mọi mã.
+4. **Khác biệt thị trường**: **T+2** và **biên độ trần/sàn** khiến vi mô VN khác hẳn mô hình sách giáo khoa thị trường Mỹ (không bán khống đại trà, không market maker bắt buộc).
+5. **Ảo giác thanh khoản**: một số mã smallcap có vòng quay cao do **làm giá / tự mua tự bán**, không phản ánh thanh khoản thật — đừng tin con số turnover đơn thuần.
+6. **Khóa trần/sàn**: khi mã nằm sàn (dư bán sàn) hoặc nằm trần, sổ lệnh một chiều → mọi tín hiệu OIR/spread/impact đều vô nghĩa trong phiên đó.
+7. **Room ngoại**: mã hết room → cầu nước ngoài dồn sang thỏa thuận (giá cao hơn); tín hiệu sổ lệnh trên sàn không phản ánh hết cầu thực.
+8. **Chỉ để phân tích**: tín hiệu vi mô phục vụ ước lượng chi phí & chọn thời điểm thực thi, không phải để chạy HFT (hủy/kê lệnh ảo có thể bị xử lý vi phạm).
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

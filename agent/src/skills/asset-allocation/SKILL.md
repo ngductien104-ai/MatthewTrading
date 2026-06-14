@@ -1,103 +1,112 @@
 ---
 name: asset-allocation
-description: Asset allocation theory and optimizer usage — MPT / Black-Litterman / risk budgeting / all-weather strategy, including guides for 4 optimizers and rebalancing rules.
+description: "Lý thuyết phân bổ tài sản & cách dùng optimizer cho danh mục VN — MPT / Black-Litterman / risk budgeting / all-weather, hướng dẫn 4 optimizer tích hợp và quy tắc tái cơ cấu. Lưu ý hạn chế công cụ đầu tư ở VN (thiếu ETF hàng hóa/REIT, không bán khống, đòn bẩy chỉ qua margin), phí: thuế bán 0,1%, T+2."
 category: asset-class
 ---
 
-# Asset Allocation and Portfolio Optimization
+# Phân bổ tài sản & Tối ưu danh mục (Việt Nam)
 
-## Overview
+## Tổng quan
 
-From asset allocation theory to practical implementation, this skill covers classical frameworks (MPT, BL, risk budgeting, all-weather) and the usage of the four optimizers built into this system. The output can be written directly into `config.json`.
+Từ lý thuyết phân bổ tài sản đến triển khai thực tế, skill này bao quát các khung kinh điển (MPT, BL, risk budgeting, all-weather) và cách dùng 4 optimizer tích hợp trong hệ thống. Kết quả có thể ghi thẳng vào `config.json`.
 
-## Asset Allocation Theory
+> **Hạn chế công cụ đầu tư ở TTCK VN — đọc trước tiên:**
+> - **Lớp tài sản đầu tư được hẹp**: NĐT VN chủ yếu tiếp cận cổ phiếu, tiền gửi/trái phiếu, vàng, một số ETF (E1VFVN30, FUEVFVND...). **Thiếu công cụ hàng hóa/REIT/TIPS thanh khoản** → danh mục all-weather kiểu Bridgewater khó dựng đủ chân ở VN.
+> - **Không bán khống đại trà; đòn bẩy chỉ qua margin** → ràng buộc `w ≥ 0`, tổng trọng số ≤ 1.
+> - **Tương quan nội bộ cổ phiếu VN cao** (cụm quanh nhóm ngân hàng/BĐS) → lợi ích đa dạng hóa trong rổ cổ phiếu hạn chế.
+> - **Phí & thuế**: thuế chuyển nhượng **0,1% chỉ chiều bán** + phí môi giới ~0,15% → tái cơ cấu dày bị bào mòn. Thanh toán **T+2**.
 
-### 1. Modern Portfolio Theory (MPT, Markowitz)
+## Lý thuyết phân bổ tài sản
 
-**Core idea**: maximize expected return for a given level of risk (the efficient frontier).
+### 1. Lý thuyết danh mục hiện đại (MPT, Markowitz)
+
+**Ý tưởng cốt lõi**: tối đa hóa lợi suất kỳ vọng cho một mức rủi ro cho trước (đường biên hiệu quả).
 
 ```
-Optimization problem:
-min  w'Σw              (portfolio variance)
+Bài toán tối ưu:
+min  w'Σw              (phương sai danh mục)
 s.t. w'μ = target_return
      Σw = 1
-     w ≥ 0              (no shorting)
+     w ≥ 0              (không bán khống — phù hợp ràng buộc TTCK VN)
 ```
 
-| Advantages | Disadvantages |
+| Ưu điểm | Nhược điểm |
 |------|------|
-| Mathematically rigorous | Extremely sensitive to inputs (garbage in, garbage out) |
-| Efficient frontier is visualizable | Concentrated-allocation problem (often produces extreme weights) |
-| Foundational framework | Assumes normality and ignores fat tails |
+| Chặt chẽ về toán học | Cực nhạy với đầu vào (garbage in, garbage out) |
+| Trực quan hóa được đường biên hiệu quả | Hay cho trọng số cực đoan (dồn vào vài tài sản) |
+| Khung nền tảng | Giả định phân phối chuẩn, bỏ qua đuôi dày (fat tail) |
 
-**Practical advice**: do not use raw MPT directly. Add constraints (upper/lower bounds, sector limits) or use a regularized version.
+**Lời khuyên thực chiến**: đừng dùng MPT thô. Thêm ràng buộc (chặn trên/dưới, giới hạn theo ngành) hoặc dùng phiên bản đã chính quy hóa (regularized).
 
-### 2. Black-Litterman Model
+### 2. Mô hình Black-Litterman
 
-**Core idea**: start from market equilibrium and incorporate investor views.
-
-```
-Steps:
-1. Reverse-imply market equilibrium returns: π = δΣw_mkt
-2. Build the view matrices: P (selection matrix), Q (view returns), Ω (view uncertainty)
-3. Blend the posterior: μ_BL = [(τΣ)^-1 + P'Ω^-1 P]^-1 [(τΣ)^-1 π + P'Ω^-1 Q]
-4. Run Markowitz optimization using posterior μ_BL
-```
-
-**Example views**:
-- Absolute view: "China A-shares will return 10% over the next year"  → `P=[1,0,0], Q=[0.10]`
-- Relative view: "China A-shares will outperform US equities by 5%"   → `P=[1,-1,0], Q=[0.05]`
-
-**Parameter guidance**:
-- `τ` (uncertainty scaling): `0.025-0.05`
-- `Ω`: set according to view confidence, where higher confidence = smaller variance
-
-### 3. Risk Budgeting
-
-**Core idea**: allocate by risk contribution rather than by capital share.
+**Ý tưởng cốt lõi**: xuất phát từ cân bằng thị trường rồi lồng quan điểm nhà đầu tư.
 
 ```
-Risk contribution: RC_i = w_i × (Σw)_i / σ_p
-Target: RC_i / σ_p = budget_i  (for all i)
+Các bước:
+1. Suy ngược lợi suất cân bằng thị trường: π = δΣw_mkt
+2. Dựng ma trận quan điểm: P (ma trận chọn), Q (lợi suất quan điểm), Ω (độ bất định quan điểm)
+3. Trộn hậu nghiệm: μ_BL = [(τΣ)^-1 + P'Ω^-1 P]^-1 [(τΣ)^-1 π + P'Ω^-1 Q]
+4. Chạy tối ưu Markowitz với μ_BL hậu nghiệm
 ```
 
-| Strategy | Risk Budget | Best Use Case |
+**Ví dụ quan điểm (TTCK VN)**:
+- Quan điểm tuyệt đối: "Nhóm ngân hàng tăng 12% trong 1 năm tới"  → `P=[1,0,0], Q=[0,12]`
+- Quan điểm tương đối: "Nhóm ngân hàng vượt nhóm BĐS 5%"  → `P=[1,-1,0], Q=[0,05]`
+
+**Hướng dẫn tham số**:
+- `τ` (hệ số bất định): `0,025–0,05`
+- `Ω`: đặt theo độ tự tin của quan điểm — tự tin cao = phương sai nhỏ
+
+### 3. Phân bổ theo ngân sách rủi ro (Risk Budgeting)
+
+**Ý tưởng cốt lõi**: phân bổ theo đóng góp rủi ro thay vì theo tỷ trọng vốn.
+
+```
+Đóng góp rủi ro: RC_i = w_i × (Σw)_i / σ_p
+Mục tiêu: RC_i / σ_p = budget_i  (với mọi i)
+```
+
+| Chiến lược | Ngân sách rủi ro | Tình huống dùng tốt |
 |------|---------|---------|
-| Equal risk contribution | Each asset 1/N | When you do not know which asset is best |
-| Equity-tilted risk budget | Stocks 60%, bonds 30%, commodities 10% | When you want equities to contribute more risk |
-| Dynamic risk budget | Adjust dynamically by signal strength | When you have market-timing ability |
+| Đóng góp rủi ro bằng nhau | Mỗi tài sản 1/N | Khi không biết tài sản nào tốt nhất |
+| Nghiêng về cổ phiếu | Cổ phiếu 60%, trái phiếu 30%, vàng 10% | Khi muốn cổ phiếu đóng góp rủi ro nhiều hơn |
+| Ngân sách rủi ro động | Điều chỉnh theo độ mạnh tín hiệu | Khi có khả năng định thời điểm thị trường |
 
-### 4. All-Weather Strategy
+### 4. Chiến lược All-Weather
 
-**Bridgewater framework**: allocate risk equally across economic environments.
+**Khung Bridgewater**: phân bổ rủi ro đều qua các trạng thái kinh tế.
 
 ```
-Economic environment   Asset allocation
+Trạng thái kinh tế      Phân bổ tài sản
 ─────────              ─────────
-Growth rising          Equities + commodities + corporate bonds
-Growth falling         Government bonds + inflation-protected bonds
-Inflation rising       Commodities + inflation-protected bonds + EM debt
-Inflation falling      Equities + government bonds
+Tăng trưởng lên         Cổ phiếu + hàng hóa + trái phiếu doanh nghiệp
+Tăng trưởng xuống       Trái phiếu chính phủ + trái phiếu chống lạm phát
+Lạm phát lên            Hàng hóa + trái phiếu chống lạm phát + nợ thị trường mới nổi
+Lạm phát xuống          Cổ phiếu + trái phiếu chính phủ
 
-Simplified allocation example for China-focused portfolios:
-- 30% CSI 300 / CSI 500
-- 40% government bonds / credit bonds
-- 15% gold
-- 15% commodities / REITs
+Ví dụ phân bổ rút gọn cho NĐT VN (do thiếu công cụ hàng hóa/REIT/TIPS):
+- 30% cổ phiếu VN (ETF VN30 như E1VFVN30, hoặc rổ VN30/VNMidcap)
+- 40% trái phiếu / tiền gửi kỳ hạn (TPCP khó mua lẻ → thay bằng quỹ TP hoặc tiền gửi)
+- 15% vàng (theo giá vàng trong nước/quốc tế)
+- 15% tiền mặt / tiền gửi ngắn hạn (thay phần hàng hóa/REIT vốn hiếm ở VN)
+
+Lưu ý: đây là phiên bản đơn giản hóa — không nên hiểu là "all-weather đầy đủ"
+vì thị trường VN chưa đủ công cụ để phân bổ rủi ro qua mọi trạng thái lạm phát.
 ```
 
-## Guide to the 4 Optimizers
+## Hướng dẫn 4 Optimizer
 
-### Overview of the Built-In Optimizers
+### Tổng quan các optimizer tích hợp
 
-Configure them in `config.json` through `optimizer` and `optimizer_params`:
+Cấu hình trong `config.json` qua `optimizer` và `optimizer_params`:
 
-| optimizer | Display Name | Core Idea | Best Use Case |
+| optimizer | Tên hiển thị | Ý tưởng cốt lõi | Tình huống dùng tốt |
 |-----------|--------|---------|---------|
-| `equal_volatility` | Equal Volatility | Allocate weights by inverse volatility | Simple and effective baseline |
-| `risk_parity` | Risk Parity | Equalize risk contribution while accounting for correlation | Long-term robust allocation |
-| `mean_variance` | Mean-Variance | Maximize Sharpe ratio or minimize variance | When return forecasts are available |
-| `max_diversification` | Maximum Diversification | Maximize the diversification ratio | When pursuing a low-correlation portfolio |
+| `equal_volatility` | Biến động bằng nhau | Trọng số theo nghịch đảo biến động | Baseline đơn giản, hiệu quả |
+| `risk_parity` | Cân bằng rủi ro | Cân bằng đóng góp rủi ro có tính tương quan | Phân bổ bền vững dài hạn |
+| `mean_variance` | Trung bình–Phương sai | Tối đa Sharpe hoặc tối thiểu phương sai | Khi có dự báo lợi suất |
+| `max_diversification` | Đa dạng hóa tối đa | Tối đa tỷ số đa dạng hóa | Khi muốn danh mục tương quan thấp |
 
 ### 1. `equal_volatility`
 
@@ -110,14 +119,14 @@ Configure them in `config.json` through `optimizer` and `optimizer_params`:
 }
 ```
 
-**Principle**: `w_i = (1/σ_i) / Σ(1/σ_j)`
+**Nguyên lý**: `w_i = (1/σ_i) / Σ(1/σ_j)`
 
-| Parameter | Default | Description |
+| Tham số | Mặc định | Mô tả |
 |------|--------|------|
-| lookback | 60 | Volatility calculation window (trading days) |
+| lookback | 60 | Cửa sổ tính biến động (số phiên) |
 
-**Advantages**: simple and fast, no return forecast required, no correlation matrix required.  
-**Disadvantages**: ignores cross-asset correlation.
+**Ưu điểm**: đơn giản, nhanh, không cần dự báo lợi suất, không cần ma trận tương quan.
+**Nhược điểm**: bỏ qua tương quan giữa các tài sản.
 
 ### 2. `risk_parity`
 
@@ -130,14 +139,14 @@ Configure them in `config.json` through `optimizer` and `optimizer_params`:
 }
 ```
 
-**Principle**: solve for weights such that each asset contributes the same amount of risk.
+**Nguyên lý**: tìm trọng số sao cho mỗi tài sản đóng góp lượng rủi ro bằng nhau.
 
-| Parameter | Default | Description |
+| Tham số | Mặc định | Mô tả |
 |------|--------|------|
-| lookback | 60 | Covariance-matrix estimation window |
+| lookback | 60 | Cửa sổ ước lượng ma trận hiệp phương sai |
 
-**Advantages**: accounts for correlation, spreads risk more evenly, and is robust over long horizons.  
-**Disadvantages**: requires iterative solving and is sensitive to covariance estimates.
+**Ưu điểm**: tính đến tương quan, dàn rủi ro đều hơn, bền vững dài hạn.
+**Nhược điểm**: cần giải lặp, nhạy với ước lượng hiệp phương sai.
 
 ### 3. `mean_variance`
 
@@ -151,16 +160,16 @@ Configure them in `config.json` through `optimizer` and `optimizer_params`:
 }
 ```
 
-**Principle**: Markowitz optimization that maximizes the Sharpe ratio.
+**Nguyên lý**: tối ưu Markowitz tối đa hóa Sharpe.
 
-| Parameter | Default | Description |
+| Tham số | Mặc định | Mô tả |
 |------|--------|------|
-| lookback | 60 | Window for estimating means and covariances |
-| risk_free | 0.0 | Risk-free rate (annualized) |
+| lookback | 60 | Cửa sổ ước lượng trung bình & hiệp phương sai |
+| risk_free | 0.0 | Lãi suất phi rủi ro (theo năm) |
 
-**Advantages**: theoretically optimal (if inputs are accurate).  
-**Disadvantages**: extremely sensitive to inputs, prone to extreme weights, and often performs poorly out of sample.  
-**Recommendation**: do not make `lookback` too short (`<30` easily overfits), and add upper/lower weight constraints.
+**Ưu điểm**: tối ưu về lý thuyết (nếu đầu vào chính xác).
+**Nhược điểm**: cực nhạy với đầu vào, hay cho trọng số cực đoan, thường kém ngoài mẫu.
+**Khuyến nghị**: đừng để `lookback` quá ngắn (`<30` dễ overfit), nên thêm ràng buộc chặn trên/dưới. Với VN, cân nhắc đặt lãi suất phi rủi ro ~ lợi suất TPCP/tiền gửi kỳ hạn (đừng để 0 nếu so sánh với kênh gửi tiết kiệm).
 
 ### 4. `max_diversification`
 
@@ -173,91 +182,92 @@ Configure them in `config.json` through `optimizer` and `optimizer_params`:
 }
 ```
 
-**Principle**: maximize `DR = (w'σ) / σ_p` (the diversification ratio).
+**Nguyên lý**: tối đa `DR = (w'σ) / σ_p` (tỷ số đa dạng hóa).
 
-| Parameter | Default | Description |
+| Tham số | Mặc định | Mô tả |
 |------|--------|------|
-| lookback | 60 | Calculation window |
+| lookback | 60 | Cửa sổ tính toán |
 
-**Advantages**: does not require return forecasts and seeks true diversification.  
-**Disadvantages**: effectiveness is limited in highly correlated environments.
+**Ưu điểm**: không cần dự báo lợi suất, hướng tới đa dạng hóa thật.
+**Nhược điểm**: hiệu quả hạn chế trong môi trường tương quan cao — **đáng lưu ý ở VN** vì cổ phiếu nội bộ tương quan cao.
 
-### Optimizer Selection Decision Tree
+### Cây quyết định chọn optimizer
 
 ```
-Do you have return forecasts?
-├── Yes → mean_variance (remember to add constraints)
-└── No → Do you need to account for correlation?
-    ├── Yes → risk_parity (recommended default)
-    └── No → Are volatility differences across assets large?
-        ├── Yes → equal_volatility
-        └── No → max_diversification
+Có dự báo lợi suất không?
+├── Có → mean_variance (nhớ thêm ràng buộc)
+└── Không → Cần tính đến tương quan không?
+    ├── Có → risk_parity (mặc định khuyến nghị)
+    └── Không → Chênh lệch biến động giữa các tài sản có lớn không?
+        ├── Có → equal_volatility
+        └── Không → max_diversification
 ```
 
-## Rebalancing Strategy
+## Chiến lược tái cơ cấu
 
-### Three Rebalancing Triggers
+### Ba cơ chế kích hoạt
 
-| Method | Trigger Condition | Advantages | Disadvantages |
+| Phương pháp | Điều kiện kích hoạt | Ưu điểm | Nhược điểm |
 |------|---------|------|------|
-| Periodic rebalancing | Fixed monthly / quarterly date | Simple, predictable trading cost | May miss or delay adjustments |
-| Threshold trigger | Deviation from target weight > X% | Trades only when needed | Frequent trading in high-volatility markets |
-| Volatility trigger | VIX / volatility breaks a threshold | Adapts to market regime | Parameter selection is difficult |
+| Định kỳ | Ngày cố định hàng tháng/quý | Đơn giản, chi phí dự đoán được | Có thể lỡ/trễ điều chỉnh |
+| Theo ngưỡng | Lệch trọng số mục tiêu > X% | Chỉ giao dịch khi cần | Giao dịch dày khi thị trường biến động mạnh |
+| Theo biến động | Chỉ số biến động vượt ngưỡng | Thích nghi với chế độ thị trường | Khó chọn tham số |
 
-### Suggested Rebalancing Frequency
+### Tần suất tái cơ cấu gợi ý
 
-| Asset Class | Suggested Frequency | Threshold |
+| Lớp tài sản | Tần suất gợi ý | Ngưỡng |
 |---------|---------|------|
-| Equity portfolio | Monthly | ±5% |
-| Stock-bond mix | Quarterly | ±10% |
-| Global macro | Quarterly / semiannual | ±10% |
-| Cryptocurrency | Weekly / biweekly | ±15% (high volatility) |
+| Danh mục cổ phiếu | Hàng tháng | ±5% |
+| Cổ phiếu–trái phiếu | Hàng quý | ±10% |
+| Vĩ mô toàn cầu | Quý / nửa năm | ±10% |
 
-### Rebalancing in Backtests
+> Lưu ý VN: thuế bán **0,1%** mỗi lần bán → tái cơ cấu dày bị phạt nặng. Ưu tiên kết hợp **định kỳ + ngưỡng** (chỉ giao dịch khi lệch vượt ngưỡng vào ngày tái cơ cấu) để giảm số lần bán. Tính cả ràng buộc **T+2** và **room ngoại** khi tăng tỷ trọng.
 
-Implement rebalancing logic in `signal_engine.py`:
+### Tái cơ cấu trong backtest
+
+Cài logic tái cơ cấu trong `signal_engine.py`:
 
 ```python
-# Periodic rebalancing example (every 20 trading days)
+# Ví dụ tái cơ cấu định kỳ (mỗi 20 phiên)
 if bar_count % rebalance_freq == 0:
-    # Recompute weights
+    # Tính lại trọng số
     new_weights = calculate_target_weights(data_map)
     for code, weight in new_weights.items():
         signals[code].iloc[i] = weight
 ```
 
-## Cross-Asset Correlation Analysis
+## Phân tích tương quan chéo tài sản
 
-### Typical Correlation Matrix (China-Focused Portfolio Example)
+### Ma trận tương quan minh họa (danh mục VN — số liệu phải hiệu chỉnh trên dữ liệu thật)
 
-| | CSI 300 | CSI 500 | Government Bonds | Gold | BTC |
-|--|--------|--------|------|------|-----|
-| CSI 300 | 1.00 | 0.85 | -0.15 | 0.05 | 0.10 |
-| CSI 500 | 0.85 | 1.00 | -0.10 | 0.03 | 0.12 |
-| Government Bonds | -0.15 | -0.10 | 1.00 | 0.20 | -0.05 |
-| Gold | 0.05 | 0.03 | 0.20 | 1.00 | 0.15 |
-| BTC | 0.10 | 0.12 | -0.05 | 0.15 | 1.00 |
+| | VN30 | VNMidcap | Trái phiếu/Quỹ TP | Vàng | Tiền gửi |
+|--|------|----------|-------------------|------|----------|
+| VN30 | 1,00 | 0,85 | −0,10 | 0,05 | 0,00 |
+| VNMidcap | 0,85 | 1,00 | −0,08 | 0,03 | 0,00 |
+| Trái phiếu/Quỹ TP | −0,10 | −0,08 | 1,00 | 0,15 | 0,10 |
+| Vàng | 0,05 | 0,03 | 0,15 | 1,00 | 0,00 |
+| Tiền gửi | 0,00 | 0,00 | 0,10 | 0,00 | 1,00 |
 
-**Key patterns**:
-- Negative stock-bond correlation is the foundation of allocation (but it does not always hold; in 2022 both stocks and bonds sold off)
-- Gold has low correlation with equities and serves as a hedge
-- BTC's correlation with traditional assets is unstable and tends to become positive in crises
-- Large-cap versus small-cap China A-shares have high correlation (`0.85`), so diversification benefits are limited
+**Quy luật chính** (lưu ý: số trên là minh họa, phải tính lại từ dữ liệu DataPro):
+- Tương quan cổ phiếu–trái phiếu thường âm (nền tảng của phân bổ), nhưng **không phải lúc nào cũng đúng** — 2022 cả cổ phiếu lẫn trái phiếu cùng giảm (kèm khủng hoảng TPDN).
+- Vàng tương quan thấp với cổ phiếu → vai trò phòng hộ.
+- **VN30 và VNMidcap tương quan rất cao (~0,85)** → đa dạng hóa trong rổ cổ phiếu VN hạn chế; cả hai cùng cụm quanh nhóm ngân hàng/BĐS, nên trong sốc thị trường tương quan còn tăng vọt.
+- Tiền gửi ~ phi rủi ro, tương quan ~0 → "chân" giảm biến động an toàn nhất ở VN.
 
-## Output Format
+## Mẫu output
 
 ```markdown
-## Asset Allocation Recommendation
+## Khuyến nghị phân bổ tài sản
 
-### Allocation Plan
-| Asset | Weight | Risk Contribution | Expected Return (Annualized) |
+### Phương án phân bổ (minh họa — số liệu lấy từ nguồn thật)
+| Tài sản | Trọng số | Đóng góp rủi ro | Lợi suất kỳ vọng (năm) |
 |------|------|---------|--------------|
-| CSI 300 | 30% | 45% | 8% |
-| Government Bond ETF | 40% | 15% | 3% |
-| Gold | 15% | 20% | 5% |
-| BTC | 15% | 20% | 15% |
+| ETF VN30 (E1VFVN30) | 30% | 45% | 10% |
+| Quỹ trái phiếu / tiền gửi | 40% | 15% | 6% |
+| Vàng | 15% | 20% | 5% |
+| Tiền gửi ngắn hạn | 15% | 20% | 5% |
 
-### Optimizer Configuration
+### Cấu hình optimizer
 ```json
 {
   "optimizer": "risk_parity",
@@ -265,29 +275,30 @@ if bar_count % rebalance_freq == 0:
 }
 ```
 
-### Expected Risk / Return
-| Metric | Value |
+### Rủi ro / Lợi suất kỳ vọng
+| Chỉ tiêu | Giá trị |
 |------|-----|
-| Expected annualized return | 7.2% |
-| Expected annualized volatility | 8.5% |
-| Expected Sharpe | 0.85 |
-| Expected maximum drawdown | -12% |
+| Lợi suất kỳ vọng/năm | 7,5% |
+| Biến động kỳ vọng/năm | 9,0% |
+| Sharpe kỳ vọng | 0,80 |
+| Sụt giảm tối đa kỳ vọng | −13% |
 
-### Rebalancing Rules
-- Frequency: quarterly (first trading day of March / June / September / December)
-- Threshold: trigger when any asset deviates from target by ±10%
-- Cost: estimated annual trading cost 0.15%
+### Quy tắc tái cơ cấu
+- Tần suất: hàng quý (phiên đầu tháng 3/6/9/12)
+- Ngưỡng: kích hoạt khi tài sản lệch mục tiêu ±10%
+- Chi phí: ước tính chi phí giao dịch/năm ~0,3% (gồm thuế bán 0,1%)
 ```
 
-## Notes
+## Lưu ý quan trọng
 
-1. **The optimizer needs enough instruments**: at least 3 instruments are needed for meaningful optimization; with 2 instruments, `equal_volatility` is usually enough
-2. **`lookback` window**: too short (`<20`) is noisy, too long (`>120`) reacts slowly, and 60 is a reasonable default
-3. **`mean_variance` trap**: it is the easiest to overfit, and out-of-sample Sharpe is often cut by half or more
-4. **Rebalancing cost**: frequent rebalancing eats into returns; for China A-share portfolios, stamp duty of 0.05% plus commissions is material
-5. **Cross-market allocation**: use `"source": "auto"` in `config.json`, and let `codes` mix instruments from different markets
-6. **Leverage constraint**: the sum of weights must be ≤ 1.0, and leverage is not allowed unless explicitly specified
-7. **Survivorship bias**: historical correlations may be distorted by delistings and new listings
+1. **Optimizer cần đủ công cụ**: cần tối thiểu 3 tài sản để tối ưu có ý nghĩa; với 2 tài sản thường `equal_volatility` là đủ.
+2. **Cửa sổ `lookback`**: quá ngắn (`<20`) nhiễu, quá dài (`>120`) phản ứng chậm; 60 là mặc định hợp lý.
+3. **Bẫy `mean_variance`**: dễ overfit nhất, Sharpe ngoài mẫu thường bị cắt nửa trở lên.
+4. **Chi phí tái cơ cấu**: tái cơ cấu dày ăn vào lợi suất; với danh mục cổ phiếu VN, **thuế bán 0,1% + phí môi giới ~0,15%** là đáng kể (chiều bán đắt hơn chiều mua).
+5. **Hạn chế công cụ ở VN**: thiếu ETF hàng hóa/REIT/TIPS thanh khoản → các chân "chống lạm phát" của all-weather khó dựng; thực tế danh mục thường rút về cổ phiếu / trái phiếu (tiền gửi) / vàng.
+6. **Ràng buộc đòn bẩy**: tổng trọng số ≤ 1,0; không dùng đòn bẩy trừ khi chỉ định rõ (ở VN đòn bẩy chỉ qua margin, có lãi vay và rủi ro call margin).
+7. **Room ngoại**: danh mục NĐT nước ngoài phải kiểm tra room trước khi tăng tỷ trọng — mã hết room không mua được trên sàn.
+8. **Survivorship bias**: tương quan lịch sử có thể méo do hủy niêm yết / niêm yết mới; rổ chỉ số VN thay đổi thành phần định kỳ.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
