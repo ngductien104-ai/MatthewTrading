@@ -49,7 +49,7 @@ agents:
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis, crawl4ai]
-    skills: [technical-basic, fundamental-filter, data-routing, earnings-revision, sentiment-analysis]
+    skills: [technical-basic, gann-analysis, fundamental-filter, data-routing, earnings-revision, sentiment-analysis]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -106,7 +106,7 @@ agents:
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
-    skills: [technical-basic, fundamental-filter, data-routing, risk-analysis, volatility]
+    skills: [technical-basic, gann-analysis, fundamental-filter, data-routing, risk-analysis, volatility]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
