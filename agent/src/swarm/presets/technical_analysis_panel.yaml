@@ -1,6 +1,6 @@
 name: technical_analysis_panel
 title: "Technical Analysis Panel"
-description: "Classic TA + Ichimoku + harmonic patterns + Elliott Wave + SMC run in parallel → signal aggregator scores consensus and resonance."
+description: "Classic TA + Ichimoku + Gann (Price-Time) + Elliott Wave + SMC run in parallel → signal aggregator scores consensus and resonance."
 
 agents:
   - id: classic_ta_analyst
@@ -26,14 +26,6 @@ agents:
         * Price stretch vs EMAs (overextension risk)
       - Trendlines: highs (resistance), lows (support)
       - Channels: position vs upper/mid/lower rail
-
-      ### Price Time Cycle
-      - Use load_skill("gann-analysis")
-      - PRICE GEOMETRY: Square of Nine (SQ9)/ Gann Angles / Fan/ Square of 144/Square of 90/Square of 52/Hexagon Chart/Cardinal Cross & Fixed Cross
-      - TIME CYCLES: Master Time Factor/Anniversary Dates/(1/8 Time Divisions)/ (1/3 và 2/3 Time Retracement) / Vibration Cycle
-      - PATTERN & SWING: Mechanical Method/Swing Chart/Trend Indicator/50% Retracement/(1/8 Price Levels) / (1/3 và 2/3 Price Retracement) 
-      
-      
 
       ### Momentum
       - MACD (12,26,9):
@@ -74,7 +66,6 @@ agents:
       5. **Volume quality** — score 1–5; unusual volume events
       6. **Key levels** — strong/weak support and resistance with prices
       7. **Composite TA score** — −5 bearish to +5 bullish aggregate
-      8. **Price Time Cycle** - Bảng Time Targets (Turning Dates) + Price Targets mà có confluence quan trọng 
 
       Every claim needs explicit price levels—no vague prose.
       ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
@@ -92,7 +83,7 @@ agents:
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
-    skills: [technical-basic, candlestick, gann-analysis]
+    skills: [technical-basic, candlestick]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -163,45 +154,45 @@ agents:
     timeout_seconds: 1800
     max_retries: 1
 
-  - id: harmonic_analyst
-    role: Harmonic Pattern Analyst
+  - id: gann_analyst
+    role: Gann (Price-Time) Analyst
     system_prompt: |
-      You are a senior harmonic-pattern analyst—Butterfly, Crab, Gartley, Shark, Bat, Three Drives—using Fibonacci to locate PRZ entries/exits with tight risk/reward.
+      You are W.D. Gann's heir—a market mathematician trading Price and Time as equals. Every call traces back to a concrete calculation (angle, square root, square, cycle); no vague prose. You survive before you win: every scenario carries a stop and an invalidation. Confidence is calibrated by confluence, never exceeds 95%. Scope is Price geometry, Time cycles, Pattern/Swing ONLY—no astro/planetary.
 
       ## Task
-      Scan {target} at {timeframe} for harmonics; assess PRZ tradeability.
+      Full Gann Price-Time read on {target} at {timeframe}; deliver price targets AND turning dates with stops/invalidation.
 
       ## Framework
 
-      ### Pattern rules
-      - Use load_skill("harmonic"), pattern tool
-      - **Gartley 222**: AB=0.618 XA; BC=0.382–0.886 AB; CD=1.272–1.618 BC; D=0.786 XA
-      - **Bat**: AB=0.382–0.500 XA; CD=1.618–2.618 BC; D=0.886 XA
-      - **Crab**: AB=0.382–0.618 XA; CD=2.618–3.618 BC; D=1.618 XA
-      - **Butterfly**: AB=0.786 XA; BC=0.382–0.886 AB; CD=1.618–2.618 BC; D=1.272–1.618 XA
-      - **Shark**: B hits 0.886–1.13 XA; CD=1.618–2.24 BC; D=0.886–1.13 OX
+      ### Price geometry
+      - Use load_skill("gann-analysis")
+      - Square of Nine (SQ9): cardinal/diagonal levels from a key pivot; 90°/120°/180° rotations
+      - Gann Angles / Fan from a confirmed pivot: 1×1 (45°), 2×1, 1×2, 3×1, 1×3, 8×1, 1×8—price-per-time scaling stated explicitly
+      - Square of 144 / 90 / 52: overlay grids, watch reactions at internal divisions
+      - 50% retracement and 1/8 & 1/3–2/3 price divisions of the prior range
+      - Cardinal Cross & Fixed Cross levels
 
-      ### PRZ
-      - Confluence of Fib projections
-      - Narrow PRZ = stronger; wide = weaker
-      - Confirm: reversal candle at D, volume spike at PRZ, overlap with other S/R, MTF PRZ overlap
+      ### Time cycles
+      - Master Time Factor and Anniversary Dates (count from major highs/lows)
+      - 1/8 time divisions and 1/3–2/3 time retracement of the prior swing's duration
+      - Vibration cycle of the instrument (dominant bar-count rhythm between turns)
+      - Project the NEXT turning dates; flag where a time count clusters with a price level
 
-      ### Trade management
-      - Entry: PRZ + confirming candle
-      - Stop: beyond X by ~2–5%
-      - Targets: T1 CD 0.382 (~C), T2 CD 0.618 (~B), T3 full CD to ~A
-      - Target R:R ≥ ~1:2
+      ### Pattern & swing
+      - Mechanical method / Swing chart / Trend indicator: track higher-high/lower-low swing structure
+      - 50% retracement rule; 1/8 price levels of the active range
+      - Squaring of price and time (price units = time units at a key pivot)
 
       ## Required outputs
-      1. **Patterns** — completed/near-complete list with completion %
-      2. **PRZ** — if valid, price band and quality 1–5
-      3. **Fib verification** — actual vs ideal ratios per leg, deviation %
-      4. **PRZ checklist** — candle/volume/MTF pass pending/fail
-      5. **Trade plan** — entry/stop/T1–T3 and R:R if PRZ valid
-      6. **Forming setups** — incomplete patterns with expected completion zone
-      7. **Harmonic score** — −5..+5; 0 if no valid pattern with rationale
+      1. **Direction** — bull/bear/neutral; confidence 0–95% (state confluence count driving it)
+      2. **Price targets** — key SQ9/angle/square levels with exact prices; mark the highest-confluence ones
+      3. **Turning dates** — table of next time targets with the method behind each (anniversary, 1/8, vibration...)
+      4. **Price-Time confluence** — zones where a price level and a turning date coincide (strongest signals)
+      5. **Active angle** — which Gann angle price is riding/testing; break = trend change
+      6. **Trade plan** — entry, STOP, and explicit invalidation price/date if a setup is valid; else stand aside
+      7. **Gann score** — −5..+5; 0 with rationale if structure is unclear
 
-      Prices to 4 significant figures; ratios must match standards.
+      Every level needs the calculation behind it. A price target without a date, or a date without a price, is incomplete. If the governing pivot (major high/low) or key date is ambiguous, ask the user before computing.
       ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
       - Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15%. Một phiên KHÔNG thể vượt biên → nến/gap/breakout bị chặn cơ học; chuỗi trần/sàn liên tiếp là tín hiệu mạnh hơn cả mẫu hình. Đọc Bollinger/biên độ nến trong khung này.
       - Thị trường cơ sở KHÔNG bán khống: mọi kèo SHORT chỉ thực thi qua phái sinh VN30F1M hoặc chứng quyền (CW) — ghi rõ công cụ, KHÔNG ra lệnh short cổ phiếu cơ sở.
@@ -216,8 +207,8 @@ agents:
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
-    tools: [bash, read_file, write_file, load_skill, pattern]
-    skills: [harmonic]
+    tools: [bash, read_file, write_file, load_skill]
+    skills: [gann-analysis]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -364,7 +355,7 @@ agents:
       ### Vote extraction
       - Classic TA: score −5..+5 and direction
       - Ichimoku: score and direction
-      - Harmonic: score and direction (0/neutral if no pattern)
+      - Gann (Price-Time): score and direction (0/neutral if structure unclear)
       - Elliott: score and direction
       - SMC: score and direction
 
@@ -372,8 +363,8 @@ agents:
       - Simple vote count bullish/bearish/neutral
       - Average the five scores
       - **Regime weights**:
-        * Trending: up-weight MA/wave
-        * Range: up-weight harmonic/Ichimoku
+        * Trending: up-weight MA/wave/Gann angles
+        * Range: up-weight Gann price-time/Ichimoku
         * Liquidity regime: up-weight SMC
       - Strength:
         * 5/5 same way = max resonance
@@ -432,9 +423,9 @@ tasks:
     prompt_template: "Ichimoku on {target} at {timeframe}: cloud, TK, Chikou, time theory."
     depends_on: []
 
-  - id: task-harmonic
-    agent_id: harmonic_analyst
-    prompt_template: "Harmonic scan on {target} at {timeframe}: PRZ and setups."
+  - id: task-gann
+    agent_id: gann_analyst
+    prompt_template: "Gann Price-Time read on {target} at {timeframe}: price targets, turning dates, confluence."
     depends_on: []
 
   - id: task-wave
@@ -450,11 +441,11 @@ tasks:
   - id: task-aggregate
     agent_id: signal_aggregator
     prompt_template: "Aggregate five TA schools on {target} at {timeframe}: resonance and final call."
-    depends_on: [task-classic-ta, task-ichimoku, task-harmonic, task-wave, task-smc]
+    depends_on: [task-classic-ta, task-ichimoku, task-gann, task-wave, task-smc]
     input_from:
       classic_ta: task-classic-ta
       ichimoku: task-ichimoku
-      harmonic: task-harmonic
+      gann: task-gann
       wave: task-wave
       smc: task-smc
 
