@@ -8,7 +8,7 @@ Yêu cầu (đã cài trong $HOME\.venv): matplotlib, playwright (+ chromium).
 Chạy bằng: $HOME/.venv/Scripts/python.exe
 """
 from __future__ import annotations
-import base64, io, os
+import base64, functools, io, os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -55,13 +55,17 @@ ul { margin: 4px 0; padding-left: 20px; } li { margin: 2px 0; }
 .pagebreak { page-break-before: always; }
 .chartcap { font-size: 8.6pt; color: #5a6b85; margin: 2px 0 6px; }
 img.chart { width: 100%; border: 1px solid #dde5ef; border-radius: 4px; }
-.brandbar { display: flex; justify-content: space-between; align-items: flex-end;
-  padding: 4px 2px 7px; margin-bottom: 10px;
+.brandbar { display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 2px 8px; margin-bottom: 10px;
   border-bottom: 3px solid; border-image: linear-gradient(90deg,#FE7B02,#F858BC,#575ECF) 1; }
-.bwordmark { font-size: 14pt; font-weight: 800; letter-spacing: 1.2px; color: #1b1b1b; }
+.bleft { display: flex; align-items: center; gap: 11px; }
+.blogo { height: 46px; width: auto; }
+.bwm { line-height: 1.12; }
+.bwordmark { font-size: 13.5pt; font-weight: 800; letter-spacing: 1.2px; color: #1b2a4a; }
 .bwordmark .x { color: #575ECF; }
 .bwordmark .cap { color: #575ECF; font-weight: 700; letter-spacing: 2px; }
-.btag { font-size: 8.3pt; color: #6b7a90; font-style: italic; text-align: right; max-width: 56%; line-height: 1.35; }
+.bcredit { font-size: 8.2pt; color: #6b7a90; font-weight: 600; margin-top: 1px; }
+.btag { font-size: 8.3pt; color: #6b7a90; font-style: italic; text-align: right; max-width: 42%; line-height: 1.35; }
 """
 
 
@@ -116,12 +120,28 @@ def chart_block(uri, caption):
     return f'<img class="chart" src="{uri}"><div class="chartcap">{caption}</div>'
 
 
+@functools.lru_cache(maxsize=1)
+def _logo_uri():
+    """Logo X-SIGMA (icon) → data URI base64; '' nếu thiếu asset (fallback chữ)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "xsigma_icon.png")
+    if not os.path.exists(path):
+        return ""
+    with open(path, "rb") as f:
+        return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+
+
 def brand_bar():
-    """Dải thương hiệu Xsigma Capital ở đầu mỗi báo cáo (gắn 'Thực hiện bởi Xsigma')."""
+    """Dải thương hiệu Xsigma Capital (logo + wordmark) ở đầu mỗi báo cáo."""
+    uri = _logo_uri()
+    logo = f'<img class="blogo" src="{uri}">' if uri else ""
     return (
         '<div class="brandbar">'
+        f'<div class="bleft">{logo}'
+        '<div class="bwm">'
         '<div class="bwordmark"><span class="x">X</span>SIGMA <span class="cap">CAPITAL</span></div>'
-        f'<div class="btag">Báo cáo thực hiện bởi {BRAND_NAME}<br>{BRAND_TAGLINE}</div>'
+        f'<div class="bcredit">Báo cáo thực hiện bởi {BRAND_NAME}</div>'
+        '</div></div>'
+        f'<div class="btag">{BRAND_TAGLINE}</div>'
         '</div>'
     )
 
