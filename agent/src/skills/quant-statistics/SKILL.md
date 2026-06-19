@@ -1,33 +1,35 @@
 ---
 name: quant-statistics
-description: "Quantitative statistical methods: ADF unit-root / cointegration tests, GARCH volatility modeling, regression diagnostics (heteroskedasticity / autocorrelation), Bootstrap, and hypothesis testing."
+description: "Phương pháp thống kê định lượng cho TTCK VN — kiểm định nghiệm đơn vị ADF / đồng tích hợp, mô hình biến động GARCH, chẩn đoán hồi quy (phương sai thay đổi / tự tương quan), Bootstrap, kiểm định giả thuyết. Lưu ý VN: cấm bán khống → pair-trading cổ điển không khả thi (long-only / phòng hộ VN30F)."
 category: analysis
 ---
 
-# Quantitative Statistical Methods
+# Phương pháp thống kê định lượng (Việt Nam)
 
-## Overview
+## Mục đích
 
-Common statistical methodology used in quantitative investing, covering time-series testing, volatility modeling, regression diagnostics, and statistical inference. Provides the statistical foundation for strategy development and factor research.
+Bộ phương pháp thống kê dùng trong đầu tư định lượng: kiểm định chuỗi thời gian, mô hình biến động, chẩn đoán hồi quy, suy luận thống kê — nền tảng cho phát triển chiến lược & nghiên cứu nhân tố. Phần lớn là **phương pháp phổ quát** (toán không đổi theo thị trường); các điểm đặc thù VN được đánh dấu ⚠️.
 
-## Time-Series Tests
+> **Nguồn dữ liệu:** giá/KL từ **DataPro** (mã `.VN`), dùng **log-return**. Chuỗi P/E–P/B nếu cần lấy từ skill định giá ([[valuation-model]]) — KHÔNG dùng `ratio()` vnstock (lỗi thời).
 
-### 1. ADF Unit-Root Test (Stationarity Test)
+## Kiểm định chuỗi thời gian
 
-**Why it matters**: regressing non-stationary series directly can produce spurious regression, making conclusions unreliable.
+### 1. Kiểm định nghiệm đơn vị ADF (tính dừng)
+
+**Vì sao quan trọng:** hồi quy trực tiếp chuỗi không dừng dễ tạo **hồi quy giả** (spurious), kết luận sai.
 
 ```python
 from statsmodels.tsa.stattools import adfuller
 
 def adf_test(series: pd.Series, significance: float = 0.05) -> dict:
     """
-    ADF test: H0 = unit root exists (non-stationary), H1 = stationary
+    Kiểm định ADF: H0 = có nghiệm đơn vị (không dừng), H1 = dừng.
 
     Args:
-        series: Time series
-        significance: Significance level
+        series: chuỗi thời gian
+        significance: mức ý nghĩa
     Returns:
-        Test result
+        kết quả kiểm định
     """
     result = adfuller(series.dropna(), autolag='AIC')
     return {
@@ -39,41 +41,41 @@ def adf_test(series: pd.Series, significance: float = 0.05) -> dict:
     }
 ```
 
-**Decision rules**:
+**Quy tắc quyết định:**
 
-| p-value | Conclusion | Action |
+| p-value | Kết luận | Hành động |
 |-----|------|------|
-| < 0.01 | Strongly stationary | Can be used directly for regression / modeling |
-| 0.01-0.05 | Stationary | Usable |
-| 0.05-0.10 | Weak evidence | Difference the series and retest |
-| > 0.10 | Non-stationary | Must difference or handle with cointegration |
+| < 0,01 | Dừng mạnh | Dùng trực tiếp cho hồi quy/mô hình |
+| 0,01–0,05 | Dừng | Dùng được |
+| 0,05–0,10 | Bằng chứng yếu | Sai phân rồi kiểm lại |
+| > 0,10 | Không dừng | Phải sai phân hoặc xử lý bằng đồng tích hợp |
 
-**Stationarity of common financial series**:
+**Tính dừng của các chuỗi tài chính thường gặp:**
 
-| Series | Typical Result | Treatment |
+| Chuỗi | Kết quả điển hình | Xử lý |
 |------|---------|---------|
-| Price series | Non-stationary (unit root) | Use log returns |
-| Log returns | Stationary | Can be used directly |
-| PE / PB series | Usually non-stationary | Use changes or logs |
-| Volatility series | Usually stationary | Can be used directly |
-| Volume | May be non-stationary | Use logs or standardization |
+| Chuỗi giá | Không dừng (nghiệm đơn vị) | Dùng log-return |
+| Log-return | Dừng | Dùng trực tiếp |
+| Chuỗi P/E, P/B | Thường không dừng | Dùng thay đổi hoặc log |
+| Chuỗi biến động | Thường dừng | Dùng trực tiếp |
+| Khối lượng | Có thể không dừng | Dùng log hoặc chuẩn hóa |
 
-### 2. Cointegration Test
+### 2. Kiểm định đồng tích hợp (cointegration)
 
-**Purpose**: determine whether two non-stationary series share a long-run equilibrium relationship (the foundation of pair trading / statistical arbitrage).
+**Mục đích:** xác định hai chuỗi không dừng có quan hệ cân bằng dài hạn không (nền tảng pair-trading / chênh lệch thống kê).
 
 ```python
 from statsmodels.tsa.stattools import coint
 
 def cointegration_test(y: pd.Series, x: pd.Series) -> dict:
     """
-    Engle-Granger two-step cointegration test
-    H0: no cointegration relationship
+    Kiểm định đồng tích hợp Engle-Granger hai bước.
+    H0: không có quan hệ đồng tích hợp.
 
     Args:
-        y, x: Two price series
+        y, x: hai chuỗi giá
     Returns:
-        Test result
+        kết quả kiểm định
     """
     score, p_value, critical = coint(y, x)
     return {
@@ -84,31 +86,28 @@ def cointegration_test(y: pd.Series, x: pd.Series) -> dict:
     }
 ```
 
-**Application in pair trading**:
+**Áp dụng pair-trading:**
 
 ```python
 import statsmodels.api as sm
 
 def find_hedge_ratio(y: pd.Series, x: pd.Series) -> dict:
     """
-    Compute hedge ratio: y = α + β×x + ε
-    Spread = y - β×x
+    Tính tỷ lệ phòng hộ: y = α + β×x + ε ;  Spread = y − β×x
     """
     x_const = sm.add_constant(x)
     model = sm.OLS(y, x_const).fit()
-
     spread = y - model.params[1] * x
-
     return {
         'hedge_ratio': model.params[1],
         'intercept': model.params[0],
         'spread_mean': spread.mean(),
         'spread_std': spread.std(),
-        'half_life': compute_half_life(spread),  # mean-reversion speed
+        'half_life': compute_half_life(spread),  # tốc độ hồi quy về trung bình
     }
 
 def compute_half_life(spread: pd.Series) -> float:
-    """Estimate half-life with OLS regression."""
+    """Ước lượng half-life bằng hồi quy OLS."""
     spread_lag = spread.shift(1)
     delta = spread - spread_lag
     model = sm.OLS(delta.dropna(), sm.add_constant(spread_lag.dropna())).fit()
@@ -116,48 +115,56 @@ def compute_half_life(spread: pd.Series) -> float:
     return half_life
 ```
 
-**Pair-trading signal**:
+**Tín hiệu pair-trading:**
 
 ```
-z_score = (spread - mean) / std
+z_score = (spread − mean) / std
 
-| z_score | Signal |
+| z_score | Tín hiệu |
 |---------|------|
-| > 2.0 | Short spread (sell y, buy x) |
-| > 1.5 | Small short spread |
-| < -1.5 | Small long spread |
-| < -2.0 | Long spread (buy y, sell x) |
-| Back near 0 | Close position |
+| > 2,0 | Short spread (bán y, mua x) |
+| > 1,5 | Short spread nhỏ |
+| < −1,5 | Long spread nhỏ |
+| < −2,0 | Long spread (mua y, bán x) |
+| Về gần 0 | Đóng vị thế |
 ```
 
-### 3. Granger Causality Test
+> ⚠️ **VN CẤM BÁN KHỐNG CỔ PHIẾU → pair-trading cổ điển (đồng thời short chân đắt) KHÔNG khả thi.**
+> Đồng tích hợp vẫn hữu ích nhưng chỉ thực thi được:
+> - **Relative-value long-only:** khi z_score < −2 → chỉ MUA chân rẻ (y), KHÔNG short chân đắt; chốt khi z về 0. Bỏ qua tín hiệu z > 2 (không short được).
+> - **Phòng hộ beta bằng VN30F:** giữ rổ long + short VN30F để trung hòa thị trường, thay vì short cổ phiếu.
+> - **Chuyển hóa luân phiên cặp/ngành:** dùng spread để chuyển tỷ trọng giữa hai mã cùng ngành (overweight chân rẻ, underweight chân đắt) trong danh mục long-only.
+> Xem [[correlation-analysis]] / [[pair-trading]] cho khung relative-value VN.
+
+### 3. Kiểm định nhân quả Granger
 
 ```python
 from statsmodels.tsa.stattools import grangercausalitytests
 
 def granger_test(data: pd.DataFrame, x_col: str, y_col: str, max_lag: int = 5):
     """
-    Test whether x Granger-causes y (whether historical x helps predict y).
-    Note: Granger causality is not true causality, only predictive causality.
+    Kiểm tra x có Granger-cause y không (lịch sử x có giúp dự báo y không).
+    Lưu ý: nhân quả Granger KHÔNG phải nhân quả thật, chỉ là nhân quả dự báo.
     """
     results = grangercausalitytests(data[[y_col, x_col]].dropna(), maxlag=max_lag)
     return {lag: results[lag][0]['ssr_ftest'][1] for lag in range(1, max_lag+1)}
 ```
+> Ứng dụng VN hữu ích: khối ngoại ròng → giá; basis VN30F → VN30 spot; GTGD → biến động.
 
-## GARCH Volatility Modeling
+## Mô hình biến động GARCH
 
-### GARCH(1,1) Model
+### Mô hình GARCH(1,1)
 
 ```
-Returns: r_t = μ + ε_t
-Volatility: σ²_t = ω + α×ε²_{t-1} + β×σ²_{t-1}
+Suất sinh lời: r_t = μ + ε_t
+Biến động:     σ²_t = ω + α×ε²_{t-1} + β×σ²_{t-1}
 
-Parameter meanings:
-- ω (omega): long-run variance baseline
-- α (alpha): impact of yesterday's shock on today's volatility
-- β (beta): persistence of yesterday's volatility into today
-- α + β: volatility persistence (usually 0.95-0.99)
-- Long-run volatility = sqrt(ω / (1 - α - β))
+Ý nghĩa tham số:
+- ω (omega): nền phương sai dài hạn
+- α (alpha): tác động cú sốc hôm qua lên biến động hôm nay
+- β (beta): độ dai dẳng của biến động hôm qua sang hôm nay
+- α + β: độ dai dẳng biến động (thường 0,95–0,99)
+- Biến động dài hạn = sqrt(ω / (1 − α − β))
 ```
 
 ```python
@@ -165,20 +172,17 @@ from arch import arch_model
 
 def fit_garch(returns: pd.Series) -> dict:
     """
-    Fit a GARCH(1,1) model.
+    Khớp mô hình GARCH(1,1).
 
     Args:
-        returns: Daily return series (in percentage form)
+        returns: chuỗi suất sinh lời ngày (dạng %)
     Returns:
-        Model parameters and forecasts
+        tham số mô hình và dự báo
     """
     model = arch_model(returns * 100, vol='Garch', p=1, q=1,
                        mean='Constant', dist='normal')
     result = model.fit(disp='off')
-
-    # Forecast volatility for the next 5 days
-    forecast = result.forecast(horizon=5)
-
+    forecast = result.forecast(horizon=5)  # dự báo biến động 5 ngày tới
     return {
         'omega': result.params['omega'],
         'alpha': result.params['alpha[1]'],
@@ -193,148 +197,122 @@ def fit_garch(returns: pd.Series) -> dict:
     }
 ```
 
-### GARCH Variants
+### Biến thể GARCH
 
-| Model | Characteristics | Applicable Scenario |
+| Mô hình | Đặc điểm | Tình huống dùng |
 |------|------|---------|
-| GARCH(1,1) | Baseline, symmetric shock response | Default choice |
-| EGARCH | Asymmetric (leverage effect) | Down-move volatility > up-move volatility |
-| GJR-GARCH | Another asymmetric form | Same use case as EGARCH, easier to interpret |
-| FIGARCH | Long memory | Volatility clustering persists for very long periods |
+| GARCH(1,1) | Cơ sở, phản ứng cú sốc đối xứng | Mặc định |
+| EGARCH | Bất đối xứng (hiệu ứng đòn bẩy) | Biến động khi giảm > khi tăng |
+| GJR-GARCH | Dạng bất đối xứng khác | Như EGARCH, dễ diễn giải hơn |
+| FIGARCH | Trí nhớ dài | Cụm biến động kéo dài rất lâu |
 
-**GARCH characteristics in China A-shares / crypto**:
-
+**Đặc điểm GARCH ở VN-Index (ĐỊNH TÍNH — ước lượng lại trên dữ liệu thật):**
 ```
-China A-shares:
-- α usually 0.05-0.15
-- β usually 0.80-0.90
-- Clear leverage effect (EGARCH fits better)
-- Strong volatility clustering persistence
-
-BTC:
-- α usually 0.05-0.20 (shocks matter more)
-- β usually 0.75-0.90
-- More symmetric shocks (little difference between up/down volatility)
-- Long-run volatility around 60-80% annualized
+- Hiệu ứng đòn bẩy rõ: biến động khi giảm > khi tăng → EGARCH/GJR thường khớp tốt hơn.
+- Đuôi dày (fat tail) mạnh; ⚠️ biên độ trần/sàn ±7% (HOSE) CẮT đuôi phân phối trong 1 phiên,
+  nhưng chuỗi sàn do giải chấp tạo cụm biến động kéo dài → cẩn trọng khi diễn giải α, β.
+- α, β cụ thể PHẢI tự khớp trên VN-Index/mã; đừng bê tham số A股/BTC.
 ```
 
-## Regression Diagnostics
+## Chẩn đoán hồi quy
 
-### 1. Heteroskedasticity Test
+### 1. Kiểm định phương sai thay đổi (heteroskedasticity)
 
 ```python
 from statsmodels.stats.diagnostic import het_white, het_breuschpagan
 
 def heteroscedasticity_test(model_result) -> dict:
-    """
-    Test whether residuals are heteroskedastic.
-    H0: homoskedasticity
-    """
-    # White test
+    """Kiểm tra phần dư có phương sai thay đổi không. H0: phương sai đồng nhất."""
     white_stat, white_p, _, _ = het_white(model_result.resid, model_result.model.exog)
-
-    # BP test
     bp_stat, bp_p, _, _ = het_breuschpagan(model_result.resid, model_result.model.exog)
-
     return {
         'white_p': white_p,
         'bp_p': bp_p,
         'has_heteroscedasticity': white_p < 0.05 or bp_p < 0.05,
-        'fix': 'Use HAC standard errors (Newey-West) or WLS' if white_p < 0.05 else 'No adjustment needed',
+        'fix': 'Dùng sai số chuẩn HAC (Newey-West) hoặc WLS' if white_p < 0.05 else 'Không cần điều chỉnh',
     }
 ```
 
-**Heteroskedasticity fixes**:
-- Use `model.fit(cov_type='HAC', cov_kwds={'maxlags': 5})`
-- Or use weighted least squares (WLS)
-- Financial data is almost always heteroskedastic -> use HAC standard errors by default
+**Khắc phục phương sai thay đổi:**
+- Dùng `model.fit(cov_type='HAC', cov_kwds={'maxlags': 5})`
+- Hoặc bình phương tối thiểu có trọng số (WLS)
+- Dữ liệu tài chính gần như luôn có phương sai thay đổi → mặc định dùng sai số chuẩn HAC.
 
-### 2. Autocorrelation Test
+### 2. Kiểm định tự tương quan
 
 ```python
 from statsmodels.stats.diagnostic import acorr_ljungbox
 from statsmodels.stats.stattools import durbin_watson
 
 def autocorrelation_test(residuals: pd.Series, lags: int = 10) -> dict:
-    """
-    Test whether residuals are autocorrelated.
-    H0: no autocorrelation
-    """
-    # DW test (first-order only)
-    dw = durbin_watson(residuals)
-
-    # Ljung-Box test (multiple lags)
-    lb_result = acorr_ljungbox(residuals, lags=lags)
-
+    """Kiểm tra phần dư có tự tương quan không. H0: không tự tương quan."""
+    dw = durbin_watson(residuals)  # DW (chỉ bậc 1)
+    lb_result = acorr_ljungbox(residuals, lags=lags)  # Ljung-Box (nhiều bậc)
     return {
         'durbin_watson': dw,
-        'dw_interpretation': 'positive autocorrelation' if dw < 1.5 else 'no autocorrelation' if dw < 2.5 else 'negative autocorrelation',
+        'dw_interpretation': 'tự tương quan dương' if dw < 1.5 else 'không tự tương quan' if dw < 2.5 else 'tự tương quan âm',
         'ljung_box_p': lb_result['lb_pvalue'].values,
         'has_autocorrelation': any(lb_result['lb_pvalue'] < 0.05),
-        'fix': 'Use Newey-West standard errors or include lag terms',
+        'fix': 'Dùng sai số chuẩn Newey-West hoặc thêm biến trễ',
     }
 ```
 
-### 3. Multicollinearity Test
+### 3. Kiểm định đa cộng tuyến
 
 ```python
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 def vif_test(X: pd.DataFrame) -> pd.DataFrame:
     """
-    VIF test for multicollinearity
-    VIF > 10 -> severe collinearity
-    VIF > 5 -> needs attention
+    VIF kiểm tra đa cộng tuyến.  VIF > 10 → nghiêm trọng; VIF > 5 → cần lưu ý.
     """
     vif_data = pd.DataFrame()
     vif_data['feature'] = X.columns
     vif_data['VIF'] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
     vif_data['concern'] = vif_data['VIF'].apply(
-        lambda x: 'severe' if x > 10 else 'watch' if x > 5 else 'normal'
+        lambda x: 'nghiêm trọng' if x > 10 else 'lưu ý' if x > 5 else 'bình thường'
     )
     return vif_data
 ```
 
-### Regression Diagnostics Checklist
+### Checklist chẩn đoán hồi quy
 
 ```
-□ 1. Linearity: residuals vs fitted values show no obvious pattern
-□ 2. Normality: residual QQ plot is close to a straight line, Jarque-Bera p>0.05
-□ 3. Heteroskedasticity: White / BP test p>0.05, or use HAC standard errors
-□ 4. Autocorrelation: DW≈2, Ljung-Box p>0.05
-□ 5. Multicollinearity: VIF<5
-□ 6. Outliers: Cook's D < 4/n
+□ 1. Tuyến tính: phần dư vs giá trị khớp không có mẫu rõ ràng
+□ 2. Chuẩn: QQ-plot phần dư gần đường thẳng, Jarque-Bera p>0,05
+□ 3. Phương sai thay đổi: White/BP p>0,05, hoặc dùng sai số chuẩn HAC
+□ 4. Tự tương quan: DW≈2, Ljung-Box p>0,05
+□ 5. Đa cộng tuyến: VIF<5
+□ 6. Điểm ngoại lai: Cook's D < 4/n
 ```
 
-## Bootstrap Methods
+## Phương pháp Bootstrap
 
-### Nonparametric Bootstrap
+### Bootstrap phi tham số
 
 ```python
 def bootstrap_statistic(data: np.ndarray, statistic_func,
                         n_bootstrap: int = 10000,
                         confidence: float = 0.95) -> dict:
     """
-    Estimate a confidence interval for a statistic with Bootstrap.
+    Ước lượng khoảng tin cậy của một thống kê bằng Bootstrap.
 
     Args:
-        data: Raw data
-        statistic_func: Statistic function (for example np.mean, np.median)
-        n_bootstrap: Number of Bootstrap resamples
-        confidence: Confidence level
+        data: dữ liệu gốc
+        statistic_func: hàm thống kê (vd np.mean, np.median)
+        n_bootstrap: số lần lấy mẫu lại
+        confidence: mức tin cậy
     Returns:
-        Point estimate and confidence interval
+        ước lượng điểm và khoảng tin cậy
     """
     n = len(data)
     bootstrap_stats = np.array([
         statistic_func(np.random.choice(data, size=n, replace=True))
         for _ in range(n_bootstrap)
     ])
-
     alpha = 1 - confidence
     lower = np.percentile(bootstrap_stats, alpha/2 * 100)
     upper = np.percentile(bootstrap_stats, (1 - alpha/2) * 100)
-
     return {
         'point_estimate': statistic_func(data),
         'bootstrap_mean': np.mean(bootstrap_stats),
@@ -345,109 +323,117 @@ def bootstrap_statistic(data: np.ndarray, statistic_func,
     }
 ```
 
-### Bootstrap Applications in Quant
+### Ứng dụng Bootstrap trong định lượng
 
-| Scenario | Method | Purpose |
+| Tình huống | Phương pháp | Mục đích |
 |------|------|------|
-| Sharpe-ratio confidence interval | Bootstrap return series | Determine whether Sharpe is significantly >0 |
-| Factor return test | Bootstrap factor values | Whether factor premium is robust |
-| Maximum drawdown distribution | Bootstrap equity paths | Probability distribution of max drawdown |
-| Strategy comparison | Paired Bootstrap | Whether strategy A is significantly better than B |
+| Khoảng tin cậy Sharpe | Bootstrap chuỗi suất sinh lời | Sharpe có thực sự >0 không |
+| Kiểm định lợi suất nhân tố | Bootstrap giá trị nhân tố | Phần bù nhân tố có bền không |
+| Phân phối max drawdown | Bootstrap đường vốn | Phân phối xác suất sụt giảm tối đa |
+| So sánh chiến lược | Paired Bootstrap | A có hơn B có ý nghĩa không |
 
 ```python
 def bootstrap_sharpe(returns: pd.Series, n_bootstrap: int = 10000) -> dict:
-    """Bootstrap confidence interval for the Sharpe ratio."""
+    """Khoảng tin cậy Bootstrap cho tỷ số Sharpe."""
     def sharpe(r):
         return r.mean() / r.std() * np.sqrt(252) if r.std() > 0 else 0
-
     result = bootstrap_statistic(returns.values, sharpe, n_bootstrap)
-    result['is_significant'] = result['ci_lower'] > 0  # 95% CI excludes 0
+    result['is_significant'] = result['ci_lower'] > 0  # KTC 95% loại trừ 0
     return result
 ```
 
-## Hypothesis-Testing Framework
+## Khung kiểm định giả thuyết
 
-### Quick Reference for Common Tests
+### Tra cứu nhanh các kiểm định thường dùng
 
-| Testing Goal | Test Method | Null Hypothesis |
+| Mục tiêu kiểm định | Phương pháp | Giả thuyết không |
 |---------|---------|--------|
-| Mean = 0 | t-test | `μ = 0` |
-| Two means are equal | Independent t-test | `μ1 = μ2` |
-| Normality | Jarque-Bera | Normal distribution |
-| Stationarity | ADF | Has unit root (non-stationary) |
-| Autocorrelation | Ljung-Box | No autocorrelation |
-| Heteroskedasticity | White / BP | Homoskedasticity |
-| Cointegration | Engle-Granger | Not cointegrated |
+| Trung bình = 0 | t-test | `μ = 0` |
+| Hai trung bình bằng nhau | t-test độc lập | `μ1 = μ2` |
+| Tính chuẩn | Jarque-Bera | Phân phối chuẩn |
+| Tính dừng | ADF | Có nghiệm đơn vị (không dừng) |
+| Tự tương quan | Ljung-Box | Không tự tương quan |
+| Phương sai thay đổi | White / BP | Phương sai đồng nhất |
+| Đồng tích hợp | Engle-Granger | Không đồng tích hợp |
 
-### Multiple-Testing Problem
+### Vấn đề kiểm định bội (multiple testing)
 
 ```
-Problem: test 100 factors and filter with p<0.05 -> expect 5 false positives
+Vấn đề: kiểm 100 nhân tố, lọc p<0,05 → kỳ vọng 5 dương tính giả.
 
-Correction methods:
-1. Bonferroni: p_adj = p × n_tests (most conservative)
-2. Holm-Bonferroni: stepwise correction (fairly conservative)
-3. Benjamini-Hochberg (FDR): control false discovery rate (recommended)
+Phương pháp hiệu chỉnh:
+1. Bonferroni: p_adj = p × n_tests (thận trọng nhất)
+2. Holm-Bonferroni: hiệu chỉnh từng bước (khá thận trọng)
+3. Benjamini-Hochberg (FDR): kiểm soát tỷ lệ phát hiện sai (khuyên dùng)
 
 from statsmodels.stats.multitest import multipletests
 reject, p_adj, _, _ = multipletests(p_values, method='fdr_bh')
 ```
 
-### Statistical Significance in Financial Backtests
+### Ý nghĩa thống kê trong backtest tài chính
 
 ```
-Sharpe significance test:
-H0: Sharpe = 0 (strategy is ineffective)
+Kiểm định ý nghĩa Sharpe:
+H0: Sharpe = 0 (chiến lược vô hiệu)
 H1: Sharpe > 0
 
-Test statistic: t = Sharpe × sqrt(n) / sqrt(1 + 0.5×Sharpe²)
-where n = number of observation periods (years)
+Thống kê kiểm định: t = Sharpe × sqrt(n) / sqrt(1 + 0,5×Sharpe²)
+với n = số kỳ quan sát (năm)
 
-Rules of thumb:
-- Sharpe > 0.5 and backtest >5 years -> may be significant
-- Sharpe > 1.0 and backtest >3 years -> likely significant
-- Sharpe > 2.0 -> overfitting warning (hard to sustain in reality)
+Quy tắc kinh nghiệm:
+- Sharpe > 0,5 và backtest >5 năm → có thể có ý nghĩa
+- Sharpe > 1,0 và backtest >3 năm → khả năng có ý nghĩa
+- Sharpe > 2,0 → cảnh báo overfitting (khó duy trì thực tế)
+⚠️ VN: lịch sử dữ liệu sạch ngắn (HOSE từ 2000, thanh khoản/đại chúng thực sự ~2015+) →
+   số quan sát ĐỘC LẬP ít hơn vẻ ngoài → đòi hỏi Sharpe cao hơn để tin, và OOS bắt buộc.
 ```
 
-## Output Format
+## Mẫu output
 
 ```markdown
-## Statistical Testing Report
+## Báo cáo kiểm định thống kê
 
-### Stationarity Test
-| Series | ADF Statistic | p-value | Conclusion |
+### Kiểm định tính dừng
+| Chuỗi | Thống kê ADF | p-value | Kết luận |
 |------|----------|-----|------|
-| Price | -1.23 | 0.65 | Non-stationary |
-| Return | -15.8 | 0.000 | Stationary *** |
+| Giá | −1,23 | 0,65 | Không dừng |
+| Suất sinh lời | −15,8 | 0,000 | Dừng *** |
 
-### Cointegration Test
-| Pair | Statistic | p-value | Cointegrated |
+### Kiểm định đồng tích hợp
+| Cặp | Thống kê | p-value | Đồng tích hợp |
 |------|--------|-----|------|
-| 600519/000858 | -4.52 | 0.002 | Yes ** |
+| VCB/CTG | −4,52 | 0,002 | Có ** (chỉ thực thi long-only chân rẻ — cấm bán khống) |
 
-### GARCH Model
-| Parameter | Value | Meaning |
+### Mô hình GARCH (VN-Index)
+| Tham số | Giá trị | Ý nghĩa |
 |------|-----|------|
-| α | 0.08 | Shock effect |
-| β | 0.88 | Volatility persistence |
-| Long-run volatility | 22.5% | Annualized |
+| α | 0,08 | Tác động cú sốc |
+| β | 0,88 | Độ dai dẳng biến động |
+| Biến động dài hạn | 22,5% | Quy năm |
 
-### Bootstrap Result
-| Metric | Point Estimate | 95% CI | Significant |
+### Kết quả Bootstrap
+| Chỉ tiêu | Ước lượng điểm | KTC 95% | Có ý nghĩa |
 |------|--------|--------|------|
-| Sharpe | 1.25 | [0.62, 1.88] | Yes |
-| Alpha (monthly) | 0.8% | [0.1%, 1.5%] | Yes |
+| Sharpe | 1,25 | [0,62, 1,88] | Có |
+| Alpha (tháng) | 0,8% | [0,1%, 1,5%] | Có |
 ```
 
-## Notes
+## Lưu ý
 
-1. **Financial data is non-normal**: almost all financial return series are fat-tailed, so be careful with tests assuming normality
-2. **Multiple testing**: when backtesting many strategies / factors, multiple-testing correction (FDR control) is mandatory
-3. **Out-of-sample validation**: statistical significance does not guarantee profitability; out-of-sample testing is still required
-4. **Cointegration can break down**: historical cointegration does not guarantee persistence, so pair trading needs ongoing monitoring
-5. **GARCH forecast horizon is limited**: volatility-forecast accuracy declines rapidly beyond 5-10 days
-6. **Be careful with small samples**: financial datasets may look large, but the number of independent observations can still be small (for example, annual data)
-7. **p-hacking risk**: do not keep adjusting until p<0.05; predefine the testing plan
+1. **Dữ liệu tài chính phi chuẩn**: hầu hết chuỗi suất sinh lời đuôi dày → cẩn trọng với kiểm định giả định phân phối chuẩn.
+2. **Kiểm định bội**: khi backtest nhiều chiến lược/nhân tố, BẮT BUỘC hiệu chỉnh kiểm định bội (kiểm soát FDR).
+3. **Kiểm out-of-sample**: ý nghĩa thống kê KHÔNG đảm bảo sinh lời; vẫn cần OOS.
+4. **Đồng tích hợp có thể đổ vỡ**: quan hệ lịch sử không đảm bảo bền → relative-value cần giám sát liên tục.
+5. **GARCH dự báo ngắn hạn**: độ chính xác giảm nhanh sau 5–10 ngày.
+6. **Cẩn trọng mẫu nhỏ**: dữ liệu tài chính trông lớn nhưng số quan sát độc lập có thể ít (đặc biệt VN, dữ liệu sạch ngắn).
+7. **Rủi ro p-hacking**: đừng chỉnh đến khi p<0,05; định trước kế hoạch kiểm định.
+8. ⚠️ **Cấm bán khống (VN)**: mọi tín hiệu cần short chân đắt (pair, z>2) KHÔNG thực thi được — chuyển long-only chân rẻ / phòng hộ VN30F. T+2,5 ảnh hưởng tốc độ vào-ra.
+
+## Phụ thuộc
+
+```bash
+pip install pandas numpy statsmodels arch scipy
+```
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

@@ -1,1298 +1,457 @@
 ---
 name: social-media-intelligence
-description: "Social media intelligence: financial signal extraction from Twitter/X, Telegram, Discord, and Reddit for sentiment-driven trading strategies."
+description: "Tình báo mạng xã hội TTCK Việt Nam — thu thập & định lượng tín hiệu từ forum (F247/Fireant/Vietstock/Bovagau), báo (CafeF/24hMoney/VnEconomy/TNCK), Telegram/Zalo/Facebook room phím hàng, KOL YouTube/TikTok. Trọng tâm: PHÁT HIỆN ĐỘI LÁI/PHÍM HÀNG, NLP lóng tiếng Việt, buzz-factor theo mã. Xương sống thu thập: crawl4ai. Bổ trợ: /last30days cho lớp KOL video."
 category: tool
 ---
 
-# Social Media Intelligence
+# Tình báo mạng xã hội — TTCK Việt Nam
 
-> This skill integrates financial-intelligence collection methods and quantitative applications across Twitter/X, Telegram, Discord, and Reddit.
-> Inspired by `himself65/finance-skills` modules such as `discord-reader`, `telegram-reader`, and `twitter-reader`.
-
----
-
-## 1. Overview of the Four Major Financial Social Platforms
-
-### 1.1 Twitter/X — The FinTwit Ecosystem
-
-**Core roles**
-
-| Role Type | Representative Account Traits | Signal Value |
-|---------|------------|---------|
-| Sell-side analyst | Institutional backing, dense posting around earnings | Medium, somewhat lagging |
-| Fund manager | Holdings views, industry judgment | High, but mixed with subjective opinion |
-| Macro commentator | Fed interpretation, macro-data reaction | High, a good sentiment barometer |
-| Crypto KOL | On-chain interpretation, project endorsement | Highly volatile, high manipulation risk |
-| Retail noise | Meme spread, herd sentiment | Contrarian signal value at extremes |
-
-**Core FinTwit circles**
-- `$TICKER` cashtag system directly maps discussion to the asset
-- Earnings-season sentiment patterns before and after reports
-- Real-time reaction speed to policy / macro events, often 15-60 minutes ahead of traditional media
+> **Ranh giới skill (đọc trước):**
+> - Skill này = **đào sâu LỚP MẠNG XÃ HỘI**: thu thập → làm sạch → định lượng (NLP tiếng Việt) → **phát hiện đội lái** → dựng buzz-factor theo mã.
+> - Khung **tâm lý toàn thị trường** (khối ngoại, dư nợ margin, tài khoản mở mới, thanh khoản/độ rộng, basis VN30F) → xem [[sentiment-analysis]]. Đừng làm lại ở đây.
+> - Vòng xoáy giải chấp / call margin / quy định → [[regulatory-knowledge]]. Dòng ETF → [[etf-analysis]].
+> - Phạm vi: **CỔ PHIẾU VN**. Crypto/Telegram crypto có skill riêng (onchain/defi/ccxt) — không bàn ở đây.
 
 ---
 
-### 1.2 Telegram — The Core Venue for Crypto Intelligence
+## 0. Vì sao KHÔNG bê nguyên khung Mỹ/crypto
 
-**Channel types**
+Bản gốc (FinTwit, WSB short-squeeze, options flow, VADER/FinBERT) **lệch hẳn thực tế VN**. Phải bỏ/thay, không dịch:
 
-| Channel Type | Content Traits | How to Use |
-|---------|---------|---------|
-| Signal channels | Specific buy/sell levels, stop-loss / take-profit | Use as a sentiment thermometer, not for blind copy-trading |
-| Research push channels | Institutional PDF reports, on-chain data | Aggregate information and extract key numbers |
-| Macro flash channels | Real-time interpretation of FOMC, CPI, etc. | Event-driven signals |
-| Official project channels | Tokenomics updates, partnership announcements | Potential alpha, but requires filtering |
-| Whale alert channels | Large on-chain transfer alerts | Capital-flow signal |
+| Bản gốc (Mỹ/crypto) | Thực tế VN → xử lý |
+|---|---|
+| Twitter/X cashtag `$AAPL`, Reddit r/wallstreetbets | Người VN bàn cổ phiếu trên **forum nội + Facebook/Zalo/Telegram + KOL video**, KHÔNG dùng X/Reddit → **bỏ**, thay bằng nguồn VN |
+| WSB short-squeeze (SI>20%, borrow tightness) | **VN cấm bán khống cổ phiếu** → không có squeeze cổ phiếu cơ sở → **bỏ** |
+| Options open-interest / IV bất thường | **Không có quyền chọn cổ phiếu** ở VN (chỉ CW + VN30F) → **bỏ**, dùng CW/phái sinh ở [[sentiment-analysis]] |
+| VADER / FinBERT (tiếng Anh) | Văn bản VN đầy **lóng + teencode + bỏ dấu** → **LLM-based + lexicon lóng VN** (mục 4) |
+| Manipulation = "rủi ro phụ" | Ở VN **đội lái/"phím hàng"/"úp bô" là rủi ro TRUNG TÂM** (lẻ ~85–90%, nhiều penny/midcap bị làm giá) → nâng thành **mục lõi (mục 5)** |
 
----
-
-### 1.3 Discord — Quant Communities and Project Ecosystems
-
-**Important community types**
-- Quant / DeFi research communities such as Degen Spartan and Messari Research
-- Official crypto project Discords with governance discussion and development progress
-- Trader communities focused on options flow and on-chain analysis
-- NFT / GameFi projects with floor-price alerts and activity monitoring
-
-**Distinctive value of Discord**
-- Community activity directly reflects project health
-- Developer channels such as `#dev` and `#build` show implementation activity
-- Governance participation indicates the willingness of token holders to stay involved
+**Tư duy nền:** thị trường lẻ chi phối → MXH vừa là *nguồn tâm lý đám đông* vừa là *kênh thao túng*. Cùng một tín hiệu buzz có thể là tiền thật vào HOẶC bẫy úp bô. Phân biệt hai cái này là giá trị chính của skill.
 
 ---
 
-### 1.4 Reddit — A Barometer of Retail Sentiment
+## 1. Bản đồ kênh MXH chứng khoán VN (phân tầng tín hiệu)
 
-**Core subreddits**
+| Kênh | Loại | Nội dung điển hình | Độ nhiễu | Giá trị tín hiệu | Truy cập |
+|---|---|---|---|---|---|
+| **Fireant** | feed/forum theo mã | Tin + bình luận gắn mã, room phân tích | Trung bình | Cao (theo mã, tập trung) | crawl4ai (SPA, cần JS render) |
+| **F247** (kế F319), **Vietstock forum** | forum | Topic theo mã/ngành, "hô hàng", phân tích lẻ | Cao | Trung bình (buzz lẻ, lọc kỹ) | crawl4ai (HTML + phân trang) |
+| **Bovagau** | forum/cộng đồng | Phím hàng, kèo lướt | Rất cao | Thấp–TB (chủ yếu đo buzz/đội lái) | crawl4ai |
+| **CafeF, 24hMoney, VnEconomy, TNCK** (Tinnhanh CK) | báo tài chính | Tin chính thống, sự kiện DN, vĩ mô | Thấp | Cao (sự kiện), thấp (sentiment) | crawl4ai (list → bài) |
+| **Telegram "room phím hàng"** | room | Hô mua/bán, call kèo, target | Rất cao | TB (nhiệt kế + dấu hiệu lái) | `t.me/s/<kênh>` qua crawl4ai (public, **không cần telethon**); telethon nếu cần lịch sử sâu |
+| **Group Facebook đầu tư** | group kín/mở | Thảo luận, hô hàng, "phòng hô" | Rất cao | TB (đo đồng thuận lẻ) | **Login-gated** → khó cào tự động (xem 2.5) |
+| **Group Zalo đầu tư** | group kín | Phím hàng riêng môi giới/đội | Rất cao | TB nhưng **kín** | **Không cào được** → chỉ thủ công/được mời |
+| **KOL YouTube / TikTok / Facebook CK** | video/clip | Nhận định, "kèo", review mã | Cao | TB–Cao (KOL lớn lay động lẻ) | **/last30days** (engagement video) hoặc API nền tảng |
 
-| Subreddit | Core User Base | Main Signal |
-|-------|---------|---------|
-| r/wallstreetbets | Retail options traders | Meme-stock heat, abnormal options chatter |
-| r/investing | Value-oriented retail investors | Long-horizon sentiment, ETF flow |
-| r/cryptocurrency | Crypto retail | BTC / ETH cycle sentiment |
-| r/stocks | General stock discussants | Earnings-season sentiment |
-| r/options | Options-strategy community | Unusual IV-related topics |
+> **Quy tắc trọng số nguồn:** môi giới/KOL có hồ sơ minh bạch > forum thảo luận có lập luận > room hô 1 chiều/nhóm kín. Tài khoản mới/bot/copy-paste → trọng số **0**.
 
 ---
 
-## 2. Data Collection Methods
+## 2. Thu thập dữ liệu — crawl4ai là xương sống
 
-### 2.1 Twitter/X Data Collection
+### 2.1 Vì sao crawl4ai
+VN **không có API MXH sạch** cho forum/báo. crawl4ai (đã cài `$HOME\.venv`, v0.8.9 — xem [[reference-crawl4ai-home-venv]]) trả **markdown sạch + render JS**, không phụ thuộc selector dễ vỡ. Gọi bằng:
+```
+$HOME\.venv\Scripts\python.exe  (Python 3.11.15)
+```
 
-**Tooling options**
+### 2.2 Schema chuẩn hóa (1 schema chung cho MỌI nguồn VN)
 
 ```python
-# Option A: Official API v2 (paid, basic tier starts at $100/month)
-# Best for: production environments where compliance is the priority
-from tweepy import Client
+# Mọi collector trả về list[dict] theo đúng schema này → hạ nguồn xử lý đồng nhất.
+ITEM_SCHEMA = {
+    "nguon":      str,    # fireant|f247|vietstock|bovagau|cafef|24hmoney|vneconomy|tnck|telegram|facebook|youtube|tiktok
+    "loai":       str,    # forum|news|room|kol_video|group
+    "id":         str,
+    "thoi_gian":  str,    # ISO8601
+    "tac_gia": {
+        "id":            str,
+        "ten":           str,    # LƯU DẠNG HASH nếu là cá nhân (mục 2.6)
+        "tuoi_tk_ngay":  int,    # tuổi tài khoản (ngày) nếu lấy được
+        "so_bai":        int,
+        "uy_tin":        str,    # moi_gioi|kol|thanh_vien|moi|bot_nghi
+    },
+    "noi_dung":      str,
+    "ma_nhac_den":   list,   # ["HPG","SSI"] — regex mã VN 3 ký tự in hoa, lọc từ khóa
+    "tuong_tac":  {"like": int, "reply": int, "view": int, "share": int},
+    "huong_ho":      str,    # mua|ban|trung_lap  (chiều khuyến nghị/PR)
+    "sentiment":     None,   # điền sau ở mục 4, [-1,1]
+    "co_dau_hieu_lai": False, # điền sau ở mục 5
+}
 
-client = Client(bearer_token=os.getenv("TWITTER_BEARER_TOKEN"))
+import re
+# Mã VN: 3 ký tự in hoa (HOSE/HNX); lọc nhiễu từ viết tắt thường gặp.
+_MA_RE = re.compile(r"\b([A-Z]{3})\b")
+_STOP_MA = {"VND","USD","CTG","GDP","CPI","FED","ROE","ROA","EPS","NĐT","CTY","HĐQT","BCT","VAS","IFR"}
+def trich_ma(text: str) -> list[str]:
+    return sorted({m for m in _MA_RE.findall(text) if m not in _STOP_MA})
+```
 
-# Search tweets discussing a cashtag over the last 7 days
-def fetch_cashtag_tweets(ticker: str, max_results: int = 100) -> list[dict]:
-    """Collect Twitter discussion data for a given ticker.
+### 2.3 Collector forum/báo VN (Fireant, F247, Vietstock, CafeF, 24hMoney, VnEconomy, TNCK)
 
-    Args:
-        ticker: Ticker symbol such as AAPL or BTC
-        max_results: Max number of returned tweets, between 10 and 100
+```python
+# $HOME\.venv\Scripts\python.exe
+import asyncio
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
 
-    Returns:
-        List of tweets, each containing id / text / created_at / public_metrics
-    """
-    query = f"${ticker} -is:retweet lang:en"
-    tweets = client.search_recent_tweets(
-        query=query,
-        max_results=max_results,
-        tweet_fields=["created_at", "public_metrics", "author_id"],
+async def cao_trang(url: str, render_js: bool = True, wait: str | None = None) -> str:
+    """Cào 1 URL → trả markdown sạch. Forum SPA (Fireant) cần render_js=True."""
+    cfg = CrawlerRunConfig(
+        cache_mode=CacheMode.BYPASS,
+        wait_for=wait,            # vd "css:.comment-item" cho trang JS
+        page_timeout=30000,
     )
-    return [t.data for t in tweets.data or []]
+    async with AsyncWebCrawler(headless=True) as crawler:
+        res = await crawler.arun(url=url, config=cfg)
+        return res.markdown if res.success else ""
 
-
-# Option B: ntscraper (unofficial, free, rate-limited)
-# Best for: research / historical backtesting
-# pip install ntscraper
-from ntscraper import Nitter
-
-scraper = Nitter()
-tweets = scraper.get_tweets("$AAPL", mode="term", number=50)
-```
-
-**Data schema (Twitter JSON Schema)**
-
-```json
-{
-  "platform": "twitter",
-  "collected_at": "2026-03-29T08:00:00Z",
-  "query": "$AAPL",
-  "items": [
-    {
-      "id": "tweet_id_string",
-      "text": "tweet text",
-      "created_at": "ISO8601 timestamp",
-      "author": {
-        "id": "user_id",
-        "username": "handle",
-        "followers_count": 50000,
-        "verified": false
-      },
-      "metrics": {
-        "like_count": 120,
-        "retweet_count": 45,
-        "reply_count": 23,
-        "quote_count": 8
-      },
-      "sentiment_score": null,
-      "tags": ["$AAPL", "#earnings"]
-    }
-  ]
+# Cấu hình nguồn: KHÔNG hardcode CSS selector (dễ vỡ) — lấy markdown rồi để LLM/parse bóc.
+NGUON_VN = {
+    "fireant":   {"loai": "forum", "url": "https://fireant.vn/ma-chung-khoan/{ma}", "render_js": True},
+    "vietstock": {"loai": "forum", "url": "https://finance.vietstock.vn/{ma}/tin-moi-nhat.htm", "render_js": True},
+    "f247":      {"loai": "forum", "url": "https://f247.com/search?q={ma}", "render_js": True},
+    "cafef":     {"loai": "news",  "url": "https://cafef.vn/tim-kiem.chn?keywords={ma}", "render_js": False},
+    "24hmoney":  {"loai": "news",  "url": "https://24hmoney.vn/search?q={ma}", "render_js": True},
+    "vneconomy": {"loai": "news",  "url": "https://vneconomy.vn/tim-kiem.htm?q={ma}", "render_js": False},
+    "tnck":      {"loai": "news",  "url": "https://www.tinnhanhchungkhoan.vn/tim-kiem/?q={ma}", "render_js": False},
 }
+# ⚠️ URL pattern thay đổi theo thời gian → dùng skill firecrawl-map hoặc kiểm tay trước khi chạy hàng loạt.
+
+async def thu_thap_ma(ma: str, nguon: str) -> dict:
+    cfg = NGUON_VN[nguon]
+    md = await cao_trang(cfg["url"].format(ma=ma.lower()), render_js=cfg["render_js"])
+    # Bóc bài/bình luận bằng LLM (xem mục 4.3) → list item theo ITEM_SCHEMA.
+    return {"nguon": nguon, "loai": cfg["loai"], "ma": ma, "markdown": md}
 ```
 
-**Suggested collection frequency**
-- Earnings season / major events: real time, poll every 5 minutes
-- Routine monitoring: hourly
-- Historical backfill: daily batch
+> **Mẹo bóc nội dung:** thay vì viết parser CSS cho từng site (vỡ liên tục), đưa markdown crawl4ai cho **LLM trích cấu trúc** (skill `firecrawl-agent` hoặc LLM nội bộ) theo `ITEM_SCHEMA`. Bền hơn nhiều với forum VN hay đổi giao diện.
+
+### 2.4 Telegram room phím hàng — KHÔNG cần telethon
+
+```python
+# Bản xem public của kênh Telegram: https://t.me/s/<ten_kenh> → HTML tĩnh, crawl4ai cào thẳng.
+async def cao_telegram_public(ten_kenh: str) -> str:
+    return await cao_trang(f"https://t.me/s/{ten_kenh}", render_js=False)
+
+# Cần lịch sử sâu / kênh không bật preview → telethon (ĐÃ cài v1.44; cần TELEGRAM_API_ID/HASH
+# từ my.telegram.org). Chỉ kênh/nhóm PUBLIC, không đụng tin nhắn cá nhân (ToS + pháp lý — mục 2.6).
+```
+
+### 2.5 Facebook / Zalo group kín — chiến lược A + B + C (KHÔNG dùng credential cá nhân)
+
+Group FB/Zalo kín **không cào tự động hợp lệ được** (login-gated, Zalo không có API, tự động hóa nick cá nhân vi phạm ToS → rủi ro khóa nick thật). **Không đưa tài khoản cá nhân cho bot.** Thay vào đó dùng 3 hướng bổ sung nhau:
+
+- **A. Bắt "tiếng vọng" công khai (chính).** Nội dung nhóm kín thường rò ra kênh công khai trong vài giờ (Telegram public, F247, ảnh chụp trên Fireant, comment CafeF) → cào các kênh CÔNG KHAI này (mục 2.3–2.4) vẫn bắt được tín hiệu phối hợp/đội lái. Trễ vài giờ, sót một phần — chấp nhận được.
+- **B. Analyst nhập tay sự kiện lớn.** Là thành viên nhóm → khi thấy hô hàng rần rộ / úp bô / tin đồn mạnh, điền vào template chuẩn; loader nạp vào pipeline buzz/đội lái:
+  - Template: `templates/tin_hieu_fb_zalo.md` (mỗi tín hiệu 1 khối `=== TÍN HIỆU === … === HẾT ===`).
+  - Loader: `templates/nhap_tay_loader.py` → `doc_tin_hieu(path)` trả `list[dict]` đúng `ITEM_SCHEMA` (tự bắt mã, ẩn danh tác giả theo NHÓM, cờ `co_dau_hieu_lai` từ cảm nhận analyst).
+  - Chỉ nhập **sự kiện lớn**, không cần mọi tin. Không ghi tên người cụ thể (riêng tư).
+- **C. Chỉ Fanpage / KOL CÔNG KHAI.** Theo Page/KOL công khai (crawlable hợp lệ) thay vì group kín — KOL lớn thường đăng công khai trước, group kín chỉ nhắc lại.
+
+> **Tùy chọn hạn chế (D):** chỉ khi thật cần, dùng `firecrawl-interact` với **phiên do chính anh đăng nhập** để xem nội dung anh được phép thấy — không headless, không lưu credential, dùng lẻ tẻ. Vẫn xám ToS → ưu tiên A/B/C.
+> → Trong report luôn **ghi rõ** lớp FB/Zalo là điểm mù một phần, không suy diễn lấp chỗ trống.
+
+### 2.6 Tần suất, lưu trữ, tuân thủ
+
+```
+Tần suất:
+  - Phiên giao dịch (9h–15h) mã/room nóng: 15–30 phút/lần.
+  - Forum/báo thường: 2–4 giờ/lần. Backfill lịch sử: batch hằng ngày.
+Tuân thủ:
+  - Chỉ nguồn CÔNG KHAI. Không cào tin nhắn cá nhân/nhóm kín không được phép.
+  - Tên người dùng cá nhân → LƯU DẠNG HASH; chỉ giữ chỉ tiêu tổng hợp.
+  - Tôn trọng robots.txt + rate-limit; xóa raw text >30 ngày, giữ metric tổng hợp.
+```
 
 ---
 
-### 2.2 Telegram Data Collection
+## 3. crawl4ai vs /last30days — dùng cái nào? (đánh giá theo yêu cầu)
 
-**Tooling**
+| Tiêu chí | **crawl4ai** | **/last30days** |
+|---|---|---|
+| Phủ **forum VN** (F247/Fireant/Vietstock/Bovagau) | ✅ Cào thẳng được | ❌ Không chạm tới |
+| Phủ **báo VN** (CafeF/24hMoney/VnEconomy/TNCK) | ✅ | ❌ (chỉ "web" chung, không sâu) |
+| Phủ **KOL YouTube/TikTok** | ⚠️ Khó (anti-bot, JS nặng) | ✅ Có engagement video, gọn |
+| Phủ **X/Reddit/HN/GitHub** | ✅ nhưng VN gần như rỗng | ✅ thế mạnh — nhưng **ít data về CP VN** |
+| **FB/Zalo group kín** | ❌ | ❌ (cả hai mù) |
+| Recency 30 ngày, đa nền sẵn | ⚠️ tự dựng | ✅ sẵn, nhanh |
+| Kiểm soát/độ sâu/lưu trữ riêng | ✅ Toàn quyền | ❌ Hộp đen |
+| Tiếng Việt + lóng | ✅ (lấy raw rồi tự NLP) | ⚠️ Tùy nguồn index |
+
+**Kết luận (cho TTCK VN):**
+1. **crawl4ai = công cụ CHÍNH** cho lõi tín hiệu VN: forum + báo (nơi chứa buzz lẻ và dấu hiệu đội lái). Đây là alpha venue mà last30days **không với tới**.
+2. **/last30days = bổ trợ** cho **lớp KOL video (YouTube/TikTok)** và **cross-check nhanh** độ nóng đa nền — chỗ crawl4ai yếu vì anti-bot.
+3. **Cả hai đều mù FB/Zalo kín** → mục 2.5 áp dụng.
+4. Quy trình khuyến nghị: **crawl4ai dựng dữ liệu forum/báo theo mã → /last30days quét nhanh lớp video + tâm lý cross-platform → hợp nhất** ở mục 6. Không thay thế nhau, bổ sung nhau.
+
+---
+
+## 4. NLP tiếng Việt cho tin tài chính
+
+### 4.1 Lexicon lóng chứng khoán VN (cốt lõi — VADER/FinBERT KHÔNG hiểu)
 
 ```python
-# Telethon — official MTProto client, requires API_ID + API_HASH
-# pip install telethon
-from telethon.sync import TelegramClient
-from telethon import functions
-
-API_ID = int(os.getenv("TELEGRAM_API_ID"))
-API_HASH = os.getenv("TELEGRAM_API_HASH")
-
-async def fetch_channel_messages(
-    channel_username: str,
-    limit: int = 200,
-    offset_date: datetime | None = None,
-) -> list[dict]:
-    """Collect historical messages from a Telegram channel.
-
-    Args:
-        channel_username: Channel username without @, e.g. "whale_alert"
-        limit: Maximum number of messages
-        offset_date: Start time to backtrack from
-
-    Returns:
-        List of messages containing id / text / date / views / forwards
-    """
-    async with TelegramClient("session", API_ID, API_HASH) as client:
-        messages = []
-        async for msg in client.iter_messages(
-            channel_username, limit=limit, offset_date=offset_date
-        ):
-            if msg.text:
-                messages.append({
-                    "id": msg.id,
-                    "text": msg.text,
-                    "date": msg.date.isoformat(),
-                    "views": getattr(msg, "views", 0),
-                    "forwards": getattr(msg, "forwards", 0),
-                })
-        return messages
-```
-
-**Data schema (Telegram JSON Schema)**
-
-```json
-{
-  "platform": "telegram",
-  "channel": "whale_alert",
-  "collected_at": "2026-03-29T08:00:00Z",
-  "items": [
-    {
-      "id": 12345,
-      "text": "message text",
-      "date": "ISO8601 timestamp",
-      "views": 85000,
-      "forwards": 320,
-      "has_media": false,
-      "reply_to_msg_id": null,
-      "sentiment_score": null
-    }
-  ]
+# Cụm lóng → cực tính [-1..+1]. Đây là "kiến thức chiến trường", quan trọng hơn model.
+LEXICON_CK_VN = {
+    # --- Hô MUA / hưng phấn (+) ---
+    "múc": 0.8, "kê": 0.6, "tất tay": 0.9, "all in": 0.9, "full cổ": 0.8, "full margin": 0.7,
+    "gom": 0.5, "xúc": 0.7, "vào hàng": 0.6, "kèo thơm": 0.7, "hàng nóng": 0.5, "sóng": 0.5,
+    "tím": 0.7, "trần": 0.6, "bốc đầu": 0.7, "break": 0.5, "về bờ": 0.4, "x2": 0.6, "x3": 0.7,
+    "gồng lãi": 0.4, "đu theo lái": 0.3,
+    # --- Hô BÁN / hoảng loạn (−) ---
+    "xả": -0.8, "đạp": -0.7, "úp bô": -0.9, "đu đỉnh": -0.8, "bắt dao": -0.7, "bắt dao rơi": -0.8,
+    "cháy tài khoản": -0.9, "call margin": -0.7, "force sell": -0.8, "giải chấp": -0.8,
+    "gãy": -0.6, "thủng": -0.6, "sàn": -0.6, "lau sàn": -0.8, "kẹp": -0.6, "gồng lỗ": -0.6,
+    "cắt lỗ": -0.5, "tháo chạy": -0.8, "phân phối": -0.6, "ra hàng": -0.5, "đẩy bô": -0.8,
+    # --- Trung tính / cảnh báo thao túng (gắn cờ, không cộng cực tính) ---
+    "lái": 0.0, "đội lái": 0.0, "hô": 0.0, "phòng hô": 0.0, "room": 0.0, "phím": 0.0,
+    "cá mập": 0.0, "tây": 0.0, "tay to": 0.0, "bigboy": 0.0, "con hàng": 0.0,
 }
+# Cờ thao túng (xuất hiện → tăng nghi ngờ đội lái, mục 5):
+TU_KHOA_LAI = ["hô", "phím", "kèo", "room", "đội lái", "lái kéo", "bắt đáy ngay",
+               "không mua là tiếc", "cam kết", "target x", "về bờ chắc chắn", "tất tay luôn"]
 ```
 
-**Suggested collection frequency**
-- Whale-alert / flash channels: real-time push, webhook mode
-- Signal channels: every 30 minutes
-- Research channels: daily
-
----
-
-### 2.3 Discord Data Collection
-
-**Tooling**
+### 4.2 Tiền xử lý văn bản VN (teencode, dấu, viết tắt)
 
 ```python
-# discord.py — official Bot API, requires Bot Token + server invitation permission
-# pip install discord.py
-import discord
-from discord.ext import commands
+TEENCODE = {"ck": "chứng khoán", "cp": "cổ phiếu", "tt": "thị trường", "ace": "anh chị em",
+            "nh": "ngân hàng", "bđs": "bất động sản", "kqkd": "kết quả kinh doanh",
+            "lnst": "lợi nhuận sau thuế", "ko": "không", "k": "không", "dc": "được",
+            "vol": "thanh khoản", "ae": "anh em", "bác": "bạn"}
 
-async def fetch_channel_history(
-    channel_id: int,
-    limit: int = 500,
-    after: datetime | None = None,
-) -> list[dict]:
-    """Collect message history from a Discord channel.
-
-    Args:
-        channel_id: Discord channel ID
-        limit: Maximum number of messages, capped at 500 per request
-        after: Start timestamp to backtrack from
-
-    Returns:
-        List of messages containing id / content / timestamp / author / reactions
-    """
-    bot = commands.Bot(command_prefix="!")
-    messages = []
-
-    @bot.event
-    async def on_ready():
-        channel = bot.get_channel(channel_id)
-        async for msg in channel.history(limit=limit, after=after):
-            messages.append({
-                "id": str(msg.id),
-                "content": msg.content,
-                "timestamp": msg.created_at.isoformat(),
-                "author": {
-                    "id": str(msg.author.id),
-                    "name": msg.author.name,
-                    "bot": msg.author.bot,
-                },
-                "reaction_count": sum(r.count for r in msg.reactions),
-                "attachments": len(msg.attachments),
-            })
-        await bot.close()
-
-    await bot.start(os.getenv("DISCORD_BOT_TOKEN"))
-    return messages
+def chuan_hoa(text: str) -> str:
+    t = text.lower()
+    for k, v in TEENCODE.items():
+        t = re.sub(rf"\b{k}\b", v, t)
+    return t
+# Lưu ý: KHÔNG bỏ dấu nếu dùng LLM/underthesea (mất nghĩa). Bỏ dấu chỉ khi match lexicon thô.
 ```
 
-**Data schema (Discord JSON Schema)**
-
-```json
-{
-  "platform": "discord",
-  "guild_id": "server_id_string",
-  "channel_id": "channel_id_string",
-  "channel_name": "general-trading",
-  "collected_at": "2026-03-29T08:00:00Z",
-  "items": [
-    {
-      "id": "message_id_string",
-      "content": "message text",
-      "timestamp": "ISO8601 timestamp",
-      "author": {
-        "id": "user_id_string",
-        "name": "username#1234",
-        "roles": ["Member", "Whale"],
-        "bot": false
-      },
-      "reaction_count": 42,
-      "thread_count": 3,
-      "sentiment_score": null
-    }
-  ]
-}
-```
-
-**Suggested collection frequency**
-- Active trading communities: hourly
-- Official project channels: every 4 hours
-- Governance channels: daily
-
----
-
-### 2.4 Reddit Data Collection
-
-**Tooling**
+### 4.3 Ba lựa chọn scoring (xếp theo độ phù hợp VN)
 
 ```python
-# PRAW — official Reddit Python wrapper, free API
-# pip install praw
-import praw
-
-def fetch_subreddit_posts(
-    subreddit_name: str,
-    mode: str = "hot",
-    limit: int = 100,
-    time_filter: str = "day",
-) -> list[dict]:
-    """Collect hot posts and related metadata from a subreddit.
-
-    Args:
-        subreddit_name: Subreddit name, e.g. "wallstreetbets"
-        mode: Sort mode: "hot" / "new" / "top" / "rising"
-        limit: Maximum number of posts
-        time_filter: Time filter for top mode, e.g. "hour" / "day" / "week"
-
-    Returns:
-        List of posts containing id / title / score / comments / created_utc
-    """
-    reddit = praw.Reddit(
-        client_id=os.getenv("REDDIT_CLIENT_ID"),
-        client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
-        user_agent="vibe-trading/1.0",
-    )
-    subreddit = reddit.subreddit(subreddit_name)
-    posts = []
-
-    fetch_fn = {
-        "hot": subreddit.hot,
-        "new": subreddit.new,
-        "top": lambda limit: subreddit.top(time_filter=time_filter, limit=limit),
-        "rising": subreddit.rising,
-    }[mode]
-
-    for post in fetch_fn(limit=limit):
-        posts.append({
-            "id": post.id,
-            "title": post.title,
-            "selftext": post.selftext[:500],  # truncated body
-            "score": post.score,
-            "upvote_ratio": post.upvote_ratio,
-            "num_comments": post.num_comments,
-            "created_utc": post.created_utc,
-            "url": post.url,
-            "flair": post.link_flair_text,
-        })
-    return posts
-```
-
-**Data schema (Reddit JSON Schema)**
-
-```json
-{
-  "platform": "reddit",
-  "subreddit": "wallstreetbets",
-  "collected_at": "2026-03-29T08:00:00Z",
-  "items": [
-    {
-      "id": "post_id",
-      "title": "post title",
-      "selftext": "body summary (500 chars)",
-      "score": 12500,
-      "upvote_ratio": 0.94,
-      "num_comments": 847,
-      "created_utc": 1743206400.0,
-      "flair": "YOLO",
-      "mentioned_tickers": ["GME", "AMC"],
-      "sentiment_score": null
-    }
-  ]
-}
-```
-
-**Suggested collection frequency**
-- r/wallstreetbets around the market open: every 30 minutes
-- r/investing / r/stocks: every 4 hours
-- r/cryptocurrency: hourly
-
----
-
-### 2.5 Compliance and Privacy Notes
-
-**Must comply with**
-- Twitter API terms: do not resell data to third parties; obey rate limits such as the basic-tier 500,000 tweets/month allowance
-- Telegram personal messages must not be collected; only public channels / groups are in scope
-- Discord must be accessed through the official Bot API; self-bots violate ToS and may get banned
-- Reddit PRAW rate limit: 60 requests/minute for authenticated users
-
-**Data storage rules**
-- Store user IDs in masked form such as hashes; do not retain raw usernames
-- Store raw text locally only and do not expose it through public APIs
-- Periodically purge raw data older than 30 days and keep only aggregated metrics
-
----
-
-## 3. Sentiment Quantification Methodology
-
-### 3.1 Text Sentiment Scoring
-
-#### Option A: VADER (Lightweight, English, Good for Short Social Posts)
-
-```python
-# pip install vaderSentiment
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-
-def vader_score(text: str) -> dict:
-    """Score the sentiment of social-media text using VADER.
-
-    Args:
-        text: Raw social-media text such as a tweet, post, or message
-
-    Returns:
-        {'pos': float, 'neg': float, 'neu': float, 'compound': float}
-        compound is in [-1, 1], where > 0.05 is positive and < -0.05 is negative
-    """
-    analyzer = SentimentIntensityAnalyzer()
-    return analyzer.polarity_scores(text)
-```
-
-**Characteristics**: No GPU required, suitable for high-frequency batch processing; weaker on finance-specific slang such as "bull" or "moon".
-
-#### Option B: FinBERT (Finance-Specific BERT)
-
-```python
-# pip install transformers torch
-from transformers import pipeline
-
-_finbert = None
-
-def get_finbert():
-    """Lazily load the FinBERT model. First call takes roughly 1-2 seconds."""
-    global _finbert
-    if _finbert is None:
-        _finbert = pipeline(
-            "text-classification",
-            model="ProsusAI/finbert",
-            tokenizer="ProsusAI/finbert",
-        )
-    return _finbert
-
-def finbert_score(text: str) -> dict:
-    """Classify sentiment in finance text using FinBERT.
-
-    Args:
-        text: Finance-related text, truncated to 512 tokens
-
-    Returns:
-        {'label': 'positive'|'negative'|'neutral', 'score': float}
-    """
-    result = get_finbert()(text[:512])[0]
-    score_map = {"positive": 1.0, "neutral": 0.0, "negative": -1.0}
-    return {
-        "label": result["label"],
-        "score": score_map[result["label"]] * result["score"],
-    }
-```
-
-**Characteristics**: Stronger understanding of finance terms such as earnings, guidance, beat/miss; GPU acceleration is preferred for large batches.
-
-#### Option C: LLM-Based (Highest Precision, Best for Long and Complex Text)
-
-```python
-def llm_sentiment(text: str, ticker: str | None = None) -> dict:
-    """Use an LLM to analyze sentiment in complex finance text.
-
-    Args:
-        text: Raw text such as a report summary or Discord thread
-        ticker: Related asset symbol, if available
-
-    Returns:
-        {'score': float[-1,1], 'label': str, 'reason': str}
-
-    Note:
-        Each call consumes roughly 500 tokens.
-        Use only on samples where VADER / FinBERT confidence is below 0.6.
-    """
-    context = f"Ticker: {ticker}\n" if ticker else ""
-    prompt = f"""{context}Analyze the sentiment of the following finance text and return JSON:
-{{"score": <float from -1 to 1>, "label": <"bullish"|"bearish"|"neutral">, "reason": <one-sentence explanation>}}
-
-Text: {text[:1000]}"""
-    # Call the current agent's LLM interface
+# CHÍNH — LLM-based: xử lý lóng/teencode/châm biếm/đảo nghĩa tốt nhất, KHÔNG cần lib ngoài.
+def sentiment_llm(text: str, ma: str | None = None) -> dict:
+    """Trả {'diem': float[-1,1], 'nhan': 'mua/ban/trung_lap', 'la_ho_lai': bool, 'ly_do': str}."""
     from src.providers.base import get_llm
-    response = get_llm().invoke(prompt)
+    ctx = f"Mã: {ma}\n" if ma else ""
+    prompt = (f"{ctx}Đây là bình luận chứng khoán VN (có lóng, teencode). "
+              f"Trả JSON: {{\"diem\": <-1..1>, \"nhan\": <\"mua\"|\"ban\"|\"trung_lap\">, "
+              f"\"la_ho_lai\": <true nếu có dấu hiệu hô hàng/làm giá>, \"ly_do\": <1 câu>}}.\n"
+              f"Văn bản: {text[:1000]}")
     import json
-    return json.loads(response.content)
+    return json.loads(get_llm().invoke(prompt).content)
+
+# PHỤ — Lexicon thô: nhanh, offline, no-GPU; dùng lọc sơ bộ khối lượng lớn trước khi gọi LLM.
+def sentiment_lexicon(text: str) -> dict:
+    t = chuan_hoa(text)
+    diem = [v for k, v in LEXICON_CK_VN.items() if k in t and v != 0.0]
+    co_lai = any(kw in t for kw in TU_KHOA_LAI)
+    s = sum(diem) / len(diem) if diem else 0.0
+    return {"diem": max(-1.0, min(1.0, s)), "la_ho_lai": co_lai}
+
+# OFFLINE — underthesea: ĐÃ cài (v9.5). Dùng word_tokenize() để TÁCH TỪ tiếng Việt trước khi
+#   match lexicon (chính xác hơn split thô). LƯU Ý: underthesea.sentiment() là model GENERAL,
+#   YẾU với tài chính (test thực tế: "cổ phiếu này tốt, nên mua" → trả 'neutral') → KHÔNG dùng
+#   làm scorer CK; chỉ dùng tokenize. Chấm cảm xúc CK vẫn để LLM-based + lexicon.
+from underthesea import word_tokenize, sentiment   # đã cài
+def tach_tu(text: str) -> list[str]:
+    return word_tokenize(text)                       # vd "đội lái kéo trần" → tách đúng cụm
+
+# OFFLINE MẠNH — PhoBERT (ĐÃ cài torch 2.12 + transformers 5.12, chạy CPU). Có sẵn đầu sentiment
+#   3 lớp VN qua model cộng đồng. Test thực tế MẠNH hơn underthesea (hiểu cả lóng):
+#     "cổ phiếu này tốt, nên mua" → POS 0.99   (underthesea trả 'neutral' — SAI)
+#     "mã này sắp úp bô, tháo chạy đi" → NEG 0.99 (hiểu "úp bô")
+_phobert = None
+def get_phobert():
+    global _phobert
+    if _phobert is None:
+        from transformers import pipeline
+        _phobert = pipeline("text-classification", model="wonrax/phobert-base-vietnamese-sentiment")
+    return _phobert
+
+def sentiment_phobert(text: str) -> dict:
+    r = get_phobert()(text[:256])[0]                      # PhoBERT-base giới hạn 256 token
+    diem = {"POS": 1.0, "NEU": 0.0, "NEG": -1.0}[r["label"]] * r["score"]
+    return {"diem": diem, "nhan": {"POS": "mua", "NEU": "trung_lap", "NEG": "ban"}[r["label"]]}
+# DÙNG: scorer OFFLINE cho BATCH lớn (rẻ, nhanh, không tốn API). LƯU Ý: model review-domain,
+#   KHÔNG fine-tune riêng tài chính → ngữ cảnh phức tạp (châm biếm, đảo nghĩa, ngữ cảnh theo mã)
+#   vẫn để LLM-based. Thứ tự dùng: lexicon lọc thô → PhoBERT batch → LLM cho ca khó/nghi lái.
 ```
 
-**Recommendation by scenario**
-
-| Scenario | Recommended Method | Reason |
-|-----|---------|------|
-| Real-time Twitter / Reddit batch processing | VADER | Low latency, no GPU required |
-| Earnings-related text | FinBERT | Strong finance-term understanding |
-| Telegram research summaries | LLM-based | Better on long-form and nuanced meaning |
-| Multi-turn Discord discussion | FinBERT + LLM | Good balance of precision and cost |
+> **Khuyến nghị (3 tầng, cân chi phí/độ chính xác cho khối lượng forum VN lớn):**
+> **lexicon** lọc thô (rẻ nhất) → **PhoBERT** chấm batch offline (không tốn API) → **LLM-based** chỉ cho ca khó: |điểm| thấp/mâu thuẫn, châm biếm, hoặc **nghi hô lái** (cần hiểu ngữ cảnh + ý đồ).
 
 ---
 
-### 3.2 Discussion-Buzz Metrics
+## 5. PHÁT HIỆN ĐỘI LÁI / PHÍM HÀNG (trọng tâm VN)
+
+### 5.1 Vòng đời một chiến dịch làm giá (Wyckoff phiên bản penny VN)
+
+```
+GĐ1 Gom hàng (âm thầm)   : buzz THẤP, giá đi ngang vùng đáy, KL nhỏ tăng dần.
+GĐ2 Kéo (markup)         : giá tăng dần/tăng trần liên tiếp, buzz BẮT ĐẦU nóng, "sóng".
+GĐ3 Hô hàng (phân phối)  : buzz BÙNG NỔ đa kênh, hô 1 chiều "múc/về bờ/x2", target cao,
+                           chê người thận trọng → lùa lẻ vào để xả.
+GĐ4 Xả / úp bô (markdown): giá quay đầu/sàn liên tiếp, room VẪN hô để có người đỡ → lẻ kẹp đỉnh.
+```
+→ **Buzz cực đại thường rơi vào GĐ3–4, tức ĐỈNH phân phối, không phải điểm mua.** Đây là cái bẫy số 1 với NĐT lẻ VN.
+
+### 5.2 Tín hiệu định lượng nhận diện
 
 ```python
-import pandas as pd
-import numpy as np
+import numpy as np, pandas as pd
 
-def compute_buzz_metrics(df: pd.DataFrame, window: str = "1H") -> pd.DataFrame:
-    """Compute time-series discussion-buzz metrics.
+def phat_hien_doi_lai(
+    df_buzz: pd.DataFrame,      # cột: ngay, ma, msg_count, unique_authors
+    df_gia: pd.DataFrame,       # cột: ngay, ma, close, volume  (từ DataPro)
+    df_text: pd.DataFrame,      # cột: ma, noi_dung, tac_gia_tuoi_tk_ngay, huong_ho
+) -> dict:
+    """Chấm điểm nghi ngờ làm giá [0..100] + cờ. Càng cao càng nên NÉ."""
+    flags, score = [], 0.0
 
-    Args:
-        df: Message DataFrame containing timestamp / platform / ticker columns
-        window: Aggregation window, such as "1H" / "4H" / "1D"
+    # 1) Buzz đột biến trên nền thấp (z-score)
+    z = (df_buzz["msg_count"] - df_buzz["msg_count"].rolling(30, min_periods=5).mean()) \
+        / df_buzz["msg_count"].rolling(30, min_periods=5).std().replace(0, np.nan)
+    if z.iloc[-1] > 3:
+        score += 25; flags.append("Buzz đột biến >3σ")
 
-    Returns:
-        Time-series DataFrame with:
-        - msg_count: message volume
-        - unique_authors: count of distinct active users
-        - topic_freq: topic frequency as ticker volume / total message volume
-        - engagement_score: weighted interaction count
-        - buzz_zscore: message-volume Z-score for anomaly detection
-    """
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df = df.set_index("timestamp").sort_index()
+    # 2) Phân kỳ: buzz bùng nổ NHƯNG giá đã tăng mạnh trước đó (phân phối)
+    ret_20 = df_gia["close"].pct_change(20).iloc[-1]
+    if z.iloc[-1] > 2 and ret_20 > 0.30:
+        score += 25; flags.append(f"Buzz nóng sau khi giá đã +{ret_20:.0%}/20 phiên → nghi phân phối")
 
-    result = df.resample(window).agg(
-        msg_count=("text", "count"),
-        unique_authors=("author_id", "nunique"),
-        total_engagement=("engagement", "sum"),
+    # 3) Đồng loạt nhiều kênh + nội dung copy-paste (coordination)
+    trung_lap = df_text["noi_dung"].str.slice(0, 80).duplicated().mean()
+    if trung_lap > 0.3:
+        score += 20; flags.append(f"{trung_lap:.0%} nội dung copy-paste → có tổ chức")
+
+    # 4) Tỷ lệ tài khoản mới/bot cao
+    ty_le_moi = (df_text["tac_gia_tuoi_tk_ngay"] < 30).mean()
+    if ty_le_moi > 0.4:
+        score += 15; flags.append(f"{ty_le_moi:.0%} tài khoản <30 ngày tuổi")
+
+    # 5) Hô 1 chiều (chỉ mua, bịt rủi ro)
+    ty_le_mua = (df_text["huong_ho"] == "mua").mean()
+    if ty_le_mua > 0.85:
+        score += 15; flags.append(f"{ty_le_mua:.0%} hô MUA một chiều")
+
+    return {"diem_nghi_lai": min(score, 100), "co_dau_hieu_lai": score >= 50, "co": flags}
+```
+
+### 5.3 Checklist đỏ + cách dùng PHÒNG THỦ
+
+| Dấu hiệu | Ngưỡng cảnh báo |
+|---|---|
+| Buzz z-score | > 3σ trên penny/midcap thanh khoản thấp |
+| Giá đã chạy trước khi buzz nóng | +30%/20 phiên rồi mới "hô" |
+| Nội dung copy-paste nhiều kênh | > 30% trùng |
+| Tài khoản mới/bot | > 40% < 30 ngày |
+| Hô 1 chiều mua | > 85% |
+| Mã KHÔNG có cơ bản đỡ / tin đồn không kiểm chứng | có |
+
+**Dùng phòng thủ (đây là mục tiêu chính, không phải để đu theo):**
+- `diem_nghi_lai ≥ 50` → **NÉ**, không mua bằng tiền thật dù buzz hấp dẫn.
+- Đang cầm sẵn → buzz cực đại + giá xa nền = vùng **canh thoát**, không gom thêm.
+- Tuyệt đối không mua ở GĐ3–4. "Hô càng to, rủi ro úp bô càng lớn."
+- Chéo với [[regulatory-knowledge]]: cảnh báo của UBCK/HOSE về giao dịch bất thường, và [[sentiment-analysis]] (margin căng khuếch đại giải chấp).
+
+---
+
+## 6. Buzz-factor định lượng theo mã
+
+### 6.1 Buzz metrics (giữ phương pháp gốc, feed dữ liệu VN)
+
+```python
+def buzz_metrics(df: pd.DataFrame, window: str = "1D") -> pd.DataFrame:
+    """df: cột thoi_gian, ma, noi_dung, tac_gia_id, tuong_tac_tong."""
+    df["thoi_gian"] = pd.to_datetime(df["thoi_gian"])
+    g = df.set_index("thoi_gian").sort_index().resample(window).agg(
+        msg_count=("noi_dung", "count"),
+        unique_authors=("tac_gia_id", "nunique"),
+        engagement=("tuong_tac_tong", "sum"),
     )
-
-    # Topic frequency, i.e. relative buzz.
-    total = df.resample(window)["text"].count()
-    result["topic_freq"] = result["msg_count"] / total.replace(0, np.nan)
-
-    # Z-score anomaly detection using a 30-window rolling baseline.
-    roll_mean = result["msg_count"].rolling(30, min_periods=5).mean()
-    roll_std = result["msg_count"].rolling(30, min_periods=5).std()
-    result["buzz_zscore"] = (result["msg_count"] - roll_mean) / roll_std.replace(0, np.nan)
-
-    return result
+    rm = g["msg_count"].rolling(30, min_periods=5).mean()
+    rs = g["msg_count"].rolling(30, min_periods=5).std().replace(0, np.nan)
+    g["buzz_zscore"] = (g["msg_count"] - rm) / rs
+    return g
+# unique_authors quan trọng ở VN: lọc bot/spam thổi msg_count giả.
 ```
 
-**Key buzz metrics**
-- `msg_count`: raw message count, measures absolute attention
-- `unique_authors`: distinct users, reduces bot / spam distortion
-- `buzz_zscore > 2.0`: abnormal buzz, triggers alerts
-- `topic_freq`: relative buzz, controls for broad market-wide sentiment amplification
-
----
-
-### 3.3 Sentiment Extremes (Fear / Greed Indicator)
+### 6.2 Weighted sentiment phân tầng nguồn (VN-calibrated)
 
 ```python
-def compute_fear_greed_index(
-    sentiment_series: pd.Series,
-    buzz_series: pd.Series,
-    lookback: int = 30,
-) -> pd.Series:
-    """Construct a CNN-style fear-and-greed index.
-
-    Args:
-        sentiment_series: Daily average sentiment in [-1, 1]
-        buzz_series: Daily message-volume series
-        lookback: Historical window in days used for percentile ranking
-
-    Returns:
-        Fear-and-greed index in [0, 100]
-        0-20: extreme fear
-        20-40: fear
-        40-60: neutral
-        60-80: greed
-        80-100: extreme greed
-
-    Note:
-        Extreme greed (>80) is often a short-term top signal.
-        Extreme fear (<20) is often a short-term bottom signal.
-    """
-    # Normalize sentiment by percentile rank.
-    sentiment_rank = sentiment_series.rolling(lookback).rank(pct=True) * 100
-
-    # Normalize buzz by percentile rank.
-    buzz_rank = buzz_series.rolling(lookback).rank(pct=True) * 100
-
-    # Weighted combination: 60% sentiment + 40% buzz.
-    fear_greed = 0.6 * sentiment_rank + 0.4 * buzz_rank
-
-    return fear_greed.clip(0, 100)
+TRONG_SO_NGUON = {       # uy tín cao → trọng số cao; room hô/nhóm kín → thấp
+    "moi_gioi": 3.0, "kol": 2.0, "thanh_vien": 1.0, "moi": 0.2, "bot_nghi": 0.0,
+}
+TRONG_SO_KENH = {        # đóng góp IC lịch sử + chất lượng thông tin (hiệu chỉnh dần)
+    "cafef": 0.20, "vneconomy": 0.15, "tnck": 0.15, "24hmoney": 0.10,
+    "fireant": 0.15, "vietstock": 0.10, "f247": 0.08, "telegram": 0.05, "bovagau": 0.02,
+}
 ```
 
-**Extreme-sentiment thresholds**
-
-| Range | State | Historical Meaning | Trading Interpretation |
-|---------|-----|---------|---------|
-| 0-20 | Extreme fear | Panic selling, liquidity stress | Contrarian long candidate |
-| 20-40 | Fear | Pessimism spreading | Wait and watch for stabilization |
-| 40-60 | Neutral | Balanced sentiment | Let fundamentals lead |
-| 60-80 | Greed | Optimism dominant | Candidate for trimming risk |
-| 80-100 | Extreme greed | FOMO-driven retail influx | Contrarian short candidate |
-
----
-
-### 3.4 Retail vs Institutional Sentiment
+### 6.3 Kiểm định IC / ICIR (phương pháp phổ quát — giữ)
 
 ```python
-def classify_author_type(author: dict) -> str:
-    """Classify an account as retail / institutional / KOL using profile traits.
-
-    Args:
-        author: Dict containing followers_count / verified / account_age_days /
-                tweet_count / following_count
-
-    Returns:
-        'institutional': institutional account
-        'kol': high-impact KOL
-        'retail': retail user
-        'bot_risk': suspected bot
-
-    Note:
-        Institutional sentiment should carry more weight than KOL,
-        and KOL more than retail. Retail extremes often have contrarian value.
-    """
-    followers = author.get("followers_count", 0)
-    verified = author.get("verified", False)
-    age_days = author.get("account_age_days", 0)
-    tweet_count = author.get("tweet_count", 0)
-
-    # Bot-risk detection
-    if age_days < 30 and tweet_count > 1000:
-        return "bot_risk"
-    if tweet_count > 0 and (tweet_count / max(age_days, 1)) > 50:
-        return "bot_risk"
-
-    # Institutional characteristics: verified plus large audience
-    if verified and followers > 100_000:
-        return "institutional"
-
-    # KOL: large following but not necessarily verified
-    if followers > 10_000:
-        return "kol"
-
-    return "retail"
-
-
-def weighted_sentiment(
-    df: pd.DataFrame,
-    weights: dict | None = None,
-) -> pd.Series:
-    """Compute weighted sentiment by author category.
-
-    Args:
-        df: DataFrame containing sentiment_score / author_type / timestamp
-        weights: Optional category weights, defaults to institutional:3, kol:2, retail:1
-
-    Returns:
-        Daily weighted sentiment time series
-    """
-    if weights is None:
-        weights = {"institutional": 3.0, "kol": 2.0, "retail": 1.0, "bot_risk": 0.0}
-
-    df["weight"] = df["author_type"].map(weights).fillna(1.0)
-    df["weighted_sentiment"] = df["sentiment_score"] * df["weight"]
-
-    return (
-        df.groupby(df["timestamp"].dt.date)
-        .apply(lambda g: g["weighted_sentiment"].sum() / g["weight"].sum())
-        .rename("weighted_sentiment")
-    )
-```
-
----
-
-## 4. Using Social Signals as Factors
-
-### 4.1 Social-Sentiment Factor Construction and IC / ICIR Testing
-
-```python
-import pandas as pd
-import numpy as np
 from scipy.stats import spearmanr
-
-def compute_ic(
-    factor_series: pd.Series,
-    forward_return: pd.Series,
-    method: str = "spearman",
-) -> float:
-    """Compute one-period factor IC (information coefficient).
-
-    Args:
-        factor_series: Cross-sectional factor values, e.g. same-day sentiment by ticker
-        forward_return: Matching forward N-day returns
-        method: "spearman" for rank correlation or "pearson"
-
-    Returns:
-        IC in [-1, 1]. |IC| > 0.05 is useful and > 0.1 is strong.
-    """
-    aligned = pd.concat([factor_series, forward_return], axis=1).dropna()
-    if len(aligned) < 5:
-        return np.nan
-
-    if method == "spearman":
-        ic, _ = spearmanr(aligned.iloc[:, 0], aligned.iloc[:, 1])
-    else:
-        ic = aligned.iloc[:, 0].corr(aligned.iloc[:, 1])
-    return ic
-
-
-def compute_icir(ic_series: pd.Series) -> float:
-    """Compute ICIR, the information ratio of IC.
-
-    Args:
-        ic_series: Time series of IC values
-
-    Returns:
-        ICIR = mean(IC) / std(IC), where > 0.5 is useful and > 1.0 is strong
-    """
+def ic(factor: pd.Series, fwd_ret: pd.Series) -> float:
+    a = pd.concat([factor, fwd_ret], axis=1).dropna()
+    return spearmanr(a.iloc[:, 0], a.iloc[:, 1])[0] if len(a) >= 5 else np.nan
+def icir(ic_series: pd.Series) -> float:
     return ic_series.mean() / ic_series.std() if ic_series.std() > 0 else np.nan
-
-
-# Example factor-construction workflow
-def build_sentiment_factor(
-    raw_data: pd.DataFrame,
-    forward_days: int = 5,
-) -> dict:
-    """Build a complete social-sentiment factor and test its effectiveness.
-
-    Args:
-        raw_data: Raw data containing date / ticker / sentiment_score / author_type
-        forward_days: Forward return horizon in days
-
-    Returns:
-        {'factor': DataFrame, 'ic_series': Series, 'icir': float}
-    """
-    # 1. Cross-sectional standardization
-    factor = (
-        raw_data.groupby("date")["sentiment_score"]
-        .transform(lambda x: (x - x.mean()) / (x.std() + 1e-8))
-    )
-
-    # 2. Compute period-by-period IC
-    ic_list = []
-    dates = raw_data["date"].unique()
-    for date in sorted(dates)[:-forward_days]:
-        fwd_date = dates[dates > date][:forward_days][-1]
-        f = raw_data[raw_data["date"] == date].set_index("ticker")["sentiment_norm"]
-        r = raw_data[raw_data["date"] == fwd_date].set_index("ticker")["return"]
-        ic_list.append((date, compute_ic(f, r)))
-
-    ic_series = pd.Series(dict(ic_list))
-    return {
-        "factor": factor,
-        "ic_series": ic_series,
-        "ic_mean": ic_series.mean(),
-        "icir": compute_icir(ic_series),
-    }
 ```
 
-**IC / ICIR grading**
+| Chỉ tiêu | Yếu | Dùng được | Mạnh |
+|---|---|---|---|
+| \|IC\| | <0,03 | 0,03–0,08 | >0,08 |
+| ICIR | <0,3 | 0,3–0,8 | >0,8 |
 
-| Metric | Weak | Useful | Strong |
-|-----|----|----|---|
-| \|IC\| | < 0.03 | 0.03-0.08 | > 0.08 |
-| ICIR | < 0.3 | 0.3-0.8 | > 0.8 |
-| IC positive-rate | < 50% | 50-60% | > 60% |
+> **Cảnh báo VN:** IC sentiment MXH thường thấp (~0,03–0,06) và **suy giảm nhanh** do nhiễu đội lái. Dùng làm **factor bổ trợ**, không phải factor chính. Re-test IC định kỳ; orthogonalize với momentum/thanh khoản (xem [[factor-research]], [[multi-factor]]) để tránh đếm trùng — buzz tương quan cao với momentum giá ở penny VN.
 
 ---
 
-### 4.2 Orthogonalization Against Traditional Factors
-
-```python
-def orthogonalize_sentiment(
-    sentiment_factor: pd.Series,
-    traditional_factors: pd.DataFrame,
-) -> pd.Series:
-    """Orthogonalize the sentiment factor against traditional factors.
-
-    Args:
-        sentiment_factor: Raw sentiment factor after cross-sectional normalization
-        traditional_factors: Matrix of traditional factors such as size / momentum / valuation
-
-    Returns:
-        Pure sentiment factor after removing shared components, i.e. the residual
-
-    Note:
-        Orthogonalization often lowers IC, but improves factor independence
-        and reduces double-counting in multi-factor portfolios.
-    """
-    from sklearn.linear_model import LinearRegression
-    import numpy as np
-
-    # Regress on the traditional factors and keep the residual.
-    X = traditional_factors.fillna(0).values
-    y = sentiment_factor.fillna(0).values
-
-    reg = LinearRegression(fit_intercept=True).fit(X, y)
-    residual = y - reg.predict(X)
-
-    return pd.Series(residual, index=sentiment_factor.index)
-```
-
----
-
-### 4.3 Cross-Platform Sentiment Aggregation Weights
-
-```python
-PLATFORM_WEIGHTS = {
-    # Weight basis: historical IC contribution + information quality
-    "twitter_institutional": 0.35,
-    "twitter_kol": 0.20,
-    "telegram_signal": 0.15,
-    "telegram_research": 0.15,
-    "discord_community": 0.10,
-    "reddit_wsb": 0.05,
-}
-
-def aggregate_platform_sentiment(platform_scores: dict[str, float]) -> float:
-    """Aggregate sentiment scores from multiple platforms using weights.
-
-    Args:
-        platform_scores: Dict of {platform_key: sentiment_score} with scores in [-1, 1]
-
-    Returns:
-        Aggregated sentiment score in [-1, 1]
-    """
-    total_weight = 0.0
-    weighted_sum = 0.0
-
-    for platform, score in platform_scores.items():
-        weight = PLATFORM_WEIGHTS.get(platform, 0.05)
-        weighted_sum += score * weight
-        total_weight += weight
-
-    return weighted_sum / total_weight if total_weight > 0 else 0.0
-```
-
----
-
-### 4.4 Sentiment-Reversal Signals
-
-```python
-def detect_sentiment_reversal(
-    fg_index: pd.Series,
-    price_series: pd.Series,
-    extreme_threshold: float = 80.0,
-    fear_threshold: float = 20.0,
-    confirmation_days: int = 3,
-) -> pd.DataFrame:
-    """Detect reversal signals from sentiment extremes.
-
-    Args:
-        fg_index: Fear-and-greed index in [0, 100]
-        price_series: Corresponding price series
-        extreme_threshold: Extreme-greed threshold, default 80
-        fear_threshold: Extreme-fear threshold, default 20
-        confirmation_days: Number of days required for confirmation
-
-    Returns:
-        DataFrame containing signal / direction / strength
-        signal = 1: short signal due to sustained extreme greed
-        signal = -1: long signal due to sustained extreme fear
-        signal = 0: no signal
-
-    Note:
-        Sentiment reversals usually lag the exact top or bottom,
-        but can still lead by roughly 3-10 trading days.
-        Use together with price momentum or volume anomalies.
-    """
-    signals = pd.DataFrame(index=fg_index.index)
-    signals["fg"] = fg_index
-    signals["signal"] = 0
-    signals["direction"] = ""
-    signals["strength"] = 0.0
-
-    # Sustained extreme greed → short signal
-    greed_mask = (fg_index > extreme_threshold).rolling(confirmation_days).sum() == confirmation_days
-    signals.loc[greed_mask, "signal"] = 1
-    signals.loc[greed_mask, "direction"] = "short"
-    signals.loc[greed_mask, "strength"] = (fg_index - extreme_threshold).clip(0) / 20
-
-    # Sustained extreme fear → long signal
-    fear_mask = (fg_index < fear_threshold).rolling(confirmation_days).sum() == confirmation_days
-    signals.loc[fear_mask, "signal"] = -1
-    signals.loc[fear_mask, "direction"] = "long"
-    signals.loc[fear_mask, "strength"] = (fear_threshold - fg_index).clip(0) / 20
-
-    return signals
-```
-
----
-
-## 5. Platform-Specific Analysis
-
-### 5.1 Twitter: KOL Influence Tracking + Earnings Sentiment
-
-**KOL influence quantification**
-
-```python
-def compute_kol_influence_score(author: dict, recent_tweets: list[dict]) -> float:
-    """Quantify the market influence of a Twitter KOL.
-
-    Args:
-        author: Account metadata including follower count, verification, and age
-        recent_tweets: Most recent 20 tweets including engagement metrics
-
-    Returns:
-        Influence score in [0, 100]
-
-    Note:
-        KOLs with scores above 70 tend to lift 1-hour realized volatility
-        of the related asset by roughly 15% after posting.
-    """
-    # Follower-quality score, using log follower count
-    follower_score = min(np.log10(max(author["followers_count"], 1)) / 7, 1.0) * 40
-
-    # Engagement rate = recent average engagement / follower count
-    avg_engagement = np.mean([
-        t["metrics"]["like_count"] + t["metrics"]["retweet_count"] * 2
-        for t in recent_tweets
-    ])
-    engagement_rate = avg_engagement / max(author["followers_count"], 1)
-    engagement_score = min(engagement_rate * 1000, 1.0) * 30
-
-    # Account-age credibility score
-    age_score = min(author["account_age_days"] / 1825, 1.0) * 20  # full score at 5 years
-
-    # Verification bonus
-    verified_bonus = 10 if author["verified"] else 0
-
-    return follower_score + engagement_score + age_score + verified_bonus
-```
-
-**Pre/post-earnings sentiment shift**
-
-```python
-def analyze_earnings_sentiment_shift(
-    ticker: str,
-    earnings_date: str,
-    sentiment_df: pd.DataFrame,
-    window_days: int = 5,
-) -> dict:
-    """Analyze Twitter sentiment changes before and after earnings.
-
-    Args:
-        ticker: Stock ticker
-        earnings_date: Earnings date in YYYY-MM-DD
-        sentiment_df: Daily time series containing date / sentiment_score
-        window_days: Observation window on each side of the earnings date
-
-    Returns:
-        {
-          'pre_sentiment': float,
-          'post_sentiment': float,
-          'shift': float,
-          'signal': str  # 'beat_expected' / 'miss_expected' / 'neutral'
-        }
-    """
-    ed = pd.Timestamp(earnings_date)
-    pre = sentiment_df[
-        (sentiment_df.index >= ed - pd.Timedelta(days=window_days)) &
-        (sentiment_df.index < ed)
-    ]["sentiment_score"].mean()
-    post = sentiment_df[
-        (sentiment_df.index > ed) &
-        (sentiment_df.index <= ed + pd.Timedelta(days=window_days))
-    ]["sentiment_score"].mean()
-
-    shift = post - pre
-    signal = "neutral"
-    if shift > 0.2:
-        signal = "beat_expected"
-    elif shift < -0.2:
-        signal = "miss_expected"
-
-    return {"pre_sentiment": pre, "post_sentiment": post, "shift": shift, "signal": signal}
-```
-
----
-
-### 5.2 Telegram: Crypto Project Alpha + Airdrop / IDO Buzz
-
-**Alpha-signal quality filter**
-
-Signal quality varies widely across crypto Telegram channels. Filter with rules like the following:
-
-```python
-ALPHA_QUALITY_RULES = {
-    # Low-quality signals to filter out directly
-    "spam_patterns": [
-        r"100x guaranteed",
-        r"private sale",
-        r"limited spots",
-        r"DM me",
-        r"pump incoming",
-    ],
-    # High-quality signals that deserve extra weight
-    "quality_signals": [
-        r"on-chain data",
-        r"tokenomics analysis",
-        r"team background",
-        r"audit report",
-        r"TVL growing",
-    ],
-}
-
-def score_telegram_alpha(message: str) -> dict:
-    """Score the quality of alpha in Telegram crypto-channel messages.
-
-    Args:
-        message: Raw channel message
-
-    Returns:
-        {'quality_score': int[0-10], 'is_spam': bool, 'alpha_type': str}
-    """
-    import re
-    text_lower = message.lower()
-
-    # Spam detection
-    for pattern in ALPHA_QUALITY_RULES["spam_patterns"]:
-        if re.search(pattern, text_lower):
-            return {"quality_score": 0, "is_spam": True, "alpha_type": "spam"}
-
-    # Quality score
-    score = 5
-    for pattern in ALPHA_QUALITY_RULES["quality_signals"]:
-        if re.search(pattern, text_lower):
-            score += 1
-
-    alpha_type = "research" if score >= 7 else "signal" if score >= 5 else "noise"
-    return {"quality_score": min(score, 10), "is_spam": False, "alpha_type": alpha_type}
-```
-
-**Airdrop / IDO buzz tracking**
-
-- Monitor keyword frequency for tags such as `#airdrop`, `#IDO`, and `#whitelist`
-- Buzz peaks where topic frequency exceeds 3× baseline often lead token-price moves by 2-5 days
-- Important caveat: high-buzz IDOs often face heavy Day-1 sell pressure from participants taking quick profits
-
----
-
-### 5.3 Discord: Community Activity → Project Health
-
-**Project health index**
-
-```python
-def compute_project_health_index(
-    discord_stats: dict,
-    lookback_days: int = 30,
-) -> dict:
-    """Build a project-community health index from Discord statistics.
-
-    Args:
-        discord_stats: {
-            'daily_messages': list[int],
-            'daily_active_users': list[int],
-            'new_members': list[int],
-            'dev_commits': list[int],
-        }
-        lookback_days: Historical window used as the baseline
-
-    Returns:
-        {
-            'health_score': float[0-100],
-            'trend': 'growing'|'stable'|'declining',
-            'flags': list[str]
-        }
-    """
-    msgs = np.array(discord_stats["daily_messages"][-lookback_days:])
-    users = np.array(discord_stats["daily_active_users"][-lookback_days:])
-    members = np.array(discord_stats["new_members"][-lookback_days:])
-
-    # Component scores
-    msg_trend = np.polyfit(range(len(msgs)), msgs, 1)[0]
-    user_trend = np.polyfit(range(len(users)), users, 1)[0]
-
-    msg_score = min(50 + msg_trend / max(msgs.mean(), 1) * 500, 100)
-    user_score = min(50 + user_trend / max(users.mean(), 1) * 500, 100)
-    retention = (users.mean() / max(members[-7:].sum(), 1)) * 20
-
-    health_score = 0.4 * msg_score + 0.4 * user_score + 0.2 * min(retention, 100)
-
-    # Warning flags
-    flags = []
-    if msgs[-7:].mean() < msgs[-30:].mean() * 0.5:
-        flags.append("Message volume has collapsed: 7-day average is below 50% of the 30-day average")
-    if users[-3:].mean() < users[-30:].mean() * 0.3:
-        flags.append("Active users have plunged: possible project-abandonment warning")
-
-    trend = "growing" if msg_trend > 0 and user_trend > 0 else \
-            "declining" if msg_trend < 0 and user_trend < 0 else "stable"
-
-    return {"health_score": health_score, "trend": trend, "flags": flags}
-```
-
-**Whale-discussion monitoring**
-
-- Monitor channels such as `#whale-watch` and `#large-transactions`
-- Keywords to watch: `whale alert`, `large transfer`, `moved X BTC`
-- Cross-check with Whale Alert Telegram bot data
-
----
-
-### 5.4 Reddit: WSB Meme-Stock Buzz + Options-Flow Abnormalities
-
-**Meme-stock momentum detection**
-
-```python
-def detect_meme_stock_momentum(
-    wsb_posts: list[dict],
-    top_n: int = 10,
-) -> pd.DataFrame:
-    """Detect meme-stock momentum on WSB and identify short-squeeze candidates.
-
-    Args:
-        wsb_posts: List of WSB posts collected through PRAW
-        top_n: Number of top hot tickers to return
-
-    Returns:
-        DataFrame containing ticker / mention_count / avg_score / option_buzz
-
-    Note:
-        mention_count > 200 in one day plus sentiment > 0.5 is one early short-squeeze warning condition.
-        A full squeeze setup still requires short interest above 20%.
-    """
-    import re
-    from collections import defaultdict
-
-    ticker_stats = defaultdict(lambda: {"count": 0, "scores": [], "option_buzz": 0})
-
-    # Common U.S. ticker regex: 2-5 uppercase letters
-    ticker_pattern = re.compile(r"\b([A-Z]{2,5})\b")
-    option_keywords = ["calls", "puts", "options", "IV", "yolo", "FDs"]
-
-    for post in wsb_posts:
-        text = f"{post['title']} {post['selftext']}"
-        tickers_found = ticker_pattern.findall(text)
-
-        # Filter common non-ticker words
-        stop_words = {"THE", "FOR", "AND", "BUT", "NOT", "ARE", "YOU", "ALL", "CAN"}
-        tickers_found = [t for t in tickers_found if t not in stop_words]
-
-        has_options = any(kw.lower() in text.lower() for kw in option_keywords)
-
-        for ticker in set(tickers_found):
-            ticker_stats[ticker]["count"] += 1
-            ticker_stats[ticker]["scores"].append(post["score"])
-            if has_options:
-                ticker_stats[ticker]["option_buzz"] += 1
-
-    rows = []
-    for ticker, stats in ticker_stats.items():
-        rows.append({
-            "ticker": ticker,
-            "mention_count": stats["count"],
-            "avg_score": np.mean(stats["scores"]),
-            "option_buzz": stats["option_buzz"],
-        })
-
-    df = pd.DataFrame(rows).sort_values("mention_count", ascending=False)
-    return df.head(top_n)
-```
-
-**WSB short-squeeze checklist**
-
-| Condition | Data Source | Threshold |
-|-----|---------|-----|
-| WSB mentions | Reddit PRAW | > 200 per day |
-| WSB options-discussion heat | Reddit PRAW | option_buzz > 30% |
-| Short interest (SI) | Finviz / IEX | > 20% |
-| Borrow tightness | Securities-lending data | CTB > 5% |
-| Unusual options open interest | Option-chain data | OI day-over-day change > 50% |
-
----
-
-## 6. Data-Pipeline Integration
-
-### 6.1 Unified Data Collection Interface
-
-```python
-# Reference implementation: agent/src/tools/social_media_tool.py
-
-from dataclasses import dataclass
-from enum import Enum
-
-class Platform(str, Enum):
-    TWITTER = "twitter"
-    TELEGRAM = "telegram"
-    DISCORD = "discord"
-    REDDIT = "reddit"
-
-@dataclass
-class SocialMediaQuery:
-    """Social-media query parameters."""
-    platform: Platform
-    query: str
-    limit: int = 100
-    start_time: str | None = None
-    include_sentiment: bool = True
-
-def collect_social_signals(query: SocialMediaQuery) -> dict:
-    """Unified entrypoint for collecting social-media data.
-
-    Args:
-        query: Query parameters including platform, keyword, time window, and limit
-
-    Returns:
-        Standardized JSON data containing platform / items / metadata
-
-    Raises:
-        ValueError: Unsupported platform or invalid parameters
-        RuntimeError: API call failed, with retry guidance attached
-    """
-    collectors = {
-        Platform.TWITTER: _collect_twitter,
-        Platform.TELEGRAM: _collect_telegram,
-        Platform.DISCORD: _collect_discord,
-        Platform.REDDIT: _collect_reddit,
-    }
-    collector = collectors.get(query.platform)
-    if not collector:
-        raise ValueError(f"Unsupported platform: {query.platform}")
-
-    raw_data = collector(query)
-
-    if query.include_sentiment:
-        raw_data = _enrich_with_sentiment(raw_data)
-
-    return raw_data
-```
-
-### 6.2 Environment Variables
+## 7. Tích hợp pipeline
 
 ```bash
-# Add the following to .env
-TWITTER_BEARER_TOKEN=xxx
-TELEGRAM_API_ID=xxx
-TELEGRAM_API_HASH=xxx
-DISCORD_BOT_TOKEN=xxx
-REDDIT_CLIENT_ID=xxx
-REDDIT_CLIENT_SECRET=xxx
-
-# Sentiment model selection: vader / finbert / llm
-SENTIMENT_MODEL=finbert
+# .env (chỉ khi dùng API; mặc định ưu tiên crawl4ai không cần key)
+SENTIMENT_MODEL=llm          # llm | phobert | lexicon  (cả 3 ĐÃ sẵn sàng; underthesea: tokenize)
+TELEGRAM_API_ID=             # chỉ nếu cần telethon (ĐÃ cài) cho lịch sử sâu; lấy ở my.telegram.org
+TELEGRAM_API_HASH=
 ```
 
-### 6.3 Factor Storage Schema
-
 ```sql
--- Social-sentiment factor table (DuckDB / SQLite)
-CREATE TABLE social_sentiment_factors (
-    date        DATE NOT NULL,
-    ticker      VARCHAR(20) NOT NULL,
-    platform    VARCHAR(20) NOT NULL,
-    sentiment   FLOAT,           -- [-1, 1]
-    buzz_zscore FLOAT,           -- Buzz Z-score
-    fear_greed  FLOAT,           -- [0, 100]
-    msg_count   INTEGER,
-    author_type VARCHAR(20),     -- institutional / kol / retail
-    PRIMARY KEY (date, ticker, platform)
+-- Bảng factor sentiment MXH (DuckDB/SQLite)
+CREATE TABLE social_factor_vn (
+    ngay         DATE NOT NULL,
+    ma           VARCHAR(10) NOT NULL,
+    nguon        VARCHAR(20) NOT NULL,
+    sentiment    FLOAT,         -- [-1,1]
+    buzz_zscore  FLOAT,
+    msg_count    INTEGER,
+    diem_nghi_lai FLOAT,        -- [0,100] điểm nghi đội lái
+    uy_tin_tg    VARCHAR(20),
+    PRIMARY KEY (ngay, ma, nguon)
 );
 ```
 
----
-
-## 7. Caveats and Limitations
-
-1. **Limited lead value**: Social sentiment usually has IC around 0.03-0.06 on broad indices. It works best as a supporting factor, not a primary one.
-2. **Manipulation risk**: Telegram and Discord signal channels in crypto contain many paid signal groups and pump rings. Source-quality scoring is mandatory.
-3. **Language bias**: VADER and FinBERT are mainly built for English. Chinese social platforms such as Xueqiu or Guba need separate model adaptation.
-4. **API cost control**: Twitter API v2 basic tier allows 500,000 tweets/month, and upgrading from $100 to $5000/month changes economics significantly. Budget collection volume explicitly.
-5. **Latency vs quality trade-off**: Real-time collection is noisier, while daily aggregation gives cleaner signals. Choose based on the strategy horizon.
-6. **Factor decay**: Social-sentiment factor effectiveness decays as more market participants exploit the same signal. Re-test IC regularly.
+Liên kết: [[sentiment-analysis]] (tâm lý toàn TT), [[regulatory-knowledge]] (giải chấp/cảnh báo UBCK), [[etf-analysis]] (dòng ETF), [[factor-research]]/[[multi-factor]] (kiểm định factor).
 
 ---
 
-*Version: v1.0 | Created: 2026-03-29 | Scope: quantitative research / factor mining (not for direct live-trading signals)*
+## 8. Lưu ý & giới hạn (VN)
+
+1. **MXH là factor BỔ TRỢ**, không phải tín hiệu live-trade. IC thấp, decay nhanh.
+2. **Đội lái là rủi ro trung tâm**: cùng một buzz có thể là tiền thật HOẶC bẫy úp bô → luôn chạy mục 5 trước khi diễn giải bullish.
+3. **Điểm mù dữ liệu**: FB/Zalo group kín không cào hợp lệ được → nêu rõ, không lấp bằng suy đoán.
+4. **Buzz cực đại ≠ điểm mua** — thường là đỉnh phân phối ở penny/midcap.
+5. **crawl4ai (forum/báo) + /last30days (KOL video)** bổ sung nhau; chọn đúng việc (mục 3).
+6. **Chỉ nguồn công khai, hash danh tính, tôn trọng ToS/robots**; xóa raw >30 ngày.
+7. **Lóng/teencode** đổi nhanh → cập nhật `LEXICON_CK_VN` định kỳ; ưu tiên LLM-based cho ngữ cảnh phức tạp.
+
+---
+
+*Phiên bản: v2.0-VN | Cập nhật: 2026-06-19 | Phạm vi: nghiên cứu định lượng / phát hiện làm giá (KHÔNG dùng làm tín hiệu giao dịch trực tiếp). Kế thừa khung gốc himself65/finance-skills, Việt hóa toàn diện cho TTCK VN.*
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
