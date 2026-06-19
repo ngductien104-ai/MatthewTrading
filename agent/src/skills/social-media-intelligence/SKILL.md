@@ -171,7 +171,8 @@ Tuân thủ:
 |---|---|---|
 | Phủ **forum VN** (F247/Fireant/Vietstock/Bovagau) | ✅ Cào thẳng được | ❌ Không chạm tới |
 | Phủ **báo VN** (CafeF/24hMoney/VnEconomy/TNCK) | ✅ | ❌ (chỉ "web" chung, không sâu) |
-| Phủ **KOL YouTube/TikTok** | ⚠️ Khó (anti-bot, JS nặng) | ✅ Có engagement video, gọn |
+| Phủ **KOL YouTube** | ⚠️ Khó (anti-bot, JS nặng) | ✅ MIỄN PHÍ qua yt-dlp + query tiếng Việt (đã kiểm chứng) |
+| Phủ **KOL TikTok/Instagram** | ⚠️ Khó | 💲 Cần `SCRAPECREATORS_API_KEY` (trả phí) |
 | Phủ **X/Reddit/HN/GitHub** | ✅ nhưng VN gần như rỗng | ✅ thế mạnh — nhưng **ít data về CP VN** |
 | **FB/Zalo group kín** | ❌ | ❌ (cả hai mù) |
 | Recency 30 ngày, đa nền sẵn | ⚠️ tự dựng | ✅ sẵn, nhanh |
@@ -180,9 +181,17 @@ Tuân thủ:
 
 **Kết luận (cho TTCK VN):**
 1. **crawl4ai = công cụ CHÍNH** cho lõi tín hiệu VN: forum + báo (nơi chứa buzz lẻ và dấu hiệu đội lái). Đây là alpha venue mà last30days **không với tới**.
-2. **/last30days = bổ trợ** cho **lớp KOL video (YouTube/TikTok)** và **cross-check nhanh** độ nóng đa nền — chỗ crawl4ai yếu vì anti-bot.
+2. **/last30days = bổ trợ** cho **lớp KOL video (YouTube)** và **cross-check nhanh** độ nóng đa nền — chỗ crawl4ai yếu vì anti-bot.
 3. **Cả hai đều mù FB/Zalo kín** → mục 2.5 áp dụng.
 4. Quy trình khuyến nghị: **crawl4ai dựng dữ liệu forum/báo theo mã → /last30days quét nhanh lớp video + tâm lý cross-platform → hợp nhất** ở mục 6. Không thay thế nhau, bổ sung nhau.
+
+**Cấu hình /last30days cho equity VN (đã kiểm chứng 19/06/2026):**
+- ⚠️ Mặc định /last30days **trả nội dung Mỹ, 0 item CP VN** — KHÔNG phải do tool dở mà do **(a) thiếu `yt-dlp` → YouTube=0** và **(b) query tiếng Anh bị "entity-miss demotion"**.
+- ✅ **YouTube = MIỄN PHÍ**: chỉ cần `pip install yt-dlp` (đã cài, trên PATH). last30days tự bật YouTube khi thấy `yt-dlp`. **Bắt buộc query TIẾNG VIỆT** + tên KOL/mã VN → ra KOL chứng khoán VN thật kèm view (test "cổ phiếu HPG Hòa Phát" → 12 video: Minh Trọng Đầu Tư Giá trị, MỸ KỲ TÀI CHÍNH, Chánh Kiến Đầu Tư... 200–16.700 views).
+- 💲 **TikTok/Instagram/Threads = cần `SCRAPECREATORS_API_KEY`** (API trả phí, scrapecreators.com) → quyết định chi phí. Không có key thì TikTok=0.
+- **X/Twitter** cần cookie `AUTH_TOKEN/CT0` (hoặc `XAI_API_KEY`) — VN gần như rỗng, bỏ qua.
+- Khi gọi last30days cho mã VN: dùng query tiếng Việt ("nhận định cổ phiếu <MÃ>", "định giá <MÃ>"), resolve kênh YouTube KOL VN, ưu tiên `--plan` (mô hình tự dựng query plan).
+- yt-dlp trực tiếp (không cần cả skill): `yt-dlp "ytsearch15:nhận định cổ phiếu <MÃ>" --flat-playlist --dump-json` → title/kênh/view.
 
 ---
 

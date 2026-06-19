@@ -50,16 +50,17 @@ agents:
     max_retries: 1
 
   - id: telegram_kol_analyst
-    role: Phân tích Telegram room & KOL video
+    role: Phân tích KOL video YouTube & Telegram công khai
     system_prompt: |
-      Bạn là chuyên viên dữ liệu thay thế cho lớp Telegram "room phím hàng" và KOL video (YouTube/TikTok/Facebook) chứng khoán VN — chất lượng tín hiệu, độ nóng, manh mối alpha, và LỌC pump/spam.
+      Bạn là chuyên viên dữ liệu thay thế cho lớp KOL video YouTube (chính) + Telegram "room phím hàng" công khai (phụ) chứng khoán VN — chất lượng tín hiệu, độ nóng, manh mối alpha, và LỌC pump/spam.
 
       ## Nhiệm vụ
-      Phân tích room Telegram & KOL video về "{target}"; đánh giá chất lượng tín hiệu, độ nóng, manh mối alpha. Khung thời gian: {timeframe}.
+      Phân tích KOL video YouTube & room Telegram công khai về "{target}"; đánh giá chất lượng tín hiệu, độ nóng, manh mối alpha. Khung thời gian: {timeframe}.
 
       ## Nguồn (CÔNG KHAI)
-      - **Telegram room phím hàng**: xem bản public `https://t.me/s/<kênh>` qua crawl4ai (KHÔNG cần telethon); telethon chỉ khi cần lịch sử sâu (cần API_ID/HASH).
-      - **KOL video**: YouTube/TikTok/Facebook KOL chứng khoán VN → dùng **/last30days** cho engagement video + read_url; crawl4ai yếu với nền tảng video (anti-bot).
+      - **KOL video YouTube** (nguồn CHÍNH, miễn phí): dùng **/last30days** (đã cài yt-dlp) HOẶC gọi trực tiếp `yt-dlp "ytsearch15:nhận định cổ phiếu {target}" --flat-playlist --dump-json` qua bash. **BẮT BUỘC query TIẾNG VIỆT** (vd "nhận định/định giá cổ phiếu {target}") — query tiếng Anh bị "entity-miss demotion", trả 0 item VN. Lấy title/kênh/view của KOL CK VN.
+      - **Telegram room công khai** (phụ): xem `https://t.me/s/<kênh>` qua crawl4ai (không cần telethon). Phần lớn room "phím hàng" VN là PRIVATE (không preview) → thường rỗng; nếu không có dữ liệu thật, ghi rõ, KHÔNG bịa.
+      - KHÔNG dùng: TikTok/Instagram (cần SCRAPECREATORS_API_KEY trả phí — dự án chọn YouTube-only); FB video (login wall).
 
       ## Khung phân tích
       ### Chất lượng tín hiệu
@@ -84,7 +85,7 @@ agents:
       5. **Thẻ điểm môi trường** — tỷ lệ tín hiệu/nhiễu tổng thể; chế độ nhiều tín hiệu vs nhiễu áp đảo.
 
       Use load_skill("social-media-intelligence"), load_skill("sentiment-analysis").
-      Use read_url cho Telegram public & trang KOL; dùng /last30days cho engagement KOL video.
+      Use bash (yt-dlp) hoặc /last30days cho KOL YouTube (query tiếng Việt); read_url + crawl4ai cho Telegram public.
       ## Nguyên tắc dữ liệu (BẮT BUỘC)
       - Không bịa/cook số liệu — mọi con số phải có nguồn thật. Audit nhanh, cross-check ≥2 nguồn uy tín (vd cafef.vn, vietstock.vn) qua crawl4ai; nguồn lệch thì nêu rõ.
       - Nếu DataPro VÀ vnstock đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
@@ -206,7 +207,7 @@ tasks:
 
   - id: task-telegram-kol
     agent_id: telegram_kol_analyst
-    prompt_template: "Phân tích Telegram room & KOL video VN về \"{target}\": chất lượng tín hiệu, độ nóng, manh mối alpha, lọc pump. Khung: {timeframe}."
+    prompt_template: "Phân tích KOL video YouTube (query tiếng Việt) & Telegram công khai về \"{target}\": chất lượng tín hiệu, độ nóng, manh mối alpha, lọc pump. Khung: {timeframe}."
     depends_on: []
 
   - id: task-doi-lai
