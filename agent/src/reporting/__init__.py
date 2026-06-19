@@ -6,7 +6,11 @@ playwright; chỉ import khi thực sự cần xuất báo cáo).
 Yêu cầu runtime: matplotlib + playwright (+ chromium) trong venv đang chạy.
 """
 from src.reporting.report_lib import (
+    BRAND_NAME,
+    BRAND_TAGLINE,
+    BRAND_URL,
     CSS,
+    brand_bar,
     build_html,
     chart_block,
     chart_net_bars,
@@ -15,7 +19,11 @@ from src.reporting.report_lib import (
 )
 
 __all__ = [
+    "BRAND_NAME",
+    "BRAND_TAGLINE",
+    "BRAND_URL",
     "CSS",
+    "brand_bar",
     "build_html",
     "chart_block",
     "chart_net_bars",

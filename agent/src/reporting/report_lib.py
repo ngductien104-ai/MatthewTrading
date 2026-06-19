@@ -19,6 +19,13 @@ from playwright.sync_api import sync_playwright
 plt.rcParams.update({"font.family": "DejaVu Sans", "axes.unicode_minus": False})
 
 ACCENT = "#0b2545"
+
+# ---- Thương hiệu Xsigma Capital (xsigma.lovable.app) ----
+BRAND_NAME = "Xsigma Capital"
+BRAND_TAGLINE = "The Right Stock, At The Right Time · Tín hiệu giao dịch chứng khoán Việt Nam"
+BRAND_URL = "xsigma.lovable.app"
+BRAND_INDIGO = "#575ECF"
+
 CSS = """
 * { box-sizing: border-box; }
 body { font-family: "Segoe UI", Arial, sans-serif; color: #1a2332; font-size: 10.5pt; line-height: 1.5; margin: 0; }
@@ -48,6 +55,13 @@ ul { margin: 4px 0; padding-left: 20px; } li { margin: 2px 0; }
 .pagebreak { page-break-before: always; }
 .chartcap { font-size: 8.6pt; color: #5a6b85; margin: 2px 0 6px; }
 img.chart { width: 100%; border: 1px solid #dde5ef; border-radius: 4px; }
+.brandbar { display: flex; justify-content: space-between; align-items: flex-end;
+  padding: 4px 2px 7px; margin-bottom: 10px;
+  border-bottom: 3px solid; border-image: linear-gradient(90deg,#FE7B02,#F858BC,#575ECF) 1; }
+.bwordmark { font-size: 14pt; font-weight: 800; letter-spacing: 1.2px; color: #1b1b1b; }
+.bwordmark .x { color: #575ECF; }
+.bwordmark .cap { color: #575ECF; font-weight: 700; letter-spacing: 2px; }
+.btag { font-size: 8.3pt; color: #6b7a90; font-style: italic; text-align: right; max-width: 56%; line-height: 1.35; }
 """
 
 
@@ -102,9 +116,20 @@ def chart_block(uri, caption):
     return f'<img class="chart" src="{uri}"><div class="chartcap">{caption}</div>'
 
 
-def build_html(band_html, sections_html):
+def brand_bar():
+    """Dải thương hiệu Xsigma Capital ở đầu mỗi báo cáo (gắn 'Thực hiện bởi Xsigma')."""
+    return (
+        '<div class="brandbar">'
+        '<div class="bwordmark"><span class="x">X</span>SIGMA <span class="cap">CAPITAL</span></div>'
+        f'<div class="btag">Báo cáo thực hiện bởi {BRAND_NAME}<br>{BRAND_TAGLINE}</div>'
+        '</div>'
+    )
+
+
+def build_html(band_html, sections_html, brand=True):
+    head = brand_bar() if brand else ""
     return (f'<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><style>{CSS}</style></head>'
-            f'<body>{band_html}{sections_html}</body></html>')
+            f'<body>{head}{band_html}{sections_html}</body></html>')
 
 
 def render_pdf(html, pdf_path, footer_left="Báo cáo swarm · TTCK VN", html_path=None):
@@ -126,7 +151,8 @@ def render_pdf(html, pdf_path, footer_left="Báo cáo swarm · TTCK VN", html_pa
                    '<div style="font-size:8px;color:#6b7a90;width:100%;padding:0 13mm;'
                    'display:flex;justify-content:space-between;">'
                    f'<span>{footer_left}</span>'
-                   '<span>Trang <span class="pageNumber"></span>/<span class="totalPages"></span></span></div>'))
+                   f'<span>{BRAND_NAME} · {BRAND_URL} · Trang '
+                   '<span class="pageNumber"></span>/<span class="totalPages"></span></span></div>'))
         b.close()
     if not html_path and os.path.exists(src):
         os.remove(src)
