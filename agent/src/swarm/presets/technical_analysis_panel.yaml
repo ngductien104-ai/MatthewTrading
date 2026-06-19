@@ -77,6 +77,16 @@ agents:
       8. **Price Time Cycle** - Bảng Time Targets (Turning Dates) + Price Targets mà có confluence quan trọng 
 
       Every claim needs explicit price levels—no vague prose.
+      ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
+      - Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15%. Một phiên KHÔNG thể vượt biên → nến/gap/breakout bị chặn cơ học; chuỗi trần/sàn liên tiếp là tín hiệu mạnh hơn cả mẫu hình. Đọc Bollinger/biên độ nến trong khung này.
+      - Thị trường cơ sở KHÔNG bán khống: mọi kèo SHORT chỉ thực thi qua phái sinh VN30F1M hoặc chứng quyền (CW) — ghi rõ công cụ, KHÔNG ra lệnh short cổ phiếu cơ sở.
+      - Giá điều chỉnh sau cổ tức / ngày GDKHQ tạo gap kỹ thuật GIẢ — dùng giá điều chỉnh, không đọc nhầm thành tín hiệu đảo chiều.
+      - Đơn vị giá: nghìn đồng; lô chẵn 100 cp; thanh toán T+2 (cổ phiếu/tiền về chiều T+2) → tính khi định thời điểm vào/ra ngắn hạn.
+      - Phiên ATO (mở)/ATC (đóng) khớp lệnh định kỳ: nến mở/đóng cửa hình thành khác bản chất — lưu ý khi xác nhận đóng cửa (Ichimoku/Chikou) và liquidity sweep cuối phiên (SMC).
+
+      ## Ngôn ngữ
+      - Trình bày TOÀN BỘ báo cáo bằng tiếng Việt; giữ nguyên thuật ngữ TA gốc (MACD, RSI, Order Block, FVG, Kumo, PRZ, BOS/CHOCH...).
+
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
@@ -133,6 +143,16 @@ agents:
       7. **Ichimoku score** — −5..+5 with element weights
 
       Cover all five building blocks—no partial analysis.
+      ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
+      - Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15%. Một phiên KHÔNG thể vượt biên → nến/gap/breakout bị chặn cơ học; chuỗi trần/sàn liên tiếp là tín hiệu mạnh hơn cả mẫu hình. Đọc Bollinger/biên độ nến trong khung này.
+      - Thị trường cơ sở KHÔNG bán khống: mọi kèo SHORT chỉ thực thi qua phái sinh VN30F1M hoặc chứng quyền (CW) — ghi rõ công cụ, KHÔNG ra lệnh short cổ phiếu cơ sở.
+      - Giá điều chỉnh sau cổ tức / ngày GDKHQ tạo gap kỹ thuật GIẢ — dùng giá điều chỉnh, không đọc nhầm thành tín hiệu đảo chiều.
+      - Đơn vị giá: nghìn đồng; lô chẵn 100 cp; thanh toán T+2 (cổ phiếu/tiền về chiều T+2) → tính khi định thời điểm vào/ra ngắn hạn.
+      - Phiên ATO (mở)/ATC (đóng) khớp lệnh định kỳ: nến mở/đóng cửa hình thành khác bản chất — lưu ý khi xác nhận đóng cửa (Ichimoku/Chikou) và liquidity sweep cuối phiên (SMC).
+
+      ## Ngôn ngữ
+      - Trình bày TOÀN BỘ báo cáo bằng tiếng Việt; giữ nguyên thuật ngữ TA gốc (MACD, RSI, Order Block, FVG, Kumo, PRZ, BOS/CHOCH...).
+
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
@@ -182,6 +202,16 @@ agents:
       7. **Harmonic score** — −5..+5; 0 if no valid pattern with rationale
 
       Prices to 4 significant figures; ratios must match standards.
+      ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
+      - Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15%. Một phiên KHÔNG thể vượt biên → nến/gap/breakout bị chặn cơ học; chuỗi trần/sàn liên tiếp là tín hiệu mạnh hơn cả mẫu hình. Đọc Bollinger/biên độ nến trong khung này.
+      - Thị trường cơ sở KHÔNG bán khống: mọi kèo SHORT chỉ thực thi qua phái sinh VN30F1M hoặc chứng quyền (CW) — ghi rõ công cụ, KHÔNG ra lệnh short cổ phiếu cơ sở.
+      - Giá điều chỉnh sau cổ tức / ngày GDKHQ tạo gap kỹ thuật GIẢ — dùng giá điều chỉnh, không đọc nhầm thành tín hiệu đảo chiều.
+      - Đơn vị giá: nghìn đồng; lô chẵn 100 cp; thanh toán T+2 (cổ phiếu/tiền về chiều T+2) → tính khi định thời điểm vào/ra ngắn hạn.
+      - Phiên ATO (mở)/ATC (đóng) khớp lệnh định kỳ: nến mở/đóng cửa hình thành khác bản chất — lưu ý khi xác nhận đóng cửa (Ichimoku/Chikou) và liquidity sweep cuối phiên (SMC).
+
+      ## Ngôn ngữ
+      - Trình bày TOÀN BỘ báo cáo bằng tiếng Việt; giữ nguyên thuật ngữ TA gốc (MACD, RSI, Order Block, FVG, Kumo, PRZ, BOS/CHOCH...).
+
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
@@ -238,6 +268,16 @@ agents:
       7. **Wave score** — −5..+5; count confidence 0–100%
 
       Label degree (supercycle/cycle/primary/minor) to avoid mixing.
+      ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
+      - Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15%. Một phiên KHÔNG thể vượt biên → nến/gap/breakout bị chặn cơ học; chuỗi trần/sàn liên tiếp là tín hiệu mạnh hơn cả mẫu hình. Đọc Bollinger/biên độ nến trong khung này.
+      - Thị trường cơ sở KHÔNG bán khống: mọi kèo SHORT chỉ thực thi qua phái sinh VN30F1M hoặc chứng quyền (CW) — ghi rõ công cụ, KHÔNG ra lệnh short cổ phiếu cơ sở.
+      - Giá điều chỉnh sau cổ tức / ngày GDKHQ tạo gap kỹ thuật GIẢ — dùng giá điều chỉnh, không đọc nhầm thành tín hiệu đảo chiều.
+      - Đơn vị giá: nghìn đồng; lô chẵn 100 cp; thanh toán T+2 (cổ phiếu/tiền về chiều T+2) → tính khi định thời điểm vào/ra ngắn hạn.
+      - Phiên ATO (mở)/ATC (đóng) khớp lệnh định kỳ: nến mở/đóng cửa hình thành khác bản chất — lưu ý khi xác nhận đóng cửa (Ichimoku/Chikou) và liquidity sweep cuối phiên (SMC).
+
+      ## Ngôn ngữ
+      - Trình bày TOÀN BỘ báo cáo bằng tiếng Việt; giữ nguyên thuật ngữ TA gốc (MACD, RSI, Order Block, FVG, Kumo, PRZ, BOS/CHOCH...).
+
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
@@ -289,6 +329,16 @@ agents:
       7. **SMC score** — −5..+5; headline institutional read
 
       All OB/FVG/liquidity zones need explicit price ranges.
+      ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
+      - Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15%. Một phiên KHÔNG thể vượt biên → nến/gap/breakout bị chặn cơ học; chuỗi trần/sàn liên tiếp là tín hiệu mạnh hơn cả mẫu hình. Đọc Bollinger/biên độ nến trong khung này.
+      - Thị trường cơ sở KHÔNG bán khống: mọi kèo SHORT chỉ thực thi qua phái sinh VN30F1M hoặc chứng quyền (CW) — ghi rõ công cụ, KHÔNG ra lệnh short cổ phiếu cơ sở.
+      - Giá điều chỉnh sau cổ tức / ngày GDKHQ tạo gap kỹ thuật GIẢ — dùng giá điều chỉnh, không đọc nhầm thành tín hiệu đảo chiều.
+      - Đơn vị giá: nghìn đồng; lô chẵn 100 cp; thanh toán T+2 (cổ phiếu/tiền về chiều T+2) → tính khi định thời điểm vào/ra ngắn hạn.
+      - Phiên ATO (mở)/ATC (đóng) khớp lệnh định kỳ: nến mở/đóng cửa hình thành khác bản chất — lưu ý khi xác nhận đóng cửa (Ichimoku/Chikou) và liquidity sweep cuối phiên (SMC).
+
+      ## Ngôn ngữ
+      - Trình bày TOÀN BỘ báo cáo bằng tiếng Việt; giữ nguyên thuật ngữ TA gốc (MACD, RSI, Order Block, FVG, Kumo, PRZ, BOS/CHOCH...).
+
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
@@ -351,6 +401,16 @@ agents:
 
       Judge outcome must reflect the five inputs fairly—no cherry-picking.
       Prices must be consistent with upstream reports.
+      ## Cơ chế TTCK Việt Nam (BẮT BUỘC)
+      - Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15%. Một phiên KHÔNG thể vượt biên → nến/gap/breakout bị chặn cơ học; chuỗi trần/sàn liên tiếp là tín hiệu mạnh hơn cả mẫu hình. Đọc Bollinger/biên độ nến trong khung này.
+      - Thị trường cơ sở KHÔNG bán khống: mọi kèo SHORT chỉ thực thi qua phái sinh VN30F1M hoặc chứng quyền (CW) — ghi rõ công cụ, KHÔNG ra lệnh short cổ phiếu cơ sở.
+      - Giá điều chỉnh sau cổ tức / ngày GDKHQ tạo gap kỹ thuật GIẢ — dùng giá điều chỉnh, không đọc nhầm thành tín hiệu đảo chiều.
+      - Đơn vị giá: nghìn đồng; lô chẵn 100 cp; thanh toán T+2 (cổ phiếu/tiền về chiều T+2) → tính khi định thời điểm vào/ra ngắn hạn.
+      - Phiên ATO (mở)/ATC (đóng) khớp lệnh định kỳ: nến mở/đóng cửa hình thành khác bản chất — lưu ý khi xác nhận đóng cửa (Ichimoku/Chikou) và liquidity sweep cuối phiên (SMC).
+
+      ## Ngôn ngữ
+      - Trình bày TOÀN BỘ báo cáo bằng tiếng Việt; giữ nguyên thuật ngữ TA gốc (MACD, RSI, Order Block, FVG, Kumo, PRZ, BOS/CHOCH...).
+
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
       - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
@@ -400,7 +460,7 @@ tasks:
 
 variables:
   - name: target
-    description: "Symbol (e.g. 600519.SH Kweichow Moutai, BTC-USDT, AAPL)"
+    description: "Mã CK/chỉ số VN (vd: VNINDEX, VN30, HPG, FPT, VCB, VNM; phái sinh: VN30F1M)"
     required: true
   - name: timeframe
     description: "Interval (e.g. daily, weekly, monthly, 4H)"
