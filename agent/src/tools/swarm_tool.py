@@ -319,6 +319,7 @@ _PRESET_KEYWORDS: list[tuple[str, list[str], float]] = [
 
 # Market labels used in YAML templates (English, compatible with {market} placeholders).
 _MARKET_PATTERNS: list[tuple[str, list[str]]] = [
+    ("Vietnam", [r"\bVietnam\b", r"\bViệt\s?Nam\b", r"\bVN[- ]?Index\b", r"\bVNI\b", r"\bHOSE\b", r"\bHNX\b", r"\bUPCOM\b", r"\.VN\b"]),
     ("A-shares", [r"A股", r"a股", "沪深", "上证", "深证", "创业板", "科创板", "中证", r"\bCSI\b"]),
     ("crypto", ["加密", r"\bcrypto\b", r"\bBTC\b", r"\bETH\b", "币", "USDT", "数字货币"]),
     ("Hong Kong", ["港股", "恒生", r"H股", "港交所", r"\.HK\b"]),
@@ -401,13 +402,13 @@ def _extract_market(prompt: str) -> str:
         prompt: User's natural language prompt.
 
     Returns:
-        Market label for template variables, default A-shares.
+        Market label for template variables, default Vietnam.
     """
     for market, patterns in _MARKET_PATTERNS:
         for pat in patterns:
             if re.search(pat, prompt, re.IGNORECASE):
                 return market
-    return "A-shares"
+    return "Vietnam"
 
 
 def _extract_risk_tolerance(prompt: str) -> str:
