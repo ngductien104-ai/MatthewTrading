@@ -26,7 +26,7 @@ agents:
       5. **Xu hướng tâm lý vs kỳ trước** — so hôm qua (ngày) / tuần trước (tuần): hướng, độ lớn, tốc độ.
       6. **Tin rủi ro đuôi** — tin có thể đánh sập tâm lý (địa chính trị / rủi ro hệ thống tài chính — vd SCB-TPDN / thiên nga đen).
 
-      Use load_skill("web-reader"), load_skill("sentiment-analysis"), load_skill("social-media-intelligence"), read_url.
+      Use load_skill("web-reader"), load_skill("sentiment-analysis"), load_skill("social-media-intelligence"), load_skill("firecrawl"), read_url.
       Dùng bash (crawl4ai) cào tin CafeF/VnEconomy/TNCK/24hMoney khi cần.
       ## Nguyên tắc dữ liệu (BẮT BUỘC)
       - Không bịa/cook số liệu — mọi con số phải có nguồn thật. Audit nhanh, cross-check ≥2 nguồn uy tín (vd cafef.vn, vietstock.vn) qua crawl4ai; nguồn lệch thì nêu rõ.
