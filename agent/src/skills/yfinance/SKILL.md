@@ -1,6 +1,6 @@
 ---
 name: yfinance
-description: yfinance global market data interface — retrieve OHLCV, financials, insider transactions, and institutional holdings for US stocks, HK stocks, ETFs, and indices via Yahoo Finance. Free, no API key required.
+description: "yfinance global market data interface — OHLCV, financials, insider transactions, institutional holdings for US/HK stocks, ETFs and indices. Với người dùng VN: đây là nguồn dữ liệu NGOẠI BIÊN (DXY, lợi suất Mỹ, vàng, dầu, USD/VND, peer EM) — KHÔNG dùng cho cổ phiếu VN. Free, no API key."
 category: data-source
 ---
 # yfinance
@@ -10,6 +10,12 @@ category: data-source
 yfinance is an open-source Python wrapper for Yahoo Finance, providing global market data (US stocks, HK stocks, ETFs, indices) including historical and real-time quotes. **Completely free, no registration or API key required.**
 
 The project has a built-in yfinance DataLoader (`backtest/loaders/yfinance_loader.py`). When backtesting, set `source: "yfinance"` or `source: "auto"` to invoke it automatically.
+
+> ### ⚠️ Với thị trường Việt Nam — đọc trước khi dùng
+>
+> **yfinance KHÔNG phải nguồn dữ liệu cổ phiếu VN.** Yahoo Finance không có dữ liệu ổn định, đáng tin cậy cho cổ phiếu niêm yết HOSE/HNX/UPCoM và VN-Index. Chuỗi định tuyến của dự án đã cấu hình sẵn: `vn_equity → ["datapro", "vnstock"]` (xem `backtest/loaders/registry.py`). Đừng lách bằng cách tra ticker VN trên Yahoo — dữ liệu thiếu, sai điều chỉnh giá và không có giá tham chiếu.
+>
+> **Vai trò của yfinance trong phân tích VN là lấy các chuỗi vĩ mô ngoại biên** làm đầu vào cho khung `global-macro`, `macro-analysis`, `commodity-analysis`: DXY, lợi suất TPCP Mỹ, vàng, dầu, đồng, USD/VND, USD/CNY, USD/JPY và rổ tiền tệ EM châu Á để so sánh chéo với VND. Xem mục [Chuỗi vĩ mô cho phân tích VN](#chuỗi-vĩ-mô-cho-phân-tích-vn) bên dưới.
 
 ## Quick Start
 
@@ -161,6 +167,39 @@ usdhkd = yf.download("HKD=X", start="2025-01-01", end="2026-01-01", progress=Fal
 eurusd = yf.download("EURUSD=X", start="2025-01-01", end="2026-01-01", progress=False)
 ```
 
+## Chuỗi vĩ mô cho phân tích VN
+
+Đây là phần dùng nhiều nhất của skill này khi phân tích TTCK Việt Nam: lấy **biến ngoại biên** để đưa vào khung `global-macro` (truyền dẫn Fed → DXY → USD/VND → dòng vốn ngoại) và `commodity-analysis` (giá đầu vào nhập khẩu, giá nông sản xuất khẩu).
+
+```python
+import yfinance as yf
+
+macro = yf.download(
+    ["DX-Y.NYB", "^TNX", "GC=F", "BZ=F", "VND=X", "CNY=X"],
+    start="2024-01-01", end="2026-01-01", progress=False,
+)
+```
+
+| Ticker | Chuỗi | Vì sao quan trọng với VN |
+|--------|------|------|
+| `DX-Y.NYB` | Chỉ số USD (DXY) | Biến ngoại biên số 1 — quyết định áp lực USD/VND và dòng vốn ngoại HOSE |
+| `^TNX` / `^TYX` / `^FVX` | Lợi suất TPCP Mỹ 10Y / 30Y / 5Y (đơn vị %) | Neo định giá toàn cầu; chênh lệch với lợi suất TPCP VN |
+| `^VIX` | Chỉ số biến động Mỹ | Khẩu vị rủi ro toàn cầu — dẫn báo bán ròng khối ngoại |
+| `VND=X` | USD/VND (tham khảo Yahoo) | **Chỉ dùng nhìn xu hướng.** Số chính thức phải lấy tỷ giá trung tâm SBV + tỷ giá niêm yết NHTM; Yahoo không có tỷ giá liên ngân hàng lẫn tỷ giá tự do |
+| `CNY=X` | USD/CNY | CNY yếu ⇒ áp lực phá giá VND (cạnh tranh XK + đầu vào nhập từ TQ) |
+| `JPY=X` | USD/JPY | Nợ ODA của VN nặng JPY — JPY mạnh làm phình nghĩa vụ trả nợ công |
+| `THB=X`, `IDR=X`, `PHP=X`, `MYR=X`, `INR=X` | Rổ tiền tệ EM châu Á | **So sánh chéo với VND** — tách vấn đề nội tại khỏi chuyện của đồng USD |
+| `GC=F` | Vàng tương lai COMEX | Neo cho giá vàng trong nước; chênh SJC – thế giới là chỉ báo cầu USD ngầm |
+| `BZ=F` / `CL=F` | Dầu Brent / WTI | Đầu vào giá xăng dầu điều hành → CPI; biên của BSR, PLX, GAS |
+| `NG=F` | Khí tự nhiên | Tham chiếu chi phí đầu vào urê (DPM, DCM) và nhiệt điện khí |
+| `HG=F` | Đồng | Phong vũ biểu chu kỳ công nghiệp toàn cầu |
+| `ZC=F`, `ZM=F` | Ngô, khô đậu tương | Giá thức ăn chăn nuôi → biên của DBC, BAF, HAG (độ trễ 1-2 quý) |
+| `ZR=F` | Lúa gạo (rough rice, CBOT) | Tham chiếu xu hướng; **không thay được** giá gạo 5% tấm xuất khẩu VN (lấy từ VFA) |
+| `KC=F` | Cà phê Arabica | ⚠️ VN sản xuất **Robusta**, hợp đồng Robusta (ICE Europe) **không có trên Yahoo** — dùng KC=F chỉ để nhìn xu hướng ngành, giá robusta phải crawl từ nguồn chuyên ngành |
+| `VNM` | VanEck Vietnam ETF (niêm yết Mỹ) | Proxy khả dụng cho khẩu vị của nhà đầu tư nước ngoài với VN; **không thay VN-Index** — VN-Index lấy từ vnstock/DataPro |
+
+**Không có trên Yahoo (đừng cố tra, phải crawl hoặc dùng nguồn khác):** giá thép HRC/quặng sắt nội địa, giá heo hơi, giá lúa/gạo xuất khẩu VN, giá cà phê robusta nhân xô, giá vàng SJC/nhẫn, lãi suất liên ngân hàng VND, lợi suất TPCP VN, tỷ giá tự do.
+
 ## Popular Ticker Reference
 
 ### US Stocks
@@ -241,7 +280,23 @@ eurusd = yf.download("EURUSD=X", start="2025-01-01", end="2026-01-01", progress=
 }
 ```
 
-`source: "auto"` routes automatically by ticker format: A-shares → tushare, HK/US stocks → yfinance, crypto → OKX.
+`source: "auto"` routes automatically by ticker format: **VN equities (`.VN`) → datapro, fallback vnstock**; A-shares → tushare; HK/US stocks → yfinance; crypto → OKX. Xem `FALLBACK_CHAINS` trong `backtest/loaders/registry.py`.
+
+### Ví dụ backtest có mã VN
+
+```json
+{
+  "source": "auto",
+  "codes": ["HPG.VN", "FPT.VN", "AAPL.US"],
+  "start_date": "2024-01-01",
+  "end_date": "2026-03-30",
+  "initial_cash": 1000000000,
+  "commission": 0.0015,
+  "extra_fields": null
+}
+```
+
+Mã `.VN` sẽ đi qua datapro/vnstock, không chạm yfinance. Lưu ý phí: giao dịch VN có phí môi giới ~0,15% mỗi chiều **cộng thuế TNCN 0,1% trên giá bán**, và engine VN áp biên độ trần/sàn theo giá tham chiếu — khác hẳn giả định của thị trường Mỹ.
 
 ## Notes
 
@@ -253,6 +308,9 @@ eurusd = yf.download("EURUSD=X", start="2025-01-01", end="2026-01-01", progress=
 - **Timezone**: returned data includes timezone info; the DataLoader strips it automatically
 - **extra_fields not supported**: yfinance via the backtest loader returns OHLCV only; PE/PB and other fundamentals require separate `yf.Ticker().info` calls
 - **Comparison with Tushare**: Tushare covers deep A-share data (financials, fund flows, block trades, etc.); yfinance covers global markets but with less depth
+- **Không dùng cho cổ phiếu VN**: dữ liệu mã VN trên Yahoo thiếu và không đáng tin — dùng DataPro (chính) / vnstock (dự phòng). Riêng dòng tiền khối ngoại chỉ có ở DataPro, và trường `foreign` tính bằng **nghìn VND**
+- **`VND=X` không phải tỷ giá chính thức**: đây là tỷ giá tham khảo của Yahoo. Tỷ giá trung tâm và biên ±5% lấy từ SBV; tỷ giá giao dịch lấy từ niêm yết NHTM; tỷ giá tự do phải crawl. Đừng dùng `VND=X` để tính vị trí trong biên
+- **Hàng hóa đặc thù VN không có trên Yahoo** (robusta, heo hơi, gạo XK, thép nội địa, vàng SJC) — xem bảng ở mục Chuỗi vĩ mô cho phân tích VN
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

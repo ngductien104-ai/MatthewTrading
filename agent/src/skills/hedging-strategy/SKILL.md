@@ -1,272 +1,268 @@
 ---
 name: hedging-strategy
-description: Hedging strategy design (beta hedge / option protection / tail risk / cross-asset hedging), including hedge-ratio calculation and cost evaluation.
+description: "Thiết kế chiến lược phòng hộ cho danh mục cổ phiếu VN — phòng hộ beta bằng VN30F, giảm trạng thái, xoay nhóm phòng thủ, phòng hộ chéo (tiền gửi/vàng/USD) và phòng hộ tỷ giá. Tính tỷ lệ hedge, chi phí thực và giới hạn công cụ tại TTCK VN."
 category: asset-class
 ---
-# Hedging Strategy Design
+# Thiết kế chiến lược phòng hộ (TTCK Việt Nam)
 
-## Overview
+## Tổng quan
 
-Design systematic hedging plans for existing positions, covering linear hedges (futures / ETFs) and nonlinear hedges (options). Output hedge ratios, cost estimates, and execution plans. Core principle: hedging does not eliminate risk; it exchanges unknown losses for known costs.
+Thiết kế phương án phòng hộ có hệ thống cho danh mục đang nắm. Nguyên tắc lõi: **phòng hộ không xoá rủi ro, mà đổi khoản lỗ chưa biết lấy chi phí đã biết.**
 
-## Core Concepts
+**Thực tế công cụ tại VN — đọc kỹ trước khi thiết kế:**
 
-### 1. Beta Hedging (Futures / ETFs)
+| Công cụ | Có tại VN? | Ghi chú |
+|------|------|------|
+| Hợp đồng tương lai chỉ số VN30 (VN30F) | ✅ | **Công cụ phòng hộ tuyến tính duy nhất có thanh khoản thật** |
+| Hợp đồng tương lai TPCP (5Y/10Y) | ⚠️ Có niêm yết | Thanh khoản gần bằng 0 — coi như không dùng được |
+| Quyền chọn cổ phiếu / chỉ số niêm yết | ❌ Không có | Mọi chiến lược Protective Put / Collar / Put Spread **không áp dụng được tại VN** |
+| Chứng quyền có bảo đảm (CW) | ⚠️ Chỉ chiều MUA | Chỉ có call warrant, **không có put warrant** ⇒ không dùng để phòng hộ giảm giá |
+| Bán khống cổ phiếu cơ sở | ❌ Chưa triển khai | Không thể tạo vị thế short đơn lẻ |
+| Chỉ số biến động kiểu VIX | ❌ Không có | Không có sản phẩm giao dịch được trên vol |
+| Hợp đồng kỳ hạn ngoại tệ (onshore) | ✅ Qua NHTM | Có hạn mức và điều kiện chứng từ; NDF offshore không dành cho quỹ nội |
+| Vàng miếng / nhẫn | ✅ | Không có ETF vàng niêm yết tại VN — phải nắm vật chất |
 
-**Principle:** hedge portfolio systematic risk (beta) with index futures or ETFs while preserving single-stock alpha.
+Hệ quả thiết kế: ở VN, "phòng hộ" thực chất là **bốn lựa chọn** — (1) short VN30F, (2) giảm trạng thái sang tiền, (3) xoay sang nhóm beta thấp, (4) phòng hộ chéo bằng tiền gửi/vàng/USD. Đừng đề xuất Collar hay Put Spread trên cổ phiếu VN; nếu chép khung nước ngoài vào là sai ngay từ gốc.
 
-**Hedge ratio calculation:**
+**Lý do phòng hộ tại VN mạnh hơn ở thị trường khác:** biên độ dao động (HOSE ±7%, HNX ±10%, UPCoM ±15%) khiến khi thị trường sập, cổ phiếu **dư bán sàn trắng bên mua** — bạn *không bán được*. Chu kỳ thanh toán T+2 cũng chặn việc thoát trong phiên. VN30F giao dịch T+0, đóng/mở vị thế trong ngày, là lối thoát duy nhất khi cơ sở bị khoá sàn. Đây là lập luận cốt lõi cho việc duy trì tài khoản phái sinh dù ít dùng.
+
+## Khái niệm cốt lõi
+
+### 1. Phòng hộ beta bằng VN30F
+
+**Nguyên lý:** dùng hợp đồng tương lai chỉ số để triệt tiêu rủi ro hệ thống (beta), giữ lại alpha cổ phiếu riêng lẻ.
+
+**Thông số hợp đồng (kiểm lại quy chế HNX/VSD hiện hành trước khi tính tiền thật):**
+- Tài sản cơ sở: chỉ số VN30
+- Hệ số nhân: **100.000 VND / điểm chỉ số**
+- Giá trị 1 hợp đồng = điểm chỉ số × 100.000 VND
+- Các mã: VN30F1M (tháng hiện tại), VN30F2M, VN30F1Q, VN30F2Q — **chỉ VN30F1M có thanh khoản đủ để phòng hộ quy mô tổ chức**
+- Thanh toán: bằng tiền, theo giá đóng cửa chỉ số ngày đáo hạn (thứ Năm thứ ba của tháng)
+- Ký quỹ ban đầu: theo tỷ lệ VSD công bố (thường ~17-20%), CTCK có thể yêu cầu cao hơn
+
+**Tính số hợp đồng:**
 
 ```python
-# Minimum-variance hedge ratio
-hedge_ratio = beta_portfolio * (portfolio_value / futures_value)
+# Tỷ lệ phòng hộ phương sai tối thiểu
+hedge_ratio = beta_portfolio * (portfolio_value / futures_contract_value)
 
-# Example: hold a 10 million RMB China A-share portfolio, beta = 1.2
-# CSI 300 futures (IF) contract value = index level × 300
-# IF level = 4000, contract value = 4000 × 300 = 1.2 million
-# Required number of short contracts = 1.2 × (1000 / 120) = 10
+# Ví dụ: danh mục 20 tỷ VND, beta = 1,15 so với VN30
+# VN30 = 1.400 điểm → giá trị 1 HĐ = 1.400 × 100.000 = 140.000.000 VND
+# Số HĐ cần short = 1,15 × (20.000.000.000 / 140.000.000) = 164 hợp đồng
+# Ký quỹ cần (18%) ≈ 164 × 140.000.000 × 0,18 ≈ 4,13 tỷ VND
 
-# Beta estimation method
+# Ước lượng beta — CHUẨN TỔ CHỨC
+# Mặc định: 2 năm dữ liệu, khung TUẦN (kiểu Bloomberg), hồi quy với VN30 (không phải VN-Index)
+# Khung ngày ở VN nhiễu nặng vì biên độ và thanh khoản mỏng ở midcap
 import numpy as np
-# OLS regression: portfolio_returns = alpha + beta * index_returns + epsilon
-beta = np.cov(portfolio_returns, index_returns)[0][1] / np.var(index_returns)
+beta = np.cov(weekly_portfolio_returns, weekly_vn30_returns)[0][1] / np.var(weekly_vn30_returns)
 ```
 
-**China A-share beta hedging instruments:**
+**Sai số nền (basis) — vấn đề lớn tại VN:**
+- VN30F thường giao dịch **chiết khấu (basis âm)** so với chỉ số cơ sở trong xu hướng giảm, và nới rộng đúng lúc thị trường hoảng loạn (đã có phiên basis âm hơn 30 điểm)
+- Short futures khi basis đang chiết khấu sâu = **trả trước phần lớn khoản lợi phòng hộ**. Nói cách khác: phòng hộ vào lúc thị trường đã hoảng thì đắt gấp nhiều lần
+- Basis hội tụ về 0 khi đáo hạn ⇒ nếu short lúc basis dương (premium), phần hội tụ là lợi nhuận cộng thêm
+- **Luôn báo cáo basis tại thời điểm vào lệnh** như một hạng mục chi phí riêng, không gộp vào phí
 
-| Instrument | Code | Contract Multiplier | Margin | Suitable Scale |
-|------|------|---------|--------|---------|
-| IF (CSI 300 futures) | IF2403 | 300 RMB / point | ~12% | > 5 million RMB |
-| IC (CSI 500 futures) | IC2403 | 200 RMB / point | ~14% | > 3 million RMB |
-| IM (CSI 1000 futures) | IM2403 | 200 RMB / point | ~15% | > 3 million RMB |
-| CSI 300 ETF (510300) | 510300.SH | — | Unlevered | Any size |
+**Sai số cơ cấu (basis risk) khi danh mục lệch VN30:**
+- VN30F chỉ phòng hộ được phần beta so với VN30. Danh mục thiên midcap/smallcap có R² thấp với VN30 (thường 0,5-0,7) ⇒ phòng hộ để lại rủi ro dư đáng kể
+- Bắt buộc báo R² của hồi quy beta. R² < 0,6 thì nói thẳng: "VN30F phòng hộ không hiệu quả cho danh mục này, nên giảm trạng thái thay vì hedge"
 
-**Note:** stock-index futures have basis (spot-futures spread). Shorting futures when they trade at a discount brings extra return (basis convergence), while premium pricing adds extra cost.
+### 2. Giảm trạng thái (công cụ phòng hộ phổ biến nhất tại VN)
 
-### 2. Option Hedging Strategies
+Không có quyền chọn thì việc **hạ tỷ trọng cổ phiếu** chính là phương án phòng hộ chuẩn mực nhất, và thường rẻ hơn short futures.
 
-#### Protective Put
+| Mức hạ tỷ trọng | Tương đương phòng hộ | Chi phí | Khi nào dùng |
+|------|------|------|------|
+| Bán 20-30% danh mục | Giảm beta hiệu dụng 20-30% | Phí GD + thuế 0,1% giá bán + chi phí cơ hội | Rủi ro trung hạn, chưa rõ hướng |
+| Bán 50% | Nửa trạng thái | Như trên | Vi phạm ngưỡng theo dõi vĩ mô (tỷ giá chạm biên, ERP âm) |
+| Về tiền mặt/tiền gửi 100% | Phòng hộ tuyệt đối | Mất toàn bộ upside; lãi tiền gửi bù một phần | Chế độ đình lạm hoặc sự kiện đuôi đã kích hoạt |
 
-```
-Hold the underlying + buy a put option
-```
+**Điểm khác biệt của VN:** lãi suất tiền gửi 12 tháng ~6-8% là mức bù rất cao cho việc đứng ngoài — chi phí cơ hội của tiền mặt tại VN **thấp hơn nhiều** so với thị trường lãi suất 0%. Luôn tính chi phí phòng hộ *ròng sau lãi tiền gửi*.
 
-- **Cost:** option premium (typically 1-3% of underlying value per month)
-- **Protection range:** fully protected below the strike price
-- **Applicable scenario:** worried about a large drawdown but do not want to sell the position
+### 3. Phòng hộ theo cơ cấu (xoay nhóm beta thấp)
 
-**China A-share example (50ETF options):**
-```python
-# Hold 1 million shares of 50ETF (about 2.7 million RMB)
-# Buy 100 contracts of 50ETF put 2700 (strike 2.700)
-# Premium ≈ 0.05 RMB/share × 10000 shares/contract × 100 contracts = 50,000 RMB
-# Cost ratio = 50,000 / 2,700,000 ≈ 1.85%
-# Protection effect: losses are capped once ETF falls below 2.700
-```
+Khi không thể/không muốn dùng phái sinh, hạ beta bằng cách đổi cơ cấu:
 
-#### Collar
+| Nhóm | Beta điển hình vs VN30 | Vai trò |
+|------|------|------|
+| Chứng khoán (SSI, VCI, HCM, VND) | 1,3-1,7 | Beta cao nhất — bán đầu tiên khi phòng thủ |
+| Bất động sản dân cư | 1,2-1,5 | Nhạy lãi suất và tín dụng |
+| Ngân hàng | 1,0-1,2 | Xấp xỉ thị trường, chi phối chỉ số |
+| Bán lẻ / tiêu dùng | 0,8-1,1 | Trung tính |
+| Điện, nước, khí (POW, NT2, REE, GAS, TDM/BWE) | 0,5-0,8 | Phòng thủ, cổ tức đều |
+| Bảo hiểm (BVH, BMI, PVI) | 0,6-0,9 | Hưởng lợi khi lãi suất cao |
 
-```
-Hold the underlying + buy an OTM put + sell an OTM call
-```
+Beta trong bảng là *điển hình lịch sử* — bắt buộc tính lại theo dữ liệu thật (2 năm, khung tuần) trước khi dùng, không lấy nguyên số này để báo cáo.
 
-- **Cost:** close to zero-cost (the call premium offsets the put premium)
-- **Trade-off:** gives up upside above the call strike
-- **Applicable scenario:** willing to cap upside in exchange for free downside protection
+### 4. Phòng hộ rủi ro đuôi tại VN (không có công cụ trực tiếp)
 
-**Parameter selection guide:**
+Không có put OTM, không có VIX futures. Các phương án thay thế, xếp theo tính khả thi:
 
-| Parameter | Aggressive | Balanced | Conservative |
-|------|--------|--------|--------|
-| Put strike | ATM-5% | ATM-8% | ATM-10% |
-| Call strike | ATM+8% | ATM+5% | ATM+3% |
-| Net cost | Slightly positive | Near zero | Slightly negative (income) |
-| Maximum downside loss | -5% | -8% | -10% |
-| Maximum upside gain | +8% | +5% | +3% |
+1. **Short VN30F duy trì tỷ lệ nhỏ (10-20% danh mục)**: chi phí = basis + phí + ký quỹ chết vốn. Nhược điểm: lỗ tuyến tính khi thị trường tăng (khác hẳn quyền chọn — không có tính lồi)
+2. **Nắm vàng (miếng SJC / nhẫn)**: tương quan thấp với VN-Index, tăng mạnh trong sốc tỷ giá và địa chính trị. Nhược điểm VN-đặc thù: **chênh lệch SJC với giá thế giới có thể tự co lại** do chính sách đấu thầu/nhập khẩu của SBV, làm hỏng phòng hộ đúng lúc cần — ưu tiên vàng nhẫn (chênh thấp hơn) nếu mục tiêu là bám giá thế giới
+3. **Tiền gửi kỳ hạn ngắn**: phòng hộ đuôi rẻ nhất về mặt chi phí cơ hội tại VN
+4. **Nắm USD / tiền gửi USD**: lãi suất USD trong nước bị áp trần 0%, nên đây là cược thuần vào tỷ giá; hiệu quả trong kịch bản VND mất giá nhưng chịu chi phí cơ hội lớn
 
-#### Put Spread (Bear Put Spread Hedge)
+**Ghi nhớ:** phòng hộ đuôi kiểu Taleb (mất ít thường xuyên, thắng lớn hiếm khi) **không tái tạo được ở VN** vì thiếu tính lồi của quyền chọn. Đừng hứa hẹn cấu trúc lợi nhuận đó cho khách hàng.
 
-```
-Buy a higher-strike put + sell a lower-strike put
-```
+### 5. Phòng hộ chéo
 
-- **Cost:** 30-50% cheaper than buying a naked put
-- **Protection range:** only between the two strikes; no protection below the lower strike
-- **Applicable scenario:** hedging against moderate drawdowns while being cost-sensitive
+**Cổ phiếu — trái phiếu:**
 
-### 3. Tail-Risk Hedging
-
-**Far OTM put strategy:**
-
-```python
-# Buy deep OTM puts (delta ≈ -0.05 ~ -0.10)
-# Characteristics: expires worthless most of the time, but pays off massively during black swans
-
-# Parameters
-otm_put_strike = current_price * 0.85  # 15% OTM
-cost_per_month = portfolio_value * 0.003  # about 0.3% / month
-expected_payoff_in_crash = portfolio_value * 0.10  # ~10% payoff in a severe selloff
-
-# Cost management: ongoing spend of about 3.6% / year, profitable only in tail events
-# Taleb-style hedge: lose small amounts often, make large gains occasionally
-```
-
-**VIX call strategy (US equities / options market):**
-
-```python
-# Buy OTM VIX calls (strike = current VIX + 10)
-# If VIX jumps from 15 to 40, call value explodes
-# Naturally negatively correlated with an equity portfolio
-
-# China A-share substitutes:
-# China has no VIX futures, so alternatives are:
-# 1. Buy OTM 50ETF puts (similar tail protection)
-# 2. Go long volatility: buy a straddle
-# 3. Allocate to gold ETF (518880.SH) as a safe-haven asset
-```
-
-### 4. Cross-Asset Hedging
-
-**Stock-bond hedge:**
-
-| Stock/Bond Mix | Expected Volatility | Applicable Scenario |
+| Tỷ lệ CP/TP | Biến động kỳ vọng | Bối cảnh phù hợp |
 |---------|-----------|---------|
-| 80/20 | ~15% | Bull market environment, small bond buffer |
-| 60/40 | ~10% | Classic allocation, suitable for most environments |
-| 40/60 | ~7% | Bear market environment, bond-led |
-| Risk Parity | ~8% | Volatility-balanced allocation |
+| 80/20 | ~18-22% | Chu kỳ nới lỏng, tín dụng mở |
+| 60/40 | ~13-16% | Phân bổ chuẩn |
+| 40/60 | ~9-12% | Chu kỳ thắt chặt / hậu sốc |
+| 100% tiền gửi | ~0% | Đình lạm, sốc tỷ giá |
 
-**Note:** stock-bond correlation is not stable. In 2022, US stocks and bonds both fell (rising rates), and the traditional 60/40 mix failed. In China, negative stock-bond correlation has been relatively more stable.
+**Cảnh báo riêng cho VN:** "trái phiếu" ở VN phải tách hai loại rất khác nhau —
+- **TPCP / quỹ TPCP**: tương quan âm với cổ phiếu tương đối ổn định, phòng hộ được
+- **TPDN (trái phiếu doanh nghiệp, đặc biệt BĐS)**: tương quan **dương** với cổ phiếu trong khủng hoảng, và mất thanh khoản hoàn toàn (2022-2023 là bằng chứng). **TPDN không phải tài sản phòng hộ** — nó là rủi ro tín dụng đội lốt thu nhập cố định
 
-**Stock-commodity hedge (equities + commodities):**
-- During rising inflation: commodities rise while equities come under pressure → commodities hedge inflation risk
-- During falling inflation: equities rise while commodities come under pressure → equities drive returns
-- Gold ETF (`518880.SH`): low correlation with China A-shares and effective for tail-risk hedging
+**Cổ phiếu — hàng hóa:**
+- Lạm phát tăng: hàng hóa tăng, cổ phiếu chịu áp lực → nhóm dầu khí (PLX, BSR, GAS, PVS) và cao su, gạo, cà phê là phòng hộ tự nhiên trong danh mục cổ phiếu VN
+- Lạm phát giảm: cổ phiếu dẫn dắt, hàng hóa yếu
 
-### 5. Hedge-Ratio Calculation Methods
+**Phòng hộ tỷ giá (cho quỹ có nhà đầu tư nước ngoài hoặc nợ USD):**
+- Công cụ: hợp đồng kỳ hạn USD/VND qua NHTM. Giá kỳ hạn ≈ giao ngay × (1 + chênh lệch lãi suất VND-USD × t/360)
+- Chi phí phòng hộ ≈ **điểm kỳ hạn**, phản ánh chênh lệch lãi suất — khi lãi suất VND cao hơn USD, phòng hộ *có phí*; khi lãi suất VND thấp hơn (giai đoạn 2023-2024), phòng hộ có thể *có lãi carry* nhưng khi đó áp lực mất giá VND lại lớn nhất
+- Ràng buộc: hợp đồng kỳ hạn onshore cần chứng từ giao dịch cơ sở theo quy định quản lý ngoại hối. Quỹ đầu tư tài chính thuần thường **không đủ điều kiện** — nêu rõ giới hạn này thay vì giả định hedge được
 
-**Comparison of three methods:**
+### 6. Phương pháp tính tỷ lệ phòng hộ
 
 ```python
 import numpy as np
+import pandas as pd
 from scipy import stats
 
-# Method 1: OLS regression (simplest)
+# Cách 1: hồi quy OLS (đơn giản nhất)
 slope, intercept, r, p, se = stats.linregress(hedge_returns, portfolio_returns)
 hedge_ratio_ols = slope
+r_squared = r ** 2   # BẮT BUỘC báo cáo — dưới 0,6 thì VN30F không phòng hộ nổi
 
-# Method 2: Minimum variance
+# Cách 2: phương sai tối thiểu
 covariance = np.cov(portfolio_returns, hedge_returns)[0][1]
-variance_hedge = np.var(hedge_returns)
-hedge_ratio_mv = covariance / variance_hedge
+hedge_ratio_mv = covariance / np.var(hedge_returns)
 
-# Method 3: EWMA (exponentially weighted, more sensitive)
-lambda_param = 0.94  # RiskMetrics default
+# Cách 3: EWMA (nhạy hơn với chế độ hiện tại)
+lambda_param = 0.94  # mặc định RiskMetrics
 ewma_cov = pd.Series(portfolio_returns * hedge_returns).ewm(alpha=1-lambda_param).mean()
 ewma_var = pd.Series(hedge_returns**2).ewm(alpha=1-lambda_param).mean()
 hedge_ratio_ewma = ewma_cov / ewma_var
 
-# Selection guidance:
-# Static hedge (monthly rebalance) -> OLS
-# Dynamic hedge (weekly rebalance) -> EWMA
-# Theoretical analysis -> minimum variance
+# Chọn cách nào:
+# Phòng hộ tĩnh (tái cân bằng tháng) -> OLS, khung tuần, 2 năm
+# Phòng hộ động (tái cân bằng tuần)  -> EWMA
+# Phân tích lý thuyết               -> phương sai tối thiểu
 ```
 
-### 6. Hedging Cost Evaluation
+### 7. Đánh giá chi phí phòng hộ
 
-**Cost components:**
-
-| Cost Item | Futures Hedge | Options Hedge | Cross-Asset Hedge |
+| Hạng mục | Short VN30F | Giảm trạng thái | Phòng hộ chéo |
 |--------|---------|---------|-----------|
-| Direct cost | Margin usage + fees | Premium | Allocation to lower-yield assets |
-| Opportunity cost | Basis cost (discount / premium) | Time decay (Theta) | Earn less in a bull market |
-| Hidden cost | Roll cost | Volatility premium | Rebalancing transaction costs |
-| Annualized estimate | 2-5% (including basis) | 3-8% (depends on IV) | 1-3% (opportunity cost) |
+| Chi phí trực tiếp | Phí GD + phí quản lý vị thế + phí quản lý tài sản ký quỹ (VSD/CTCK) | Phí GD + **thuế TNCN 0,1% trên giá bán** | Không |
+| Chi phí cơ hội | Ký quỹ chết vốn (~18-20% giá trị hợp đồng) | Mất upside, bù bởi lãi tiền gửi | Lợi suất thấp hơn cổ phiếu |
+| Chi phí ẩn | **Basis** (thường là khoản lớn nhất) + chi phí đảo vị thế hàng tháng | Trượt giá khi bán khối lượng lớn | Chi phí tái cân bằng |
+| Ước tính năm hoá | 3-8% (chủ yếu do basis và roll) | ~0,3-0,6%/vòng mua-bán + chi phí cơ hội | 1-3% |
 
-**Cost-benefit decision framework:**
+Số phí cụ thể phải tra biểu phí VSD/HNX/CTCK hiện hành tại thời điểm phân tích — **không lấy số trong tài liệu này để tính tiền thật**.
+
+**Khung quyết định có nên phòng hộ:**
 
 ```python
-# Is the hedge worth it?
-hedge_cost_annual = 0.04           # 4% annualized
-expected_loss_without_hedge = 0.15 # 15% expected max loss without hedge
-prob_of_loss = 0.25                # 25% probability
+hedge_cost_annual = 0.05            # 5%/năm gồm basis + phí + roll
+deposit_rate = 0.065                # lãi suất tiền gửi 12T — chi phí cơ hội của phương án "về tiền"
+expected_loss_without_hedge = 0.20  # mức lỗ kỳ vọng nếu không phòng hộ
+prob_of_loss = 0.30                 # xác suất kịch bản xấu
 
-expected_loss = expected_loss_without_hedge * prob_of_loss  # = 3.75%
+expected_loss = expected_loss_without_hedge * prob_of_loss   # = 6,0%
 
-# If hedge_cost > expected_loss -> hedge is relatively expensive
-# If hedge_cost < expected_loss -> hedge is cost-effective
-# Here 4% > 3.75%, so the hedge is marginally expensive, but it may still be worth it because of tail risk
+# So sánh BA phương án, không phải hai:
+# 1. Không làm gì:      lỗ kỳ vọng 6,0%
+# 2. Short VN30F:       chi phí 5,0% chắc chắn
+# 3. Về tiền gửi:       chi phí cơ hội = upside kỳ vọng bị mất, NHƯNG được +6,5% lãi
+# Ở VN phương án 3 rất thường thắng phương án 2 — luôn đưa nó vào so sánh
 ```
 
-## Analysis Framework
+## Khung phân tích
 
-### Five-Step Hedging Design Process
+### Quy trình 5 bước
 
-1. **Identify the risk**: what kind of risk does the portfolio face? Systematic (beta) or idiosyncratic (single-name events)?
-2. **Choose the instrument**: linear (futures / ETF) or nonlinear (options)? This depends on the risk shape and budget
-3. **Calculate the ratio**: determine the number of hedge contracts or option lots
-4. **Evaluate the cost**: what is the annualized cost, and is it acceptable?
-5. **Monitor and adjust**: hedge ratios require dynamic adjustment (beta changes, options expire)
+1. **Nhận diện rủi ro**: hệ thống (beta) hay riêng lẻ (sự kiện một mã)? Rủi ro riêng lẻ thì VN30F vô dụng — phải bán mã đó
+2. **Chọn công cụ**: đối chiếu bảng công cụ ở đầu tài liệu. Nếu công cụ cần thiết không tồn tại tại VN, nói thẳng và chuyển sang giảm trạng thái
+3. **Tính tỷ lệ**: số hợp đồng VN30F, kèm R² của hồi quy beta
+4. **Đánh giá chi phí**: gồm basis tại thời điểm vào lệnh; so sánh với phương án về tiền gửi
+5. **Theo dõi và điều chỉnh**: beta trôi, hợp đồng đáo hạn hàng tháng (thứ Năm thứ ba), ký quỹ bị gọi bổ sung khi thị trường tăng
 
-### Risk Scenario → Hedge Instrument Mapping
+### Ánh xạ kịch bản rủi ro → công cụ (VN)
 
-| Risk Scenario | Recommended Instrument | Cost Level |
+| Kịch bản rủi ro | Công cụ khả thi tại VN | Mức chi phí |
 |---------|---------|---------|
-| Systematic broad-market selloff | Short IF / IC futures | Low (margin) |
-| Moderate drawdown (5-10%) | Collar / Put Spread | Low (zero-cost collar) |
-| Black swan (>20% crash) | Far OTM put | Medium (continuous spending) |
-| Rising rates | Short government bond futures (TF / T) | Low |
-| Currency depreciation | FX forwards / options | Medium |
-| Inflation upside surprise | Allocate to commodities / gold | Low (opportunity cost) |
+| Thị trường giảm diện rộng | Short VN30F1M / hạ tỷ trọng | Trung bình (basis) / thấp |
+| Giảm vừa 5-10% | Hạ tỷ trọng 30-50%, xoay nhóm phòng thủ | Thấp |
+| Sập >20% (đuôi) | Short VN30F + nắm vàng + tiền gửi | Trung bình, không có tính lồi |
+| Lãi suất tăng | Rút ngắn duration trái phiếu, tăng tiền gửi ngắn hạn; **không có HĐTL TPCP thanh khoản** | Thấp |
+| VND mất giá | Kỳ hạn USD/VND (nếu đủ điều kiện), nắm cổ phiếu xuất khẩu thu USD | Trung bình |
+| Lạm phát vượt dự báo | Tăng dầu khí, hàng hóa, vàng | Chi phí cơ hội |
+| Rủi ro giải chấp margin toàn thị trường | Hạ dư nợ margin về 0 TRƯỚC, phòng hộ sau | Thấp — đây là bước quan trọng nhất |
+| Sự kiện một mã (room, cổ đông lớn, kiểm toán) | Bán mã đó; VN30F không giúp gì | Phí bán |
 
-## Output Format
+## Định dạng đầu ra
 
 ```
-## Hedging Plan — [Portfolio Name]
+## Phương án phòng hộ — [Tên danh mục]
 
-### Portfolio Overview
-- Portfolio size: [X ten-thousand RMB]
-- Portfolio beta: [X.XX] (vs [benchmark index])
-- Main risk: [systematic / sector concentration / tail]
+### Tổng quan danh mục
+- Quy mô: [X tỷ VND]
+- Beta danh mục: [X,XX] so với VN30 (2 năm, khung tuần) — R² = [0,XX]
+- Rủi ro chính: [hệ thống / tập trung ngành / đuôi / margin]
+- Dư nợ margin hiện tại: [X tỷ, tỷ lệ X% NAV]
 
-### Hedging Plan
-- Instrument: [short IF futures / Collar / Put Spread / ...]
-- Hedge ratio: [X.XX]
-- Number of contracts / option lots: [N]
-- Hedge coverage: [X%] (full / partial hedge)
+### Phương án đề xuất
+- Công cụ: [short VN30F1M / hạ tỷ trọng X% / xoay nhóm / kết hợp]
+- Tỷ lệ phòng hộ: [X,XX]
+- Số hợp đồng: [N] — ký quỹ cần [X tỷ]
+- Độ phủ: [X%] (toàn phần / một phần)
+- Basis tại thời điểm vào lệnh: [X điểm, chiết khấu/premium] → chi phí ẩn ước [X%]
 
-### Cost Evaluation
-- Direct cost: [X ten-thousand RMB / year]
-- Annualized cost ratio: [X%]
-- Margin / premium usage: [X ten-thousand RMB]
+### Đánh giá chi phí
+- Chi phí trực tiếp: [X triệu VND/năm]
+- Chi phí năm hoá: [X%]
+- Ký quỹ chiếm dụng: [X tỷ VND]
+- **So sánh phương án thay thế**: về tiền gửi 12T lãi [X%] → chi phí ròng của việc hedge là [X%]
 
-### Scenario Analysis
-| Market Move | PnL Without Hedge | PnL With Hedge | Hedge Effect |
+### Phân tích kịch bản
+| Biến động TT | Lãi/lỗ không hedge | Lãi/lỗ có hedge | Hiệu quả |
 |---------|-----------|-----------|---------|
-| Down 10% | -X | -X | Reduce loss by X |
-| Down 20% | -X | -X | Reduce loss by X |
-| Up 10% | +X | +X | Give up X of upside |
+| Giảm 10% | −X | −X | Giảm lỗ X |
+| Giảm 20% | −X | −X | Giảm lỗ X |
+| Tăng 10% | +X | +X | Mất X upside |
 
-### Execution Notes
-- Entry timing: [specific time / condition]
-- Rebalance frequency: [monthly / quarterly / event-driven]
-- Exit condition: [risk resolution criterion]
+### Lưu ý thực thi
+- Thời điểm vào: [điều kiện cụ thể — tránh vào khi basis chiết khấu sâu]
+- Tần suất tái cân bằng: [tháng / tuần / theo sự kiện]
+- Lịch đảo vị thế: thứ Năm thứ ba hàng tháng (ngày đáo hạn VN30F1M)
+- Điều kiện thoát phòng hộ: [tiêu chí rủi ro đã giải toả]
 ```
 
-## Notes
+## Lưu ý
 
-- China A-share index futures have trading restrictions (intraday opening limits, margin requirements), so actual usable size may be limited
-- Option liquidity is concentrated in near-month and near-the-money contracts; deep OTM options have wide bid-ask spreads
-- Beta is unstable: beta tends to be lower in bull markets and higher in bear markets (meaning the hedge is least sufficient when it is needed most)
-- Collar strategies cap upside, so large rallies in the underlying can materially drag portfolio performance
-- Tail hedging (far OTM puts) loses money most of the time and requires discipline to execute continuously; do not abandon it halfway because it "feels wasteful"
-- Correlations in cross-asset hedges can change violently during crises (trending toward 1), failing exactly when they are needed most
-- Hedge plans should be re-evaluated regularly (at least monthly) for beta and cost
-- This framework is for research backtesting only, does not constitute investment advice, and does not involve live trading execution
+- **VN không có quyền chọn niêm yết**: mọi đề xuất Protective Put / Collar / Put Spread trên cổ phiếu VN đều sai. CW chỉ có chiều mua, không phòng hộ giảm giá được
+- **Thanh khoản phái sinh chỉ tập trung ở VN30F1M**; các kỳ hạn xa gần như không có đối ứng — đừng thiết kế phòng hộ nhiều tháng bằng hợp đồng quý
+- **Basis là chi phí lớn nhất và biến động nhất** tại VN, không phải phí giao dịch. Phòng hộ mua vào lúc thị trường đã hoảng loạn thường đắt đến mức vô nghĩa
+- **Beta không ổn định**: beta thường thấp trong pha tăng và cao trong pha giảm — nghĩa là phòng hộ thiếu hụt đúng lúc cần nhất. Với midcap/smallcap VN, hiện tượng này còn mạnh hơn
+- **Ưu tiên hạ dư nợ margin trước khi phòng hộ.** Ở VN, phần lớn tổn thất trong các nhịp sập đến từ giải chấp cưỡng bức chứ không phải từ beta. Phòng hộ bằng VN30F trong khi vẫn giữ margin cao là chữa triệu chứng
+- Thuế 0,1% trên giá bán (không phụ thuộc lãi/lỗ) làm phương án giảm trạng thái đắt hơn thoạt nhìn với danh mục quay vòng nhiều
+- Tương quan phòng hộ chéo có thể vọt về 1 trong khủng hoảng — TPDN là ví dụ điển hình đã hỏng tại VN năm 2022
+- Rà soát lại beta, R² và chi phí ít nhất hàng tháng
+- Khung này phục vụ nghiên cứu/backtest, không phải khuyến nghị đầu tư và không bao gồm thực thi lệnh
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
-1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
+1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`, `hnx.vn`, `vsd.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
 2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.
+- Biểu phí phái sinh, tỷ lệ ký quỹ và quy chế hợp đồng thay đổi theo thời gian — tra VSD/HNX tại thời điểm phân tích, không dùng số trong tài liệu này.

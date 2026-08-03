@@ -1,209 +1,235 @@
 ---
 name: commodity-analysis
-description: Commodity analysis (oil supply-demand balance / gold pricing / copper as an economic predictor / inventory cycles / futures premium-discount structure / seasonality), generating directional commodity signals.
+description: "Phân tích hàng hóa dưới góc nhìn VN — cân đối cung cầu dầu, định giá vàng (kèm chênh lệch SJC), đồng dự báo chu kỳ, thép/HRC, và nhóm nông sản xuất khẩu chủ lực (gạo, cà phê robusta, hồ tiêu, cao su). Sinh tín hiệu hướng giá và ánh xạ sang CPI + cổ phiếu niêm yết."
 category: analysis
 ---
-# Commodity Analysis
+# Phân tích hàng hóa (góc nhìn Việt Nam)
 
-## Overview
+## Tổng quan
 
-Analyze commodities from four dimensions — supply-demand balance, pricing model, inventory cycle, and futures structure — and output directional signals suitable for backtesting. Focuses on crude oil (global pricing anchor), gold (safe haven + inflation hedge), and copper (economic barometer).
+Phân tích hàng hóa trên bốn trục — **cân đối cung cầu, mô hình định giá, chu kỳ tồn kho, cấu trúc kỳ hạn** — và xuất tín hiệu hướng giá dùng được cho backtest.
 
-## Core Concepts
+Điểm khác biệt của VN: nền kinh tế đứng **cả hai phía** của thương mại hàng hóa.
+- **Phía nhập khẩu (chịu chi phí)**: dầu thô/xăng dầu thành phẩm, than nhiệt, khí, quặng sắt, than cốc, phân bón đầu vào, nguyên liệu thức ăn chăn nuôi (ngô, khô đậu tương)
+- **Phía xuất khẩu (hưởng lợi)**: gạo, cà phê robusta (VN là nước sản xuất số 1 thế giới), hồ tiêu, điều, cao su, thủy sản, gỗ
 
-### 1. Crude Oil Supply-Demand Balance
+Vì vậy mọi kết luận về hàng hóa phải trả lời **hai câu hỏi tách biệt**: tác động lên CPI (kênh chi phí) và tác động lên lợi nhuận doanh nghiệp niêm yết (kênh doanh thu). Một cú tăng giá cà phê là *xấu cho CPI* nhưng *tốt cho lợi nhuận* — trộn hai kênh là lỗi phân tích phổ biến nhất.
 
-**Key supply-side variables:**
+## Khái niệm cốt lõi
 
-| Variable | Data Source | Frequency | Direction of Impact |
+### 1. Cân đối cung cầu dầu thô
+
+**Biến phía cung:**
+
+| Biến | Nguồn | Tần suất | Chiều tác động |
 |------|--------|------|---------|
-| OPEC production | OPEC monthly report | Monthly | Production cuts → oil price ↑ |
-| US shale output | EIA weekly report | Weekly | Higher output → oil price ↓ |
-| Rig count (Baker Hughes) | Baker Hughes | Weekly | Leads production by 3-6 months |
-| Strategic Petroleum Reserve (SPR) | EIA | Weekly | SPR release → short-term oil price ↓ |
+| Sản lượng OPEC+ | Báo cáo tháng OPEC | Tháng | Cắt giảm → giá dầu ↑ |
+| Sản lượng dầu đá phiến Mỹ | EIA weekly | Tuần | Tăng sản lượng → giá dầu ↓ |
+| Số giàn khoan (Baker Hughes) | Baker Hughes | Tuần | Dẫn báo sản lượng 3-6 tháng |
+| Dự trữ chiến lược Mỹ (SPR) | EIA | Tuần | Xả SPR → giá dầu ↓ ngắn hạn |
 
-**Key demand-side variables:**
-- IEA global oil demand forecast (quarterly)
-- China crude imports (customs monthly data)
-- US gasoline demand (EIA weekly report, implied demand)
-- Global PMI (leads demand by 1-2 months)
-
-**Supply-demand balance signals:**
+**Biến phía cầu:**
+- Dự báo nhu cầu dầu toàn cầu của IEA (quý)
+- Nhập khẩu dầu thô Trung Quốc (hải quan TQ, tháng) — biến cầu biên lớn nhất
+- Nhu cầu xăng Mỹ (EIA weekly, implied demand)
+- PMI toàn cầu (dẫn báo cầu 1-2 tháng)
 
 ```python
-# Simplified supply-demand judgment
-if opec_compliance > 90% and us_rig_count_declining:
-    supply_signal = "tight"  # bullish for oil
-elif opec_compliance < 80% and us_production_rising:
-    supply_signal = "loose"  # bearish for oil
+if opec_compliance > 0.90 and us_rig_count_declining:
+    supply_signal = "thắt"     # thuận giá dầu
+elif opec_compliance < 0.80 and us_production_rising:
+    supply_signal = "lỏng"     # nghịch giá dầu
 
-if global_pmi > 50 and china_import_yoy > 5%:
-    demand_signal = "strong"  # bullish for oil
+if global_pmi > 50 and china_import_yoy > 0.05:
+    demand_signal = "mạnh"
 elif global_pmi < 48 and china_import_yoy < 0:
-    demand_signal = "weak"    # bearish for oil
+    demand_signal = "yếu"
 ```
 
-### 2. Gold Pricing Framework
+### 2. Khung định giá vàng
 
-**Four-factor model:**
+**Mô hình 4 nhân tố (giá vàng thế giới):**
 
-| Factor | Weight | Logic | Indicator |
+| Nhân tố | Trọng số | Logic | Chỉ báo |
 |------|------|------|------|
-| Real rates | 40% | Real rates ↓ → lower opportunity cost of holding gold → gold ↑ | 10Y TIPS yield |
-| US dollar index | 25% | USD ↓ → gold becomes cheaper in pricing terms → gold ↑ | DXY |
-| Safe-haven demand | 20% | Risk ↑ → safe-haven buying → gold ↑ | VIX + geopolitical risk index |
-| Central-bank buying | 15% | Central-bank purchases → structural demand support | WGC quarterly report |
+| Lãi suất thực | 40% | Lãi suất thực ↓ → chi phí cơ hội nắm vàng giảm → vàng ↑ | Lợi suất TIPS 10Y |
+| Chỉ số USD | 25% | USD ↓ → vàng rẻ đi theo đơn vị định giá → vàng ↑ | DXY |
+| Cầu trú ẩn | 20% | Rủi ro ↑ → mua phòng thủ → vàng ↑ | VIX + chỉ số rủi ro địa chính trị |
+| NHTW mua ròng | 15% | Cầu cấu trúc | Báo cáo quý WGC |
 
-**Practical rules:**
-- 10Y TIPS < 0%: strong support for gold (negative real rates mean negative holding cost)
-- 10Y TIPS > 2%: pressure on gold (positive real rates reduce attractiveness)
-- Correlation between DXY and gold is around -0.6, but not absolute (they both rose in 2022 due to safe-haven demand)
-- Central-bank purchases >1000 tons / year (2022-2023 level): long-term structural bullish support
+**Quy tắc thực chiến:**
+- TIPS 10Y < 0%: nền đỡ mạnh cho vàng
+- TIPS 10Y > 2%: áp lực lên vàng
+- Tương quan DXY–vàng khoảng −0,6, không tuyệt đối (2022 cả hai cùng tăng do cầu trú ẩn)
+- NHTW mua > 1.000 tấn/năm: nền đỡ cấu trúc dài hạn
 
-### 3. Dr. Copper as an Economic Predictor
+**Lớp riêng của VN — chênh lệch giá vàng trong nước:**
+- Giá vàng miếng SJC và vàng nhẫn được giao dịch **tách khỏi giá thế giới** vì độc quyền thương hiệu và hạn chế nhập khẩu vàng nguyên liệu
+- **Chênh lệch SJC với giá thế giới quy đổi chính là chỉ báo vĩ mô**, không phải hàng hóa: nới rộng = cầu USD ngầm + mất niềm tin VND, thường xuất hiện đồng thời với căng thẳng tỷ giá
+- Chênh lệch có thể **tự co lại do chính sách** (SBV đấu thầu vàng, cấp quota nhập khẩu, mở rộng đơn vị được bán) — nghĩa là nắm SJC để phòng hộ có rủi ro chính sách một chiều
+- Vàng nhẫn bám giá thế giới sát hơn vàng miếng ⇒ nếu mục tiêu là bám vàng thế giới, dùng vàng nhẫn làm tham chiếu
+- Cần theo: chênh SJC – thế giới (điểm % và tuyệt đối), chênh vàng nhẫn – thế giới, chênh mua–bán (thanh khoản)
 
-**Copper as a leading indicator:**
-- YoY copper-price change leads industrial production by about 2-3 months
-- Copper / gold ratio is highly positively correlated with the US 10Y Treasury yield (`r > 0.7`)
-- Copper breakout above the prior high confirms economic recovery
+### 3. Đồng — "Dr. Copper" dự báo chu kỳ
 
-**Copper fundamental tracking:**
+- Biến động YoY giá đồng dẫn báo sản xuất công nghiệp khoảng 2-3 tháng
+- Tỷ lệ đồng/vàng tương quan dương mạnh với lợi suất TPCP Mỹ 10Y (`r > 0,7`)
+- Đồng vượt đỉnh cũ xác nhận phục hồi kinh tế
 
-| Indicator | Data Source | Threshold |
+| Chỉ báo | Nguồn | Ngưỡng |
 |------|--------|------|
-| LME copper inventory | LME daily report | <150k tons = tight |
-| SHFE copper inventory | SHFE weekly report | WoW decline >10% = tight |
-| Copper concentrate TC/RC | SMM | TC < $30/ton = tight mining supply |
-| China copper imports | Customs monthly report | YoY growth >10% = strong demand |
+| Tồn kho đồng LME | LME daily | < 150 nghìn tấn = thắt |
+| Tồn kho đồng SHFE | SHFE weekly | Giảm > 10% WoW = thắt |
+| Phí gia công TC/RC | SMM | TC < 30 USD/tấn = nguồn quặng thắt |
+| Nhập khẩu đồng TQ | Hải quan TQ, tháng | Tăng > 10% YoY = cầu mạnh |
 
-### 4. Inventory Cycle Analysis
+### 4. Chu kỳ tồn kho
 
-**Visible inventory vs hidden inventory:**
-- Visible inventory: published by exchanges (LME / SHFE / COMEX), transparent and trackable
-- Hidden inventory: bonded areas / trader warehouses, opaque but potentially larger
-- The true turning point in prices is the turning point in total inventory
-
-**Four inventory-cycle stages (using copper as example):**
+**Tồn kho hiện + tồn kho ẩn:**
+- Hiện: sàn công bố (LME / SHFE / COMEX), minh bạch, theo dõi được
+- Ẩn: kho ngoại quan, kho thương nhân — không thấy nhưng có thể lớn hơn
+- Điểm đảo chiều giá thật nằm ở điểm đảo của **tổng** tồn kho
 
 ```
-Active restocking (price↑ volume↑) -> Passive restocking (price↓ volume↑) -> Active destocking (price↓ volume↓) -> Passive destocking (price↑ volume↓)
-      mid bull market                 late bull market                 mid bear market                 late bear / early bull market
+Chủ động tích trữ (giá↑ lượng↑) → Bị động tích trữ (giá↓ lượng↑) → Chủ động xả kho (giá↓ lượng↓) → Bị động xả kho (giá↑ lượng↓)
+     giữa sóng tăng                cuối sóng tăng                 giữa sóng giảm                cuối sóng giảm / đầu sóng tăng
 ```
 
-**Signal mapping:**
-
-| Stage | Inventory Direction | Price Direction | Trading Signal |
+| Giai đoạn | Tồn kho | Giá | Tín hiệu |
 |------|---------|---------|---------|
-| Passive destocking | ↓ | ↑ | Long (best buying point) |
-| Active restocking | ↑ | ↑ | Keep long positions |
-| Passive restocking | ↑ | ↓ | Close longs (warning) |
-| Active destocking | ↓ | ↓ | Short or stay neutral |
+| Bị động xả kho | ↓ | ↑ | Mua (điểm mua tốt nhất) |
+| Chủ động tích trữ | ↑ | ↑ | Giữ vị thế mua |
+| Bị động tích trữ | ↑ | ↓ | Đóng vị thế (cảnh báo) |
+| Chủ động xả kho | ↓ | ↓ | Bán hoặc đứng ngoài |
 
-### 5. Futures Premium / Discount Structure
+### 5. Cấu trúc kỳ hạn
 
-**Contango (futures > spot, normal market):**
-- Supply is abundant, and the market prices in carrying costs (storage + funding)
-- Roll yield is negative (`roll yield < 0`), unfavorable for long holders
-- Deep contango (`far month - near month > 5%`) = severe oversupply
+**Contango (kỳ hạn > giao ngay, thị trường bình thường):** nguồn cung dồi dào, giá phản ánh chi phí lưu trữ + vốn; roll yield âm, bất lợi cho vị thế mua dài. Contango sâu (`tháng xa − tháng gần > 5%`) = dư cung nghiêm trọng.
 
-**Backwardation (futures < spot, inverted market):**
-- Supply is tight, and spot premium reflects strong immediate demand
-- Roll yield is positive (`roll yield > 0`), favorable for long holders
-- Deep backwardation (`near month - far month > 3%`) = squeeze or extreme shortage
-
-**Term-structure signal:**
+**Backwardation (kỳ hạn < giao ngay, thị trường đảo):** cung thắt, giao ngay được trả giá cao; roll yield dương. Backwardation sâu (`tháng gần − tháng xa > 3%`) = ép giá hoặc thiếu hụt cực đoan.
 
 ```python
-# Spread ratio = (front month - second month) / front month
 spread_ratio = (front_month - second_month) / front_month
 
-if spread_ratio > 0.02:    # backwardation > 2%
-    signal = "strongly bullish"  # spot shortage
-elif spread_ratio < -0.03: # contango > 3%
-    signal = "bearish"           # oversupply
+if spread_ratio > 0.02:
+    signal = "rất thuận"    # thiếu hụt giao ngay
+elif spread_ratio < -0.03:
+    signal = "nghịch"       # dư cung
 else:
-    signal = "neutral"
+    signal = "trung tính"
 ```
 
-### 6. Seasonality
+### 6. Tính mùa vụ
 
-**Oil seasonality:**
-- March-May: refinery maintenance ends + summer inventory build → seasonal rise (ahead of the "driving season")
-- September-October: hurricane season (Gulf of Mexico) → supply disruption → higher volatility
-- November-December: heating-oil demand → stronger diesel crack spread
+**Dầu:** tháng 3-5 kết thúc bảo dưỡng nhà máy lọc + tích trữ cho mùa lái xe → tăng theo mùa; tháng 9-10 mùa bão vịnh Mexico → gián đoạn nguồn cung, biến động cao; tháng 11-12 cầu dầu sưởi → crack spread diesel mạnh.
 
-**Gold seasonality:**
-- January-February: Lunar New Year + Indian wedding-season physical demand → relatively strong
-- July-August: traditional soft season → relatively weak
-- October-November: Diwali + Christmas restocking → relatively strong
+**Vàng:** tháng 1-2 Tết Nguyên đán + mùa cưới Ấn Độ → cầu vật chất mạnh (VN cộng thêm **ngày vía Thần Tài mùng 10 tháng Giêng âm** — cầu bán lẻ tăng đột biến, PNJ hưởng lợi); tháng 7-8 mùa thấp điểm; tháng 10-11 Diwali + tích trữ Giáng sinh.
 
-**Copper seasonality:**
-- March-April: China construction season starts → demand recovery
-- June-July: off-season inventory buildup → pressure
-- September-October: "Golden September, Silver October" → demand recovery
+**Đồng:** tháng 3-4 vào mùa xây dựng TQ → cầu hồi; tháng 6-7 mùa thấp điểm; tháng 9-10 "tháng vàng tháng bạc" → cầu hồi.
 
-## Analysis Framework
+**Nông sản VN (chu kỳ mùa vụ trong nước — quan trọng nhất với cổ phiếu niêm yết):**
+- **Cà phê robusta**: thu hoạch Tây Nguyên tháng 10 – tháng 1; áp lực bán ra cao nhất ngay sau thu hoạch; giá thường mạnh vào cuối vụ (tháng 6-9) khi tồn kho nông dân cạn. Theo dõi hạn hán / mưa trái mùa ở Đắk Lắk, Lâm Đồng, Gia Lai
+- **Gạo**: vụ Đông Xuân (thu hoạch tháng 2-4, vụ lớn nhất), Hè Thu (tháng 6-8), Thu Đông (tháng 10-11). Giá lúa trong nước và giá gạo 5% tấm xuất khẩu lệch pha với vụ thu hoạch
+- **Cao su**: mùa cạo mủ tháng 4-12, ngưng cạo (rụng lá) tháng 2-3 → sản lượng quý 1 thấp theo cấu trúc, đừng đọc thành suy giảm
+- **Heo hơi**: giá thường tăng mạnh trước Tết (cầu tiêu dùng đỉnh) và giảm sau Tết; dịch tả lợn châu Phi là biến số phá vỡ mùa vụ
 
-### Five-Step Commodity Analysis
+### 7. Kênh truyền dẫn vào Việt Nam (bắt buộc có trong mọi báo cáo)
 
-1. **Supply-demand sets direction**: is the balance in surplus or shortage? Which way are marginal variables moving?
-2. **Inventory sets rhythm**: which inventory-cycle stage are we in? Is a turning point close?
-3. **Term structure confirms**: contango or backwardation? Does it confirm the supply-demand judgment?
-4. **Seasonality overlay**: is seasonality currently a tailwind or a headwind?
-5. **Macro validation**: do the dollar / rates / risk appetite support the directional judgment?
+**a) Dầu thô → giá xăng dầu trong nước → CPI**
+- Giá bán lẻ trong nước được **điều hành theo chu kỳ 7 ngày** (Bộ Công Thương phối hợp Bộ Tài chính), có đệm bởi **Quỹ bình ổn giá (BOG)** và trong giai đoạn căng thẳng có thể giảm **thuế bảo vệ môi trường**
+- ⇒ **Không mô hình hóa truyền dẫn 1:1**. Cú sốc dầu thế giới vào CPI VN có độ trễ và bị chính sách làm phẳng
+- Nhóm giao thông chiếm khoảng 9-10% rổ CPI — nêu rõ hệ số co giãn đang dùng và nguồn của nó
+- Cổ phiếu: PLX, OIL (phân phối), BSR (lọc dầu, hưởng crack spread), GAS, PVS, PVD, PVT (thượng nguồn/dịch vụ) hưởng lợi; HVN, VJC, vận tải, xi măng chịu chi phí
 
-### Composite Scoring Template
+**b) Khí & than → điện & phân bón**
+- Giá khí đầu vào quyết định biên của DPM, DCM (urê); giá than nhiệt quyết định biên nhiệt điện than (QTP, PPC, HND)
+- Giá bán lẻ điện của EVN là **quyết định chính sách**, thường được canh theo dư địa mục tiêu CPI ⇒ điều chỉnh giá điện vừa là biến chi phí doanh nghiệp vừa là biến CPI có chủ đích
+
+**c) Quặng sắt + than cốc → thép**
+- Biên gộp của HPG, HSG, NKG phụ thuộc chênh lệch giá HRC/thép xây dựng với quặng + than cốc, độ trễ tồn kho khoảng 1 quý
+- Biến số chính sách: **lượng thép Trung Quốc xuất vào VN** và tiến trình các vụ kiện chống bán phá giá — đây là biến biên lợi nhuận do chính sách, không phải cung cầu thuần
+
+**d) Nông sản → hai chiều**
+- Chiều doanh thu: LTG, TAR (gạo); PHR, DPR, GVR (cao su); VHC, ANV, FMC (thủy sản); nhóm cà phê/hồ tiêu phần lớn chưa niêm yết nhưng tác động vĩ mô vùng Tây Nguyên và tín dụng nông nghiệp
+- Chiều CPI: nhóm hàng ăn & dịch vụ ăn uống chiếm khoảng 33-34% rổ CPI — biến động lớn nhất đến từ **giá thịt heo**, kế đến là gạo
+- Giá thức ăn chăn nuôi (ngô, khô đậu tương nhập khẩu) → biên của DBC, BAF, HAG, MML với độ trễ 1-2 quý
+
+**Nguồn dữ liệu hàng hóa cho VN:**
+- Giá xăng dầu điều hành: Bộ Công Thương / PLX
+- Giá heo hơi, giá lúa, giá cà phê, giá tiêu: các trang chuyên ngành + cafef/vietstock (cross-check tối thiểu 2 nguồn)
+- Xuất khẩu theo mặt hàng: Tổng cục Hải quan (tháng), Hiệp hội Lương thực VN (VFA), Vicofa (cà phê), VASEP (thủy sản)
+- Giá vàng SJC/nhẫn: SJC, PNJ, DOJI — luôn ghi rõ giá mua hay giá bán
+- Hàng hóa thế giới: qua `yfinance` (dầu, vàng, đồng) hoặc `web-reader`; Sở Giao dịch Hàng hóa VN (MXV) cho hợp đồng liên thông
+
+## Khung phân tích
+
+### Sáu bước
+
+1. **Cung cầu định hướng**: dư cung hay thiếu hụt? Biến biên đang chạy chiều nào?
+2. **Tồn kho định nhịp**: đang ở giai đoạn nào của chu kỳ tồn kho? Sắp đảo chưa?
+3. **Cấu trúc kỳ hạn xác nhận**: contango hay backwardation? Có khớp với nhận định cung cầu không?
+4. **Phủ lớp mùa vụ**: mùa vụ đang thuận hay nghịch? (dùng cả mùa vụ thế giới và mùa vụ trong nước)
+5. **Kiểm chứng vĩ mô**: USD / lãi suất / khẩu vị rủi ro có ủng hộ nhận định không?
+6. **Ánh xạ VN**: tách rõ tác động lên CPI và tác động lên lợi nhuận từng nhóm cổ phiếu, kèm độ trễ
+
+### Mẫu chấm điểm tổng hợp
 
 ```python
 commodity_score = {
-    "supply_demand": +1,    # supply-demand is tight
-    "inventory_cycle": +2,  # passive destocking (best stage)
-    "term_structure": +1,   # mild backwardation
-    "seasonality": 0,       # neutral seasonality
-    "macro_env": -1,        # stronger dollar is a headwind
+    "supply_demand":  +1,   # cung cầu thắt
+    "inventory_cycle": +2,  # bị động xả kho (giai đoạn tốt nhất)
+    "term_structure": +1,   # backwardation nhẹ
+    "seasonality":     0,   # mùa vụ trung tính
+    "macro_env":      -1,   # USD mạnh là lực cản
 }
-# Total score = +3/5 = +0.6 -> bullish bias, but not a strong signal
+# Tổng = +3/5 = +0,6 → thiên thuận, nhưng chưa phải tín hiệu mạnh
 ```
 
-## Output Format
+## Định dạng đầu ra
 
 ```
-## Commodity Analysis Report — [Commodity Name]
+## Báo cáo hàng hóa — [Tên hàng hóa]
 
-### Supply-Demand Structure
-- Supply side: [surplus / balanced / shortage] — [specific data]
-- Demand side: [strong / stable / weak] — [specific data]
-- Balance table: [inventory build X tons / drawdown X tons]
+### Cấu trúc cung cầu
+- Phía cung: [dư / cân bằng / thiếu] — [số liệu cụ thể, nguồn]
+- Phía cầu: [mạnh / ổn / yếu] — [số liệu cụ thể, nguồn]
+- Bảng cân đối: [tăng tồn X tấn / rút tồn X tấn]
 
-### Inventory Cycle
-- Current stage: [active restocking / passive restocking / active destocking / passive destocking]
-- Visible inventory: [LME X tons, SHFE X tons, WoW change]
+### Chu kỳ tồn kho
+- Giai đoạn hiện tại: [chủ động tích trữ / bị động tích trữ / chủ động xả / bị động xả]
+- Tồn kho hiện: [LME X tấn, SHFE X tấn, thay đổi tuần]
 
-### Term Structure
-- Front-back spread: [contango X% / backwardation X%]
-- Roll yield: [positive / negative]
+### Cấu trúc kỳ hạn
+- Chênh lệch tháng gần–xa: [contango X% / backwardation X%]
+- Roll yield: [dương / âm]
 
-### Composite Score
-| Dimension | Score(-2~+2) | Basis |
+### Điểm tổng hợp
+| Trục | Điểm (−2~+2) | Căn cứ |
 |------|------------|------|
-| Supply-demand | +1 | OPEC compliance rate 92% |
-| Inventory | +2 | LME inventory hit 18-month low |
+| Cung cầu | +1 | Tỷ lệ tuân thủ OPEC 92% |
+| Tồn kho | +2 | Tồn kho LME thấp nhất 18 tháng |
 
-### Trading Direction
-- Direction: [bullish / bearish / neutral]
-- Confidence: [high / medium / low]
-- Risk points: [specific risks]
+### Ánh xạ Việt Nam
+- Kênh CPI: [nhóm hàng nào, tỷ trọng rổ, độ trễ dự kiến, có bị chính sách làm phẳng không]
+- Kênh lợi nhuận: [mã hưởng lợi / mã chịu chi phí, độ trễ tồn kho, mức nhạy biên gộp]
+- Rủi ro chính sách: [điều hành giá, thuế, quota, phòng vệ thương mại]
+
+### Hướng giao dịch
+- Hướng: [thuận / nghịch / trung tính]
+- Độ tin cậy: [cao / trung bình / thấp]
+- Rủi ro: [cụ thể]
 ```
 
-## Notes
+## Lưu ý
 
-- Commodity data sources are fragmented (EIA / OPEC / LME / SHFE, etc.). This skill provides the analytical framework; data should be retrieved through `web-reader` or entered manually
-- Futures prices include roll costs, so direct comparison across different contracts must account for expiry-roll effects
-- Seasonal patterns are statistical averages and may be completely overwhelmed by fundamentals in a given year
-- Gold has both commodity and financial attributes, and the financial side (rates / dollar) usually dominates short-term pricing
-- Copper’s financial characteristics have strengthened since 2020 (copper futures are used as a macro hedge), so pure fundamental analysis may be insufficient
-- Inventory data is lagged (hidden inventories cannot be tracked in real time), so cross-check with price and basis behavior
-- This framework is for research backtesting only and does not constitute investment advice
+- Nguồn dữ liệu hàng hóa phân mảnh (EIA / OPEC / LME / SHFE / Hải quan VN / hiệp hội ngành). Skill này cung cấp khung phân tích; số liệu lấy qua `web-reader`, `yfinance` hoặc crawl thủ công
+- Giá hợp đồng tương lai có chi phí đảo vị thế — so sánh giữa các kỳ hạn phải hiệu chỉnh roll
+- Quy luật mùa vụ là bình quân thống kê, có thể bị cơ bản của năm cụ thể đè bẹp hoàn toàn
+- Vàng có cả tính hàng hóa lẫn tính tài chính; ngắn hạn phần tài chính (lãi suất/USD) chi phối. Riêng tại VN còn cộng **rủi ro chính sách** lên chênh lệch SJC
+- Tính tài chính của đồng mạnh lên từ 2020 (dùng làm hedge vĩ mô), phân tích cơ bản thuần có thể không đủ
+- Dữ liệu tồn kho có độ trễ và không thấy được tồn kho ẩn — đối chiếu với hành vi giá và basis
+- **Với VN, tuyệt đối tách hai kênh CPI và lợi nhuận.** Cùng một cú sốc giá có thể vừa là tin xấu vĩ mô vừa là tin tốt vi mô — nói rõ cả hai, đừng gộp thành một kết luận
+- Khung này phục vụ nghiên cứu/backtest, không phải khuyến nghị đầu tư
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)

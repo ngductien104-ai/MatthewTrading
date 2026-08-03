@@ -1,67 +1,82 @@
 ---
 name: seasonal
-description: Seasonal/calendar-effect strategy. Generates trading signals from time-based patterns such as month-of-year effects and day-of-week effects. Suitable for any OHLCV data.
+description: "Chiến lược mùa vụ / hiệu ứng lịch cho TTCK VN — sóng trước-sau Tết, tháng cô hồn, mùa ĐHCĐ và chia cổ tức, kỳ review ETF, mùa BCTC. Sinh tín hiệu từ quy luật thời gian trên dữ liệu OHLCV bất kỳ."
 category: strategy
 ---
-# Seasonal / Calendar Effect Strategy
+# Chiến lược mùa vụ / hiệu ứng lịch (Việt Nam)
 
-## Purpose
+## Mục đích
 
-Uses time-based regularities in financial markets (month effects, day-of-week effects, and similar patterns) to generate trading signals. Examples include the China A-share "spring rally" (January-March) and the "sell in May" effect.
+Khai thác quy luật lặp theo thời gian của thị trường (hiệu ứng tháng, hiệu ứng thứ trong tuần, sự kiện lịch) để sinh tín hiệu giao dịch. Tại VN, các hiệu ứng mạnh nhất gắn với **lịch âm** (Tết, tháng cô hồn) và **lịch sự kiện doanh nghiệp** (ĐHCĐ, cổ tức, BCTC quý), chứ không phải lịch dương thuần túy.
 
-## Signal Logic
+## Logic tín hiệu
 
-### Month Effect (Default)
+### Hiệu ứng tháng (mặc định)
 
-- Specified bullish months → go long
-- Specified bearish months → go short / stay out
-- All other months → stay flat
+- Tháng thuận → mở vị thế mua
+- Tháng nghịch → đứng ngoài / bán
+- Các tháng còn lại → trung tính (bắt buộc trả về 0, không được bỏ qua)
 
-### Day-of-Week Effect (Optional Overlay)
+### Hiệu ứng thứ trong tuần (tùy chọn)
 
-- Monday / Friday effects
-- Start-of-month / end-of-month effects
+- Hiệu ứng thứ Hai / thứ Sáu
+- Hiệu ứng đầu tháng / cuối tháng (dòng tiền quỹ, giải ngân định kỳ)
 
-### Combined Mode
+### Chế độ kết hợp
 
-Month signal × weekday signal; open a position only when both confirm.
+Tín hiệu tháng × tín hiệu thứ; chỉ vào vị thế khi cả hai xác nhận.
 
-## Common Calendar Effects Reference
+## Bảng hiệu ứng lịch tại TTCK Việt Nam
 
-| Effect | Description | Reference Configuration |
+| Hiệu ứng | Mô tả | Cấu hình tham chiếu |
 |------|------|---------|
-| Spring rally | Higher probability of gains in China A-shares from January to March | bullish_months=[1,2,3] |
-| Sell in May | Weaker performance from May to October | bearish_months=[5,6,7,8,9,10] |
-| Year-end effect | Institutional rebalancing in December | bullish_months=[11,12] |
-| Monday effect | Lower returns on Mondays | bearish_weekdays=[0] |
-| Friday effect | Higher returns on Fridays | bullish_weekdays=[4] |
+| **Sóng trước Tết** | Dòng tiền và tâm lý tích cực 2-4 tuần trước Tết Nguyên đán; thanh khoản tăng, midcap chạy | Cửa sổ theo **lịch âm**, thường rơi vào tháng 1 dương |
+| **Trũng thanh khoản Tết** | Tuần nghỉ Tết và tuần liền sau: thanh khoản cạn, biến động méo — tránh mở vị thế mới | Loại bỏ khỏi mẫu backtest |
+| **Sóng sau Tết / "tháng Giêng"** | Kỳ vọng kế hoạch kinh doanh năm mới, mùa ĐHCĐ đến gần | bullish_months=[1,2,3] (cần hiệu chỉnh theo năm Tết sớm/muộn) |
+| **Mùa ĐHCĐ & cổ tức** | Tháng 4-6: công bố kế hoạch năm, chia cổ tức/cổ phiếu thưởng, chốt quyền | bullish_months=[3,4] |
+| **Sell in May** | Tháng 5 trở đi thường yếu hơn, trùng vùng trống thông tin sau ĐHCĐ | bearish_months=[5,6] |
+| **Tháng cô hồn** | Tháng 7 âm lịch (thường rơi vào tháng 8 dương): tâm lý kiêng kỵ mua mới rất phổ biến ở nhà đầu tư cá nhân VN — hiệu ứng có tính tự thực hiện | bearish_months=[8] theo **lịch âm** |
+| **Mùa BCTC quý** | Cuối tháng 1, 4, 7, 10 — biến động tăng quanh ngày công bố; hiệu ứng "tin ra là bán" phổ biến | Dùng làm bộ lọc biến động, không phải tín hiệu hướng |
+| **Review ETF ngoại** | FTSE và MSCI cơ cấu vào tháng 3, 6, 9, 12 — dòng tiền một lần, đảo chiều sau ngày hiệu lực | Sự kiện, không phải hiệu ứng tháng |
+| **Cuối năm** | Tháng 11-12: quỹ chốt NAV, "làm đẹp" danh mục, kỳ vọng kết quả năm | bullish_months=[11,12] |
+| **Hiệu ứng thứ Hai** | Lợi suất thứ Hai thấp hơn trung bình | bearish_weekdays=[0] |
+| **Hiệu ứng thứ Sáu** | Lợi suất thứ Sáu cao hơn; lưu ý thứ Năm thứ ba là ngày đáo hạn phái sinh, gây méo | bullish_weekdays=[4] |
 
-## Parameters
+## Tham số
 
-| Parameter | Default | Description |
+| Tham số | Mặc định | Mô tả |
 |------|--------|------|
-| bullish_months | [1, 2, 3, 11, 12] | Bullish months |
-| bearish_months | [5, 6, 7, 8, 9] | Bearish months |
-| use_weekday | False | Whether to enable weekday effects |
-| bullish_weekdays | [4] | Bullish weekdays (0=Monday, 4=Friday) |
-| bearish_weekdays | [0] | Bearish weekdays |
+| bullish_months | [1, 2, 3, 11, 12] | Tháng thuận |
+| bearish_months | [5, 6, 8] | Tháng nghịch (tháng 8 ≈ tháng cô hồn) |
+| use_weekday | False | Bật hiệu ứng thứ trong tuần |
+| bullish_weekdays | [4] | Thứ thuận (0=Thứ Hai, 4=Thứ Sáu) |
+| bearish_weekdays | [0] | Thứ nghịch |
+| lunar_adjust | False | Dịch cửa sổ Tết / tháng cô hồn theo lịch âm từng năm |
 
-## Common Pitfalls
+## Lỗi thường gặp
 
-- `pd.DatetimeIndex.month` starts from 1 (1=January)
-- `pd.DatetimeIndex.weekday` starts from 0 (0=Monday, 4=Friday)
-- Seasonal strategies are statistical regularities, not deterministic signals, so pay attention to sample size in backtests
-- Neutral months (neither in `bullish` nor `bearish`) should output 0 and must not be skipped
+- **Tết trôi theo năm**: Tết Nguyên đán dao động từ cuối tháng 1 đến giữa tháng 2 dương lịch. Dùng hiệu ứng tháng dương cứng sẽ **trộn lẫn** giai đoạn trước Tết và sau Tết giữa các năm, làm tín hiệu tự triệt tiêu. Muốn khai thác sóng Tết thì phải quy về **số phiên trước/sau ngày giao dịch cuối cùng của năm âm lịch**, không dùng `month`
+- **Tháng cô hồn cũng trôi**: tháng 7 âm có thể rơi vào tháng 8 hoặc bắc cầu sang tháng 9 dương
+- Kỳ nghỉ Tết làm gián đoạn 5-9 phiên; nếu không xử lý sẽ tạo khoảng trống dữ liệu và giá trị biến động giả
+- `pd.DatetimeIndex.month` bắt đầu từ 1 (1 = tháng Một)
+- `pd.DatetimeIndex.weekday` bắt đầu từ 0 (0 = Thứ Hai, 4 = Thứ Sáu)
+- **Cỡ mẫu**: TTCK VN chỉ có lịch sử từ 2000, thực chất thanh khoản đủ để thống kê từ khoảng 2009. Một hiệu ứng tháng chỉ có ~15 quan sát ⇒ **rất dễ khớp nhiễu**. Bắt buộc báo cáo số quan sát, độ lệch chuẩn và kiểm định ý nghĩa, không chỉ báo lợi suất bình quân
+- Hiệu ứng mùa vụ là quy luật thống kê, không phải tín hiệu tất định — dùng làm lớp trọng số, không dùng làm tín hiệu độc lập
+- Tháng trung tính (không nằm trong `bullish` lẫn `bearish`) phải trả về 0
 
-## Dependencies
+## Phụ thuộc
 
 ```bash
 pip install pandas numpy
+# Nếu cần quy đổi lịch âm:
+pip install lunardate
 ```
 
-## Signal Convention
+## Quy ước tín hiệu
 
-- `1` = long (bullish window), `-1` = short (bearish window), `0` = stand aside
+- `1` = mua (cửa sổ thuận), `-1` = bán/đứng ngoài (cửa sổ nghịch), `0` = trung tính
+
+Lưu ý: TTCK VN **không bán khống được cổ phiếu cơ sở**, nên tín hiệu `-1` trên cổ phiếu chỉ nên hiểu là "đóng vị thế / đứng ngoài". Chỉ với VN30F mới thực hiện được vị thế short thật.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
