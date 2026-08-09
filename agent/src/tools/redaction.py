@@ -59,6 +59,9 @@ _PII_EXACT_KEYS = {
     # Bank routing / account.
     "routing_number",
     "bank_account_number",
+    # Encrypted local-portfolio lookup values are still confidential.
+    "account_lookup_token",
+    "customer_lookup_token",
 }
 
 _SENSITIVE_ARG_KEYS = {

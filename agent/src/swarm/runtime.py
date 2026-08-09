@@ -88,6 +88,7 @@ class SwarmRuntime:
         user_vars: dict[str, str],
         live_callback: Callable | None = None,
         include_shell_tools: bool = False,
+        private_context: str = "",
     ) -> SwarmRun:
         """Start a swarm run. Returns immediately, execution happens in background.
 
@@ -137,7 +138,7 @@ class SwarmRuntime:
 
         thread = threading.Thread(
             target=self._execute_run,
-            args=(run, cancel_event, include_shell_tools),
+            args=(run, cancel_event, include_shell_tools, private_context),
             name=f"swarm-{run.id}",
             daemon=True,
         )
@@ -211,6 +212,7 @@ class SwarmRuntime:
         run: SwarmRun,
         cancel_event: threading.Event,
         include_shell_tools: bool = False,
+        private_context: str = "",
     ) -> None:
         """Core orchestration loop (runs in background thread).
 
@@ -251,6 +253,8 @@ class SwarmRuntime:
         # this run. The block is empty when no symbols were detected, in
         # which case workers see no extra section.
         grounding_block = grounding.format_grounding_block(run.grounding_data or {})
+        if private_context:
+            grounding_block = "\n\n".join(part for part in (grounding_block, private_context) if part)
 
         # Compute execution layers
         layers = topological_layers(run.tasks)

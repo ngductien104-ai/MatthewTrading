@@ -29,6 +29,24 @@ def test_inspect_preset_returns_dry_run_layers() -> None:
     ]
 
 
+def test_risk_committee_has_production_risk_workstreams() -> None:
+    """Risk committee must fan out across all material risk dimensions."""
+    report = presets.inspect_preset("risk_committee")
+
+    assert report["valid"]
+    assert report["warnings"] == []
+    assert report["variables"] == ["goal"]
+    assert report["layers"][0] == [
+        {"task_id": "task-drawdown", "agent_id": "drawdown_analyst"},
+        {"task_id": "task-tail", "agent_id": "tail_risk_analyst"},
+        {"task_id": "task-regime", "agent_id": "regime_detector"},
+        {"task_id": "task-portfolio-risk", "agent_id": "portfolio_risk_analyst"},
+    ]
+    assert report["layers"][-1] == [
+        {"task_id": "task-aggregate", "agent_id": "aggregator"}
+    ]
+
+
 def test_inspect_preset_reports_invalid_references(
     tmp_path: Path,
     monkeypatch,

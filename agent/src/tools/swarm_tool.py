@@ -512,6 +512,15 @@ def _snippet(prompt: str, max_len: int = 240) -> str:
     return s if len(s) <= max_len else s[: max_len - 3] + "..."
 
 
+def _strip_lookup_tokens(prompt: str, *tokens: str) -> str:
+    """Remove confidential Excel lookup values before persistence or logging."""
+    sanitized = prompt
+    for token in tokens:
+        if token:
+            sanitized = sanitized.replace(token, "[encrypted lookup supplied securely]")
+    return sanitized
+
+
 def _build_variables(preset_name: str, prompt: str) -> dict[str, str]:
     """Build template variables from prompt for the matched preset.
 
@@ -586,6 +595,14 @@ class SwarmTool(BaseTool):
                 "type": "string",
                 "description": "Natural language description of the analysis task.",
             },
+            "customer_lookup_token": {
+                "type": "string",
+                "description": "Optional encrypted customer-name value used only for local Excel lookup. Never place it inside prompt.",
+            },
+            "account_lookup_token": {
+                "type": "string",
+                "description": "Optional encrypted account value used only for local Excel lookup. Never place it inside prompt.",
+            },
         },
         "required": ["prompt"],
     }
@@ -627,6 +644,8 @@ class SwarmTool(BaseTool):
             JSON string with status, preset, variables, final_report, tasks, token_usage.
         """
         prompt = kwargs.get("prompt", "")
+        customer_token = str(kwargs.get("customer_lookup_token") or "").strip()
+        account_token = str(kwargs.get("account_lookup_token") or "").strip()
 
         if not prompt:
             return json.dumps(
@@ -634,14 +653,46 @@ class SwarmTool(BaseTool):
                 ensure_ascii=False,
             )
 
-        preset = _match_preset(prompt)
-        variables = _build_variables(preset, prompt)
+        safe_prompt = _strip_lookup_tokens(prompt, customer_token, account_token)
+        preset = _match_preset(safe_prompt)
+        variables = _build_variables(preset, safe_prompt)
+        private_context = ""
+        if customer_token or account_token:
+            if preset != "risk_committee":
+                return json.dumps(
+                    {"status": "error", "error": "Customer portfolio lookup is currently restricted to risk_committee"},
+                    ensure_ascii=False,
+                )
+            if not account_token:
+                return json.dumps(
+                    {"status": "error", "error": "account_lookup_token is required for customer portfolio lookup"},
+                    ensure_ascii=False,
+                )
+            try:
+                from src.customer_portfolio import ExcelPortfolioRepository
+
+                database_root = Path(
+                    os.getenv(
+                        "CUSTOMER_EXCEL_DB_DIR",
+                        str(Path(__file__).resolve().parents[3] / "Database"),
+                    )
+                )
+                private_context = ExcelPortfolioRepository(database_root).context_block(
+                    account_token=account_token,
+                    customer_token=customer_token or None,
+                )
+            except Exception as exc:
+                logger.warning("Customer portfolio lookup failed", exc_info=False)
+                return json.dumps(
+                    {"status": "error", "error": f"Customer portfolio lookup failed: {exc}"},
+                    ensure_ascii=False,
+                )
 
         logger.info(
             "SwarmTool: matched preset=%s, variables=%s from prompt: %s",
             preset,
             variables,
-            prompt[:100],
+            "[customer portfolio prompt]" if private_context else safe_prompt[:100],
         )
 
         from src.config import load_swarm_agent_config
@@ -676,12 +727,15 @@ class SwarmTool(BaseTool):
                     {"run_id": current_run_id, "event": payload},
                 )
 
-            run = runtime.start_run(
-                preset,
-                variables,
-                live_callback=_live_callback if self._event_callback is not None else None,
-                include_shell_tools=self.include_shell_tools,
-            )
+            start_kwargs: dict[str, Any] = {
+                "live_callback": _live_callback if self._event_callback is not None else None,
+                "include_shell_tools": self.include_shell_tools,
+            }
+            # Preserve byte-for-byte compatibility for ordinary swarms and
+            # third-party runtimes that implement the historical signature.
+            if private_context:
+                start_kwargs["private_context"] = private_context
+            run = runtime.start_run(preset, variables, **start_kwargs)
         except FileNotFoundError as exc:
             return json.dumps(
                 {"status": "error", "error": f"Preset not found: {exc}"},
