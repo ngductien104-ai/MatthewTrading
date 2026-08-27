@@ -63,6 +63,17 @@ vndata.health()
 Chạy bằng Python có gói tài trợ: `$HOME\.venv\Scripts\python.exe`, với
 `PYTHONPATH` trỏ vào thư mục `agent/`.
 
+### ⚠️ Bẫy đơn vị DataPro: `VAL` khác thang theo loại công cụ (1000×)
+
+| Loại | Nhận diện | `close` nghĩa là | Thang `value` |
+|---|---|---|---|
+| Cổ phiếu / ETF | `listed_shares > 0` | giá, **nghìn VND** | **nghìn VND** |
+| Chỉ số | `listed_shares = 0`, `open_interest = 0` | **điểm số** | **triệu VND** |
+| Phái sinh | `listed_shares = 0`, `open_interest > 0` | điểm chỉ số | **chưa xác minh** |
+
+Dùng `vndata.price.to_vnd(df)` — tự nhận loại, không đổi `close` của chỉ số, và
+**từ chối quy đổi GTGD phái sinh** thay vì đoán. Đừng tự nhân 1.000 vào mọi thứ.
+
 ### ⚠️ Bẫy đơn vị của `vnstock_data` — `vndata` đã sửa, đừng sửa lại
 
 Nếu vì lý do nào đó phải đọc thẳng `vnstock_data`, những field sau **nói dối** ở

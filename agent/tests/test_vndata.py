@@ -147,7 +147,10 @@ class TestPriceUnits:
     def _bars(self) -> pd.DataFrame:
         df = pd.DataFrame(
             # VCB, 2026-08-01, straight from the DataPro daily CSV.
-            {"close": [59.373], "value": [285499090.0], "volume": [4751600.0]},
+            # listed_shares is what marks this an equity rather than an index,
+            # which is what selects the 1,000x turnover scale.
+            {"close": [59.373], "value": [285499090.0], "volume": [4751600.0],
+             "listed_shares": [8355675136.0], "open_interest": [0.0]},
             index=pd.to_datetime(["2026-08-01"]),
         )
         df.attrs["price_unit"] = "thousand VND"
@@ -174,6 +177,58 @@ class TestPriceUnits:
         vnd = price.to_vnd(self._bars()).iloc[0]
         implied = vnd["volume"] * vnd["close"]
         assert implied / vnd["value"] == pytest.approx(1.0, rel=0.02)
+
+
+class TestInstrumentUnits:
+    """``VAL`` is scaled differently per instrument — a 1,000x trap.
+
+    Measured 2026-08-25/27: HPG 68,320,100 shares x 23,163 VND reconciles with
+    ``VAL`` 1,793,446,015 only at 1,000x, while HNXINDEX ``VAL`` 2,621,503
+    reconciles only at 1,000,000x. VN30F1M reconciles at neither.
+    """
+
+    def _frame(self, listed: float, oi: float, close: float, volume: float, value: float):
+        df = pd.DataFrame(
+            {"listed_shares": [listed], "open_interest": [oi], "close": [close],
+             "volume": [volume], "value": [value]},
+            index=pd.to_datetime(["2026-08-25"]),
+        )
+        return df
+
+    def test_equity_is_detected_from_listed_shares(self):
+        df = self._frame(8355675136, 0, 23.163, 68320100, 1793446015)
+        assert price.classify_instrument(df) == "equity"
+
+    def test_index_has_no_listed_shares_and_no_open_interest(self):
+        df = self._frame(0, 0, 266.58, 117880078, 2621503)
+        assert price.classify_instrument(df) == "index"
+
+    def test_futures_has_open_interest_but_no_listed_shares(self):
+        df = self._frame(0, 51608, 1783, 385400, 694735523)
+        assert price.classify_instrument(df) == "futures"
+
+    def test_equity_turnover_reconciles_at_one_thousand(self):
+        out = price.to_vnd(self._frame(8355675136, 0, 23.163, 68320100, 1793446015))
+        row = out.iloc[0]
+        assert row["volume"] * row["close"] / row["value"] == pytest.approx(1.0, rel=0.15)
+
+    def test_index_turnover_reconciles_at_one_million(self):
+        """831bn VND over 117.9m shares implies ~22,240 VND/share — plausible.
+        At the equity scale it would imply 22 VND/share, which is not."""
+        out = price.to_vnd(self._frame(0, 0, 266.58, 117880078, 2621503))
+        row = out.iloc[0]
+        assert row["value"] == pytest.approx(2.621503e12)
+        assert 5_000 < row["value"] / row["volume"] < 100_000
+
+    def test_index_close_is_a_level_and_is_not_scaled(self):
+        out = price.to_vnd(self._frame(0, 0, 266.58, 117880078, 2621503))
+        assert out.iloc[0]["close"] == pytest.approx(266.58)
+        assert out.attrs["price_unit"] == "index level"
+
+    def test_futures_turnover_is_refused_rather_than_guessed(self):
+        out = price.to_vnd(self._frame(0, 51608, 1783, 385400, 694735523))
+        assert out.iloc[0]["value"] == pytest.approx(694735523)
+        assert "unverified" in out.attrs["value_unit"]
 
 
 class TestSymbolHandling:

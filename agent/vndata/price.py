@@ -11,16 +11,31 @@ When DataPro is down the layer falls back to the sponsored
 frame — because that still carries OHLCV. The free ``vnstock`` package is not
 part of this chain.
 
-Unit conventions in the DataPro daily CSV, measured against VCB on 2026-08-01
-(4,751,600 shares at ~59,373 VND, roughly 282bn VND of turnover, against a
-reported ``VAL`` of 285,499,090):
+Unit conventions differ by instrument type — the 1,000x trap
+------------------------------------------------------------
+``VAL`` does **not** carry the same scale for every symbol, and reading it
+uniformly is a three-orders-of-magnitude error. Measured on 2026-08-25/27:
 
-* ``*_PX`` columns are in **thousand VND** (``59.373`` means 59,373 VND).
-* ``VAL`` and every ``*_VAL`` column are in **thousand VND**.
-* ``VOL`` columns are in shares.
+===============  ==========  ==================  =====================
+Instrument       LISTED_VOL  ``*_PX`` means      ``VAL`` scale
+===============  ==========  ==================  =====================
+Equity / ETF     > 0         price, thousand VND thousand VND
+Index            0, OI = 0   **index level**     **million VND**
+Futures          0, OI > 0   index points        unverified
+===============  ==========  ==================  =====================
 
-``to_vnd()`` applies those conversions so callers never multiply by the wrong
-power of ten.
+Evidence: HPG 68,320,100 shares x 23,163 VND = 1.58e12 VND against ``VAL``
+1,793,446,015 (a 1,000x gap); E1VFVN30 845,000 x 31,750 = 2.68e10 against
+26,915,697 (same 1,000x). HNXINDEX ``VAL`` 2,621,503 only reconciles as 2,621bn
+VND — 117,880,078 shares at an implied 22,240 VND — a 1,000,000x scale.
+VN30F1M reconciles against neither, so this module refuses to convert futures
+turnover rather than publish a number it cannot stand behind.
+
+An index's ``close`` is a level, not a price: converting it to VND is
+meaningless, so :func:`to_vnd` leaves index price columns alone.
+
+:func:`to_vnd` applies the right conversion per instrument, and
+``df.attrs["instrument"]`` records which rule was used.
 """
 
 from __future__ import annotations
@@ -162,32 +177,83 @@ def ohlcv(
 
     keep = [c for c in COLUMN_MAP.values() if c in df.columns]
     df = df[keep].apply(pd.to_numeric, errors="coerce")
+
+    # Classify before honouring ``columns``: the signal lives in listed_shares
+    # and open_interest, which a caller asking only for close/volume drops.
+    instrument = classify_instrument(df)
+
     if columns is not None:
         wanted = [c for c in columns if c in df.columns]
         df = df[wanted]
-
     df.attrs["source"] = "datapro"
     df.attrs["degraded"] = False
-    df.attrs["price_unit"] = "thousand VND"
-    df.attrs["value_unit"] = "thousand VND"
+    df.attrs["instrument"] = instrument
+    if instrument == "equity":
+        df.attrs["price_unit"] = "thousand VND"
+        df.attrs["value_unit"] = "thousand VND"
+    elif instrument == "index":
+        df.attrs["price_unit"] = "index level"
+        df.attrs["value_unit"] = "million VND"
+    else:
+        df.attrs["price_unit"] = "index points"
+        df.attrs["value_unit"] = "unverified — do not quote turnover for futures"
     return df
+
+
+def classify_instrument(df: pd.DataFrame) -> str:
+    """Return ``equity``, ``index`` or ``futures`` for a DataPro frame.
+
+    Uses the structural signal the feed itself provides rather than a hardcoded
+    symbol list: a listed instrument reports ``LISTED_VOL``; an index reports
+    zero listed volume and no open interest; a futures contract reports zero
+    listed volume but non-zero open interest.
+    """
+    listed = df["listed_shares"].max() if "listed_shares" in df.columns else 0
+    oi = df["open_interest"].max() if "open_interest" in df.columns else 0
+    if pd.notna(listed) and listed > 0:
+        return "equity"
+    return "futures" if (pd.notna(oi) and oi > 0) else "index"
 
 
 def to_vnd(df: pd.DataFrame) -> pd.DataFrame:
     """Return *df* with prices and turnover converted to plain VND.
 
-    Multiplies :data:`PRICE_COLUMNS` and :data:`VALUE_COLUMNS` by 1,000 and
-    updates ``df.attrs`` so a converted frame cannot be converted twice.
+    The conversion depends on the instrument (see the module docstring):
+
+    * **equity / ETF** — prices and turnover both scale by 1,000.
+    * **index** — turnover scales by 1,000,000; price columns are left alone
+      because an index ``close`` is a level, not a price in VND.
+    * **futures** — nothing is scaled. The turnover convention could not be
+      reconciled against notional, and inventing a factor here would put a
+      wrong number into a report. ``df.attrs["value_unit"]`` says so.
+
+    Idempotent: a frame already carrying ``price_unit == "VND"`` is returned
+    unchanged.
     """
     if df.attrs.get("price_unit") == "VND":
         return df
+
+    instrument = df.attrs.get("instrument") or classify_instrument(df)
     out = df.copy()
-    for col in (*PRICE_COLUMNS, *VALUE_COLUMNS):
-        if col in out.columns:
-            out[col] = out[col] * 1_000.0
     out.attrs.update(df.attrs)
-    out.attrs["price_unit"] = "VND"
-    out.attrs["value_unit"] = "VND"
+    out.attrs["instrument"] = instrument
+
+    if instrument == "equity":
+        for col in (*PRICE_COLUMNS, *VALUE_COLUMNS):
+            if col in out.columns:
+                out[col] = out[col] * 1_000.0
+        out.attrs["price_unit"] = "VND"
+        out.attrs["value_unit"] = "VND"
+    elif instrument == "index":
+        for col in VALUE_COLUMNS:
+            if col in out.columns:
+                out[col] = out[col] * 1_000_000.0
+        out.attrs["price_unit"] = "index level"
+        out.attrs["value_unit"] = "VND"
+    else:  # futures
+        out.attrs["price_unit"] = "index points"
+        out.attrs["value_unit"] = "unverified — do not quote turnover for futures"
+
     return out
 
 

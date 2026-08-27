@@ -61,13 +61,28 @@ vndata.health()
 
 ## 3. Đơn vị — đã chuẩn hoá một lần, đừng chuẩn hoá lại
 
-### DataPro (`vndata.price`)
+### DataPro (`vndata.price`) — ⚠️ đơn vị KHÁC NHAU theo loại công cụ
 
-- `*_PX` (open/high/low/close/ref_price): **nghìn VND** (`59.373` = 59.373 VND).
-- `VAL` và mọi cột `*_value`: **nghìn VND**.
-  *(Đã kiểm: VCB 01/08/2026, 4.751.600 cp × ~59.373 VND ≈ 282 tỷ; `VAL` = 285.499.090.)*
-- `VOL` và mọi cột `*_volume`: **số cổ phiếu**.
-- Cần VND trần → `vndata.price.to_vnd(df)`.
+Đây là bẫy 1000×. `VAL` **không** cùng thang cho mọi mã:
+
+| Loại | Nhận diện | `*_PX` nghĩa là | Thang `VAL` |
+|---|---|---|---|
+| Cổ phiếu / ETF | `LISTED_VOL > 0` | giá, **nghìn VND** | **nghìn VND** |
+| Chỉ số | `LISTED_VOL = 0`, `OI = 0` | **điểm số** (không phải giá) | **triệu VND** |
+| Phái sinh | `LISTED_VOL = 0`, `OI > 0` | điểm chỉ số | **chưa xác minh** |
+
+Bằng chứng (đo 25–27/08/2026):
+- HPG 68.320.100 cp × 23.163 đ = 1,58e12 đ, `VAL` = 1.793.446.015 → khớp ở **×1.000**.
+- E1VFVN30 845.000 × 31.750 = 2,68e10 đ, `VAL` = 26.915.697 → cũng **×1.000**.
+- HNXINDEX `VAL` = 2.621.503 chỉ hợp lý ở **×1.000.000** (= 2.621 tỷ; 117,9 triệu cp
+  → giá bình quân ~22.240 đ). Ở thang cổ phiếu sẽ ra 22 đ/cp — vô lý.
+- VN30F1M không khớp thang nào → lớp này **từ chối quy đổi GTGD phái sinh**
+  thay vì bịa hệ số.
+
+`VOL` và mọi `*_volume`: **số cổ phiếu / số hợp đồng**.
+
+Quy đổi: `vndata.price.to_vnd(df)` — tự nhận loại công cụ, không đổi `close` của
+chỉ số (vì đó là điểm số), và ghi loại đã dùng vào `df.attrs["instrument"]`.
 
 ### vnstock_data (`vndata.fundamental`)
 
