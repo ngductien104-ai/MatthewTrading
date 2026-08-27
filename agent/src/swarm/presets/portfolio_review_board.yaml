@@ -1,6 +1,6 @@
 name: portfolio_review_board
 title: "Portfolio Review Board (Vietnam)"
-description: "Performance attribution, risk review, and execution quality of a VN equity portfolio in parallel; CIO synthesizes into rebalance decisions. Benchmark VN-Index/VN30; data via DataPro + vnstock."
+description: "Performance attribution, risk review, and execution quality of a VN equity portfolio in parallel; CIO synthesizes into rebalance decisions. Benchmark VN-Index/VN30; data via DataPro + vnstock_data."
 
 agents:
   - id: attribution_analyst
@@ -36,7 +36,7 @@ agents:
       Use load_skill("performance-attribution") for methodology, load_skill("factor-research") for VN factor exposure; factor_analysis for quant factor attribution. Benchmark = VN-Index / VN30.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [performance-attribution, factor-research]
@@ -85,7 +85,7 @@ agents:
       Use load_skill("risk-analysis") for methodology, load_skill("volatility") for vol and VaR.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [risk-analysis, volatility]
@@ -133,7 +133,7 @@ agents:
       Use load_skill("execution-model") for execution analytics, load_skill("market-microstructure") for microstructure-driven costs.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [execution-model, market-microstructure]
@@ -175,7 +175,7 @@ agents:
       Use load_skill("asset-allocation") for allocation decisions, load_skill("risk-analysis") for risk budgeting.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [asset-allocation, risk-analysis]

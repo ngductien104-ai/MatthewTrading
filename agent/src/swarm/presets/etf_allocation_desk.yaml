@@ -60,11 +60,11 @@ agents:
       5. **Best ETF per Segment** — final 1–2 ETFs per segment (primary + backup) with rationale; explicitly mark which segments overlap heavily (VN30 ⊂ VN100; banks shared across VN30 / VNFINLEAD / VNDIAMOND) so the optimizer avoids double-counting.
 
       Use load_skill("etf-analysis") for VN ETF methodology (TE / premium-discount / AP mechanics / foreign-ETF flows); load_skill("fund-analysis") for the open-end-fund alternatives that cover what VN ETFs cannot; load_skill("data-routing") to route data sources correctly.
-      Data: ETF & index OHLCV/turnover via **DataPro** (source="datapro", `.VN` suffix, e.g. `E1VFVN30.VN`, `FUEVFVND.VN`, `VN30.VN`). iNAV / holdings / PCF / units outstanding / fee come from the **fund-management-company website** (vnstock Fund() does NOT cover listed ETFs). Do not fabricate iNAV / premium figures.
+      Data: ETF & index OHLCV/turnover via **DataPro** (source="datapro", `.VN` suffix, e.g. `E1VFVN30.VN`, `FUEVFVND.VN`, `VN30.VN`). iNAV / holdings / PCF / units outstanding / fee come from the **fund-management-company website** (vnstock_data Fund() does NOT cover listed ETFs). Do not fabricate iNAV / premium figures.
       Use the factor_analysis tool for ETF tracking-error and factor-exposure analysis.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [etf-analysis, fund-analysis, data-routing]
@@ -119,7 +119,7 @@ agents:
       Use the read_url tool for the latest VN macro data (GSO/SBV releases, PMI, credit-growth prints).
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, asset-allocation, global-macro]
@@ -173,7 +173,7 @@ agents:
       Use load_skill("risk-analysis") for risk-budgeting/decomposition; load_skill("volatility") for vol & correlation estimation; load_skill("etf-analysis") for ETF risk characteristics and the holdings-overlap reality.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [risk-analysis, volatility, etf-analysis]
@@ -229,7 +229,7 @@ agents:
       Use the backtest tool to run the full equity-ETF + cash backtest on DataPro prices including the 0.1% sell tax, commission, and rebalancing.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest]
     skills: [etf-analysis, strategy-generate, asset-allocation]

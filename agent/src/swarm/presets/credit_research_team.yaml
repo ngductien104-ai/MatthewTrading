@@ -47,7 +47,7 @@ agents:
       Use the factor_analysis tool to support cross-sectional multi-dimensional financial metric comparisons.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [credit-analysis, financial-statement]
@@ -101,7 +101,7 @@ agents:
       Use the read_url tool to access the latest rate data from VBMA (Vietnam Bond Market Association), HNX, the SBV, and FiinPro/FiinRatings.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [credit-analysis, macro-analysis]
@@ -155,7 +155,7 @@ agents:
       Use the read_url tool to access the latest sector credit data from the HNX corporate bond information portal, VBMA, FiinRatings, and regulatory documents.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [credit-analysis, sector-rotation, regulatory-knowledge]
@@ -212,7 +212,7 @@ agents:
       Use the backtest tool to run historical backtests validating strategy performance across different rate / credit environments.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest]
     skills: [credit-analysis, strategy-generate, risk-analysis]

@@ -103,7 +103,7 @@ R_f: lợi suất phi rủi ro VN ≈ lãi suất tín phiếu/TPCP kỳ hạn n
 | MOM | Quán tính | Top tăng 6–12T − Bottom (lưu ý: momentum ở VN yếu/nhiễu hơn do T+2 + lẻ chi phối) |
 ```
 
-> **Lưu ý xây nhân tố ở VN:** dữ liệu nhân tố dựng sẵn gần như không có sẵn → phải **tự dựng** từ dữ liệu giá + cơ bản (DataPro/vnstock). Mẫu lịch sử ngắn (thị trường non trẻ, nhiều mã mới niêm yết) → t-stat kém ổn định, đừng over-fit. Nhân tố **size (SMB)** và **value (HML)** có hiệu lực rõ ở VN; **momentum** chập chờn do biên độ trần/sàn cắt đuôi xu hướng và dòng lẻ đảo nhanh.
+> **Lưu ý xây nhân tố ở VN:** dữ liệu nhân tố dựng sẵn gần như không có sẵn → phải **tự dựng** từ dữ liệu giá + cơ bản (DataPro/vnstock_data). Mẫu lịch sử ngắn (thị trường non trẻ, nhiều mã mới niêm yết) → t-stat kém ổn định, đừng over-fit. Nhân tố **size (SMB)** và **value (HML)** có hiệu lực rõ ở VN; **momentum** chập chờn do biên độ trần/sàn cắt đuôi xu hướng và dòng lẻ đảo nhanh.
 
 #### Mẫu bảng phơi nhiễm nhân tố
 
@@ -264,7 +264,7 @@ thị trường đảo; kiểm tra mức tập trung vào vài mã midcap.
 3. **Tần suất dữ liệu**: quy kết ngày nhiễu, quy kết tháng ổn định hơn nhưng ít mẫu; quy trình chuẩn là tính theo ngày, báo cáo theo tháng.
 4. **Survivorship bias mạnh ở VN**: mã hủy niêm yết / chuyển sàn HOSE→UPCoM (vd HVN, HAG giai đoạn khó khăn, FLC, ROS) dễ bị loại khỏi backtest → tạo alpha giả. Giữ cả mã đã rời sàn.
 5. **Đa kiểm định (multiple testing)**: thử 100 chiến lược thì ~5 cái "có ý nghĩa" do ngẫu nhiên (p=0,05); dùng hiệu chỉnh đa so sánh.
-6. **Dữ liệu nhân tố tự dựng**: VN không có sẵn factor returns chuẩn → dựng từ DataPro/vnstock; mẫu ngắn, kiểm chứng out-of-sample.
+6. **Dữ liệu nhân tố tự dựng**: VN không có sẵn factor returns chuẩn → dựng từ DataPro/vnstock_data; mẫu ngắn, kiểm chứng out-of-sample.
 7. **Quy kết trong báo cáo backtest**: `metrics.csv` đã có chỉ tiêu cơ bản sau backtest; skill này bổ sung lớp quy kết sâu hơn.
 8. **Tập trung danh mục**: VN dễ tập trung quá mức vào 1–2 mã thanh khoản (HPG/FPT/MWG…). Khi 1 mã đóng góp >40% excess, "selection skill" có thể chỉ là 1 cú đặt cược đúng — soi kỹ.
 
@@ -272,5 +272,5 @@ thị trường đảo; kiểm tra mức tập trung vào vài mã midcap.
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

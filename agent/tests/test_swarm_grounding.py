@@ -283,3 +283,25 @@ def test_runtime_threads_grounding_block_into_layer_workers(tmp_path, monkeypatc
 
     assert results[task.id].summary == "done"
     assert seen == ["GROUNDING"]
+
+
+def test_extract_vietnam_symbols() -> None:
+    """VN presets were running ungrounded: no ``.VN`` pattern existed, so workers
+    quoted training-data prices for every Vietnamese name."""
+    user_vars = {
+        "target": "VCB.VN",
+        "peers": "Compare with FPT.VN and HPG.VN",
+        "benchmark": "Against VNINDEX.VN",
+        "hedge": "Short VN30F1M.VN",
+    }
+    found = grounding.extract_symbols_from_user_vars(user_vars)
+    assert set(found) == {"VCB.VN", "FPT.VN", "HPG.VN", "VNINDEX.VN", "VN30F1M.VN"}
+
+
+def test_extract_vn_does_not_match_bare_ticker_or_prose() -> None:
+    user_vars = {
+        "bare": "VCB is cheap",           # no suffix — deliberately not matched
+        "prose": "the VN market rallied",
+        "real": "VRE.VN",
+    }
+    assert grounding.extract_symbols_from_user_vars(user_vars) == ["VRE.VN"]

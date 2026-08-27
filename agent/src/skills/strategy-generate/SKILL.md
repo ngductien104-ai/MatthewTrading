@@ -55,7 +55,7 @@ class SignalEngine:
                      (pe, pb, roe... — chỉ A-share/tushare hỗ trợ).
                      Nếu khai báo config.fundamental_fields, sẽ có thêm các cột BCTC an toàn
                      theo thời điểm (PIT) như income_net_sales, income_gross_profit,
-                     balancesheet_total_assets (mã VN dùng key VAS của vnstock).
+                     balancesheet_total_assets (mã VN dùng key VAS của vnstock_data).
         Returns:
             mã -> Series tín hiệu, miền giá trị [-1.0, 1.0]
             1.0 = long toàn bộ, 0.5 = nửa vị thế, 0.0 = đứng ngoài, -1.0 = short toàn bộ
@@ -96,21 +96,21 @@ Tự kiểm tra sau khi viết `signal_engine.py`:
 
 | Mẫu mã | Thị trường | source | Trường mở rộng |
 |------|------|--------|----------|
-| `^[A-Z0-9]{2,9}\.VN$` | **Cổ phiếu VN** | datapro → vnstock | `fundamental_fields`: income/balancesheet/cashflow (key VAS của vnstock). KHÔNG dùng `extra_fields` |
+| `^[A-Z0-9]{2,9}\.VN$` | **Cổ phiếu VN** | datapro → vnstock_data | `fundamental_fields`: income/balancesheet/cashflow (key VAS của vnstock_data). KHÔNG dùng `extra_fields` |
 | `^\d{6}\.(SZ\|SH\|BJ)$` | A-share Trung Quốc | tushare | `extra_fields`: pe, pb, pe_ttm, ps_ttm, dv_ttm, total_mv, circ_mv, roe; `fundamental_fields`: income/balancesheet/cashflow/fina_indicator |
 | `^[A-Z]+\.US$` | Cổ phiếu Mỹ | yfinance | - |
 | `^\d{3,5}\.HK$` | Cổ phiếu Hong Kong | yfinance | - |
 | `^[A-Z]+-USDT$` | Crypto | okx | - |
 
-**Định tuyến nguồn VN**: mã `.VN` đi vào chuỗi fallback `vn_equity` = `datapro` → `vnstock`.
+**Định tuyến nguồn VN**: mã `.VN` đi vào chuỗi fallback `vn_equity` = `datapro` → `vnstock_data`.
 - **datapro** (ưu tiên): bars VN đầy đủ nhất (OHLCV điều chỉnh + khối ngoại + giá tham chiếu `REF_PX`), nhưng cần app DataPro desktop chạy ở `localhost:6789`
-- **vnstock** (fallback, không cần cài đặt): lấy bars qua internet, không phụ thuộc desktop. Không có `REF_PX` nên `pre_close` được suy ra từ giá đóng cửa phiên trước (chuẩn proxy giá tham chiếu HOSE/HNX, để engine VN vẫn áp xấp xỉ biên ±7/10/15%)
-- Đặt `source: "auto"` để engine tự chọn; hoặc ép `"datapro"` / `"vnstock"`
+- **vnstock_data** (fallback, không cần cài đặt): lấy bars qua internet, không phụ thuộc desktop. Không có `REF_PX` nên `pre_close` được suy ra từ giá đóng cửa phiên trước (chuẩn proxy giá tham chiếu HOSE/HNX, để engine VN vẫn áp xấp xỉ biên ±7/10/15%)
+- Đặt `source: "auto"` để engine tự chọn; hoặc ép `"datapro"` / `"vnstock_data"` / `"vnstock"`
 
 **Quy tắc chọn `extra_fields`**: chỉ A-share (`tushare`) hỗ trợ trường định giá theo ngày (pe/pb/roe). Với mã VN, Mỹ, HK, crypto → để `null`.
 
 **Quy tắc chọn `fundamental_fields`**: dùng cho bộ lọc trước theo BCTC.
-- **Mã VN**: provider vnstock lấy `income` / `balancesheet` / `cashflow` rồi merge vào bars theo `merge_asof` (an toàn PIT — chỉ gắn số liệu kỳ sau ngày công bố; mặc định trễ 90 ngày theo quy định BCTC kiểm toán năm). Cột đầu ra gắn tiền tố bảng, ví dụ `income_net_sales`, `income_gross_profit`, `balancesheet_total_assets`. **Lưu ý**: tier community vnstock chỉ trả ~4 kỳ năm gần nhất → bars sớm trong backtest dài có thể NaN. Chỉ số (P/E, ROE) KHÔNG phơi ra ở đây vì endpoint `ratio()` cộng đồng có bố cục kỳ không đáng tin → muốn phân tích chỉ số hãy dùng skill `valuation-model`
+- **Mã VN**: provider vnstock_data lấy `income` / `balancesheet` / `cashflow` rồi merge vào bars theo `merge_asof` (an toàn PIT — chỉ gắn số liệu kỳ sau ngày công bố; mặc định trễ 90 ngày theo quy định BCTC kiểm toán năm). Cột đầu ra gắn tiền tố bảng, ví dụ `income_net_sales`, `income_gross_profit`, `balancesheet_total_assets`. **Lưu ý**: tier community vnstock chỉ trả ~4 kỳ năm gần nhất → bars sớm trong backtest dài có thể NaN. Chỉ số (P/E, ROE) KHÔNG phơi ra ở đây vì endpoint `ratio()` cộng đồng có bố cục kỳ không đáng tin → muốn phân tích chỉ số hãy dùng skill `valuation-model`
 - **A-share**: provider tushare lấy `income` / `balancesheet` / `cashflow` / `fina_indicator`, cột tiền tố `income_total_revenue`, `fina_indicator_roe`…
 
 ## Định dạng `config.json`
@@ -133,7 +133,7 @@ Tự kiểm tra sau khi viết `signal_engine.py`:
 }
 ```
 
-- `source`: `"auto"` (khuyến nghị, tự chọn theo định dạng mã) / `"datapro"` / `"vnstock"` / `"tushare"` / `"yfinance"` / `"okx"` / `"akshare"` / `"ccxt"`
+- `source`: `"auto"` (khuyến nghị, tự chọn theo định dạng mã) / `"datapro"` / `"vnstock_data"` (gói tài trợ, có `foreign_flow`) / `"vnstock"` (free) / `"tushare"` / `"yfinance"` / `"okx"` / `"akshare"` / `"ccxt"`
   - `"auto"` hỗ trợ trộn mã đa thị trường. Ví dụ `["VCB.VN", "BTC-USDT"]` sẽ tự định tuyến sang `datapro` và `okx`
   - Mã phái sinh (vd `"IF2406.CFFEX"`, `"ESZ4"`) và cặp ngoại hối (vd `"EUR/USD"`) cũng tự định tuyến
 - `interval`: khung nến, mặc định `"1D"`. Hỗ trợ: `"1m"` / `"5m"` / `"15m"` / `"30m"` / `"1H"` / `"4H"` / `"1D"`
@@ -196,7 +196,7 @@ Nếu cần cải thiện sau đánh giá, ghi `action_items`:
 
 ## Lưu ý đặc thù TTCK VN
 
-- **Biên độ trần/sàn**: HOSE ±7%, HNX ±10%, UPCoM ±15%. Engine VN dùng giá tham chiếu (`REF_PX` từ datapro, hoặc `pre_close` proxy từ vnstock) để áp biên — lệnh khớp ở giá kịch biên có thể bị chặn. Chiến lược bám sát đỉnh/đáy trong phiên cần lưu ý
+- **Biên độ trần/sàn**: HOSE ±7%, HNX ±10%, UPCoM ±15%. Engine VN dùng giá tham chiếu (`REF_PX` từ datapro, hoặc `pre_close` proxy từ vnstock_data) để áp biên — lệnh khớp ở giá kịch biên có thể bị chặn. Chiến lược bám sát đỉnh/đáy trong phiên cần lưu ý
 - **T+ thanh toán**: cổ phiếu VN không bán được ngay trong ngày mua (chu kỳ T+2/T+2.5). Backtest theo ngày xấp xỉ chấp nhận được, nhưng chiến lược tần suất cao cần cẩn trọng giả định khớp lệnh
 - **Thanh khoản**: nhiều mã vốn hóa nhỏ thanh khoản mỏng; nên thêm bộ lọc khối lượng để tránh tín hiệu trên mã khó khớp
 
@@ -216,5 +216,5 @@ Khi người dùng yêu cầu backtest với các mã thuộc **thị trường 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

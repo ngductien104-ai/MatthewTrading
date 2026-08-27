@@ -11,11 +11,12 @@ description: Activate this skill when a user wants to upgrade from the free tier
 
 | User Intent | Best Tool / Script | Action |
 | :--- | :--- | :--- |
-| "Add API Key but still community version?" | Guide `docs/vnstock/12-migration-guide.md` | Explain `vnstock` vs `vnstock_data`. Instruct to install and switch imports. |
+| "Add API Key but still community version?" | Guide `docs/vnstock/08-migration-guide.md` | Explain `vnstock` vs `vnstock_data`. Instruct to install and switch imports. |
 | "Migrate large project Free to Sponsor" | `vnstock.core.utils.upgrade.migrate_to_sponsor` | Ensure code is committed, then run the built-in AST migration Python function. |
 | "GUI Installation Failed" | `docs/setup-and-debug/02-installation-troubleshooting.md` | Instruct to install from `requirements.txt` first. |
 | "externally-managed-environment error" | `docs/setup-and-debug/02-installation-troubleshooting.md` | Instruct to create a Virtual Environment (`.venv`). |
-| "Migrate old code to Unified UI (v3)" | `docs/vnstock-data/14-unified-ui.md` | Analyze code and map to the 7 Layers (Reference, Market, Fundamental, etc.). |
+| "Migrate old code to Unified UI (v3)" | `docs/vnstock-data/01-unified-ui.md` and `docs/vnstock-data/migrations/v3.0.md` | Analyze code and map to the 7 Layers (Reference, Market, Fundamental, etc.). |
+| "Update code for v3.2.8 financial data" | `docs/vnstock-data/migrations/v3.2.8.md` | Detect old `Finance` or `Fundamental` usage (<=3.2.7), rename `dropna` to `drop_empty`, add `format="wide"` if needed to preserve column structure. |
 
 ---
 
@@ -25,6 +26,7 @@ description: Activate this skill when a user wants to upgrade from the free tier
 1. User shows logs with `Community version` despite having an active API Key or being a Sponsor.
 2. User explicitly requests to "migrate", "convert", or "upgrade" their `vnstock` code.
 3. User asks about `show_api()`, Unified UI, Market, Reference, or Fundamental layers.
+4. User is upgrading to `vnstock_data` v3.2.8+ and uses financial data (`Finance` class from `vnstock_data.api.financial` or `vnstock_data.explorer.vci`, or `Fundamental.equity.balance_sheet`, etc.) with old parameters like `dropna`.
 
 **DO NOT ACTIVATE WHEN:**
 1. The error is unrelated to imports or package installation (e.g., calculation logic errors).
@@ -82,7 +84,15 @@ Follow these exact steps when requested to migrate code.
   - `Company(symbol="TCB")` -> `ref = Reference(); ref.company("TCB")`
 - Refactor carefully using block replacements, not full file overwrites.
 
-### Step 4: Verification
+### Step 4: v3.2.8 Fundamental Data Adjustments (Optional)
+*(If user is upgrading to v3.2.8+ and uses Financial/Fundamental data)*
+- Identify if user uses `from vnstock_data import Finance`, `from vnstock_data.explorer... import Finance`, or `Fundamental().equity(...)`.
+- The default return format for financial data is now **Tidy Data (long format)**.
+- If their code expects periods as columns (wide format), add `format="wide"` or `format="time_series"` to their method calls.
+- Change any `dropna=True/False` parameters to `drop_empty=True/False`.
+- Recommend adding `com_type="Regular"` (or `"Bank"`, `"Securities"`, `"Insurance"`) for explicit taxonomy mapping.
+
+### Step 5: Verification
 - Run a basic script (e.g., `Company.overview()`) to verify imports work and API Key is valid.
 - Announce migration completion.
 
@@ -127,6 +137,34 @@ mkt = Market()
 price = mkt.equity("TCB").ohlcv(start="2026-01-01", end="2026-03-01")
 ```
 
+### Example 3: v3.2.7 to v3.2.8 Finance API Migration
+
+**User**: "My code broke after upgrading to 3.2.8! I'm using `from vnstock_data import Finance` and `dropna=True`. Also the columns are all wrong now, it doesn't show quarters as columns."
+
+**Agent Action:**
+1. Explain that v3.2.8 unifies the `Finance` and `Fundamental` layers to return Tidy Data (long format) by default and renamed `dropna` to `drop_empty`.
+2. Refactor the code to preserve their expected wide format.
+
+**❌ OLD CODE (v3.2.7):**
+```python
+from vnstock_data import Finance
+# Or: from vnstock_data.explorer.vci import Finance
+finance = Finance(source='VCI', symbol='TCB')
+df = finance.balance_sheet(period='quarter', dropna=True)
+print(df['2023-Q4']) # Fails in 3.2.8 because columns are now 'id', 'name', 'unit', etc.
+```
+
+**✅ MIGRATED CODE (v3.2.8+):**
+```python
+from vnstock_data import Fundamental
+fun = Fundamental()
+# 1. Use Unified UI Fundamental
+# 2. Add format='wide' to keep quarters as columns
+# 3. Change dropna to drop_empty
+df = fun.equity("TCB").balance_sheet(period='quarter', drop_empty=True, format='long')
+# df now has Semantic IDs as index, and periods as columns
+```
+
 ---
 
 ## 📋 QUALITY CHECKLIST
@@ -137,4 +175,4 @@ Before notifying the user of completion, verify:
 - [ ] No residual `import vnstock` remains (if upgrading to sponsor tier).
 - [ ] Unified UI correctly utilizes the 7 Layers (Reference, Market, Fundamental, etc.).
 - [ ] No hallucinated API endpoints were used (checked via `show_api()`).
-- [ ] Linked `12-migration-guide.md` or `14-unified-ui.md` for further reading.
+- [ ] Linked `docs/vnstock/08-migration-guide.md` or `docs/vnstock-data/01-unified-ui.md` for further reading.

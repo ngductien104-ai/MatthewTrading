@@ -1,6 +1,6 @@
 ---
 name: financial-statement
-description: "Đọc hiểu BCTC theo chuẩn kế toán Việt Nam (VAS — TT 200/2014/TT-BTC) — quan hệ khớp số 3 báo cáo, chất lượng lợi nhuận (dồn tích vs tiền mặt), phân tích Dupont, 12 cờ đỏ gian lận tài chính. Nguồn dữ liệu vnstock (BCTC) + DataPro (giá)."
+description: "Đọc hiểu BCTC theo chuẩn kế toán Việt Nam (VAS — TT 200/2014/TT-BTC) — quan hệ khớp số 3 báo cáo, chất lượng lợi nhuận (dồn tích vs tiền mặt), phân tích Dupont, 12 cờ đỏ gian lận tài chính. Nguồn dữ liệu vnstock_data (BCTC, Unified UI) + DataPro (giá)."
 category: flow
 ---
 
@@ -8,7 +8,7 @@ category: flow
 
 ## Tổng quan
 
-Phân tích sâu chất lượng lợi nhuận từ quan hệ khớp số của 3 báo cáo (Kết quả HĐKD, Cân đối kế toán, Lưu chuyển tiền tệ) theo **Thông tư 200/2014/TT-BTC**, nhận diện tín hiệu gian lận tài chính, và phân rã động lực sinh lời bằng Dupont. Dữ liệu lấy từ **vnstock** (`lang='vi'` để phân loại đúng khoản mục) và **DataPro** (giá/khối lượng).
+Phân tích sâu chất lượng lợi nhuận từ quan hệ khớp số của 3 báo cáo (Kết quả HĐKD, Cân đối kế toán, Lưu chuyển tiền tệ) theo **Thông tư 200/2014/TT-BTC**, nhận diện tín hiệu gian lận tài chính, và phân rã động lực sinh lời bằng Dupont. Dữ liệu lấy từ **vnstock_data** (Unified UI — frame dạng dài, mã `id` ổn định) và **DataPro** (giá/khối lượng).
 
 > ⚠️ **Trước khi tính, theo checklist Karpathy:** số CP lưu hành lấy từ `Company.overview().issue_share` (KHÔNG suy từ EPS); lục đúng line-item BCTC `lang='vi'` (đừng đoán khoản mục); bóc khoản một lần (FX/thanh lý/đánh giá lại) trước khi annualize quý.
 
@@ -164,7 +164,7 @@ Tín hiệu phải truy thuyết minh:
 - "Chi phí lãi vay được vốn hóa" (ẩn gánh nặng nợ — interest coverage thành vô nghĩa)
 
 Nguồn thuyết minh: BCTC quý/năm PDF (HOSE hsx.vn / vietstock tai-tai-lieu / web công ty);
-hoặc bài phân tích trích thẳng thuyết minh (vietstock, baodautu). vnstock/cafef KQKD KHÔNG có thuyết minh.
+hoặc bài phân tích trích thẳng thuyết minh (vietstock, baodautu). vnstock_data/cafef KQKD KHÔNG có thuyết minh.
 Cách lấy: crawl4ai trang/tài liệu → trích đúng câu chữ + số.
 ```
 
@@ -215,7 +215,7 @@ Số cờ đỏ    Xác suất gian lận    Khuyến nghị
 
 ## Phân tích Dupont
 
-> 💡 **ROE/ROA/biên có SẴN — đối chiếu trước:** bảng `ratio` (vnstock nguồn **KBS**) trả trực tiếp `roe`, `roa`, `net_margin`, `gross_margin`, `ebit_margin` → dùng để **kiểm chứng** kết quả. Phần phân rã DuPont (biên × vòng quay × đòn bẩy) vẫn tự tính từ line-item để thấy ĐỘNG LỰC nào dẫn dắt ROE.
+> 💡 **ROE/ROA/biên có SẴN — đối chiếu trước:** bảng `ratio` của **vnstock_data** trả trực tiếp `RT_PRT_ROE`, `RT_PRT_ROA`, `RT_PRT_NET_MARGIN`, `RT_PRT_GROSS_MARGIN`, `RT_PRT_EBIT_MARGIN` → dùng để **kiểm chứng** kết quả. ⚠️ Các giá trị này là **phân số** dù `unit` ghi `%`. Phần phân rã DuPont (biên × vòng quay × đòn bẩy) vẫn tự tính từ line-item để thấy ĐỘNG LỰC nào dẫn dắt ROE.
 
 ### Phân rã 3 cấp
 
@@ -303,24 +303,90 @@ Kết luận: ROE tăng chủ yếu do sinh lời cải thiện; đòn bẩy nh�
 
 ## Nguồn dữ liệu
 
-> Import chuẩn hiện tại: `from vnstock import Finance` (đường cũ `vnstock.api.financial` đã lỗi thời).
+> **BCTC chỉ có một nguồn: `vnstock_data` (gói tài trợ silver), gọi qua `vndata`.**
+> Bản free đã bị loại khỏi mọi chuỗi fallback — KHÔNG có đường lùi
+> `from vnstock import Finance` nữa. Nếu `vnstock_data` chết, dừng lại và cào từ
+> nguồn công bố gốc (cafef/vietstock/web công ty), đừng đổi sang bản free.
+> Trước khi viết code lạ, chạy `show_api()` / `show_doc("Fundamental.equity")`.
 
-- **BCTC (line-item cho khớp số + cờ đỏ) → vnstock nguồn KBS** `Finance(source="kbs", symbol="X")`:
-  - `income_statement(period=...)`, `balance_sheet(...)`, `cash_flow(...)` — KBS chi tiết hơn (CĐKT ~143 khoản, tên VAS tiếng Việt đầy đủ, có EPS + lợi ích cổ đông thiểu số, chia nhỏ phải thu/vay theo loại).
-  - Trong backtest: `fundamental_fields` với bảng `income` / `balancesheet` / `cashflow`, dùng **KEY SẠCH** dưới đây (loader tự ánh xạ sang item_id KBS và lấy giá trị không-rỗng cuối cùng, nên đã xử lý các quirk của KBS: item_id trùng `revenue`/`total_assets`, vốn chủ thật là `owners_equity_2`, tồn kho thuần là `inventories`...). Point-in-time an toàn.
-  - **Key sạch thường dùng** (đã verify bằng giá trị):
-    - KQHĐKD: `net_sales` (DT thuần), `cost_of_sales`, `gross_profit`, `selling_expenses`, `general_and_admin_expenses`, `interest_expenses`, `operating_profit`, `profit_before_tax`, `net_profit_loss_after_tax`, `attributable_to_parent_company`, `eps`
-    - CĐKT: `cash_and_cash_equivalents`, `short_term_investments`, `accounts_receivable`, `inventories_net`, `total_assets`, `liabilities`, `current_liabilities`, `short_term_borrowings`, `long_term_borrowings`, `owners_equity`
-    - LCTT: `net_cash_inflows_outflows_from_operating_activities` (CFO), `...investing_activities` (CFI), `...financing_activities` (CFF)
-  - **Khoản chi tiết hơn:** field không nằm trong key sạch → dùng THẲNG item_id KBS (vd `short_term_trade_accounts_receivable`, `short_term_loan_receivables`, `goodwill`, `construction_in_progress`). Xem toàn bộ: in cột `item_id`. ⚠️ KBS có dòng header (giá trị NaN) lẫn item_id trùng — với khoản tự tra, **verify bằng giá trị**, đừng đoán theo tên.
-- **Chỉ số tính sẵn (ROE/ROA/biên LN/tăng trưởng/thanh khoản) → vnstock bảng `ratio` nguồn KBS** `Finance(source="kbs", symbol="X").ratio(period="year")`: SẴN `roe`, `roa`, `roce`, `gross_margin`, `ebit_margin`, `net_margin`, `cash_ratio`, `quick_ratio`, tăng trưởng (`net_revenue`, `profit_before_tax`, `owners_equity`...); ngân hàng có `net_interest_margin_nim`. Trong backtest: `fundamental_fields: {"ratio": [...]}` → cột `ratio_*`. *(Dùng KBS cho ratio, KHÔNG dùng VCI — VCI trả layout kỳ lỗi.)* → Dùng đối chiếu "Bảng chỉ số then chốt" thay vì tự tính.
-- **Giá / khối lượng / khối ngoại → DataPro** (`source="datapro"`, mã có đuôi `.VN`).
-- **Số CP lưu hành → `Company.overview().issue_share`** (không suy từ EPS).
-- ⚠️ Bản community vnstock chỉ trả ~4 kỳ năm gần nhất → backtest dài thiếu BCTC/chỉ số năm cũ.
+### 1. BCTC line-item (khớp số + cờ đỏ) → `Fundamental.equity(...)`
+
+```python
+from vnstock_data import Fundamental
+f = Fundamental().equity("HPG")
+inc = f.income_statement(period="year")     # hoặc period="quarter"
+bal = f.balance_sheet(period="year")
+cf  = f.cash_flow(period="year")
+```
+
+Trả về **frame dạng dài (tidy)**: `period, id, name, order, level, unit, value`.
+
+- `id` là **mã tiếng Anh ổn định** (`IS_NET_REVENUE`, `BS_TOTAL_ASSETS`,
+  `CF_NET_CASH_FLOWS_FROM_OPERATING_ACTIVITIES`) và **duy nhất trong mỗi kỳ** →
+  KHÔNG còn phải né dòng header NaN hay `item_id` trùng như bản KBS free.
+- `level` cho biết bậc thụt đầu dòng (1 = khoản chính, 2 = khoản con `‣`) →
+  dùng `level == 1` để lấy khung báo cáo, `level == 2` để soi chi tiết.
+- Độ phủ: **8 kỳ năm (2018–2025)** và **34 kỳ quý (2018-Q1 → 2026-Q2)**, so với
+  ~4 kỳ năm của bản free.
+- Mẫu **ngân hàng / chứng khoán tự nhận diện** (`com_type`): VCB trả
+  `IS_NET_INTEREST_INCOME` chứ không phải mẫu công nghiệp rỗng.
+
+Pivot nhanh khi cần bảng ngang:
+```python
+wide = inc.assign(period=inc["period"].astype(str))           .pivot_table(index="period", columns="id", values="value", aggfunc="last")
+```
+
+### 2. Chỉ số tính sẵn → `f.ratio(period=...)`
+
+`ratio()` bản tài trợ **đã cập nhật** (P/E, P/B, ROE, biên LN của kỳ mới nhất) —
+khác hẳn bản community vốn trả layout 2018 lỗi thời. Nhóm mã hay dùng:
+`RT_VALUE_PE`, `RT_VALUE_PB`, `RT_VALUE_PS`, `RT_VALUE_EV_EBITDA`,
+`RT_VALUE_DIVIDEND_YIELD`, `RT_VALUE_MARKET_CAP`, `RT_VALUE_OUTSTANDING_SHARES`,
+`RT_VALUE_EBIT`, `RT_VALUE_EBITDA`, `RT_PRT_ROE`, `RT_PRT_ROA`, `RT_PRT_ROIC`,
+`RT_PRT_GROSS_MARGIN`, `RT_PRT_EBIT_MARGIN`, `RT_PRT_NET_MARGIN`.
+
+### 3. ⚠️ Bốn cái bẫy đã verify BẰNG GIÁ TRỊ trên HPG 2025 — đừng tin nhãn
+
+| Bẫy | Thực tế | Cách xử lý |
+|---|---|---|
+| `RT_PRT_*` ghi `unit = %` | Là **phân số** (ROE 0,1269 = 12,69%) | Tự nhân 100 khi trình bày |
+| `RT_VALUE_MARKET_CAP` ghi `tỷ VNĐ` | Là **đồng** (2,153e14 = 215.297 tỷ ✓ = 7,675 tỷ CP × ~28.050đ) | Chia 1e9 để ra tỷ |
+| `RT_VALUE_EQUITY` | **Hỏng** (HPG trả 0,209) | Lấy `BS_EQUITY` (131.220 tỷ; 126.679 + 131.220 = 257.899 ✓) |
+| `IS_MINORITY_INTEREST` | **Mất dấu âm** khi lợi ích CĐTS là lỗ (HPG 2022/23/24) | Suy ngược: `minority = IS_NET_PROFIT_AFTER_TAX − IS_PROFIT_AFTER_TAX_FOR_SHAREHOLDERS_OF_PARENT_COMPANY` |
+
+Vẫn còn lỗ hổng lẻ tẻ ở cấp dòng (HPG 2025 `CF_NET_CASH_FLOWS_FROM_FINANCING_ACTIVITIES`
+= NaN). **NaN giữ nguyên là NaN — không được thay bằng 0.**
+
+### 4. Trong backtest
+
+`fundamental_fields` với bảng `income` / `balancesheet` / `cashflow` / `ratio`.
+Loader `vnstock_data_fundamentals` giữ nguyên **key sạch** cũ nên config cũ chạy
+không cần sửa: `net_sales`, `cost_of_sales`, `gross_profit`, `operating_profit`,
+`profit_before_tax`, `net_profit_loss_after_tax`, `attributable_to_parent_company`,
+`total_assets`, `current_assets`, `liabilities`, `current_liabilities`,
+`inventories_net`, `owners_equity`, `short_term_borrowings`, `long_term_borrowings`,
+`cash_and_cash_equivalents`, ba dòng CFO/CFI/CFF, và nhóm chỉ số `pe` / `pb` /
+`roe` / `roa` / `market_cap`. Field ngoài danh sách → tra thẳng bằng `id`.
+Point-in-time: năm = kỳ + 90 ngày, quý = kỳ + 45 ngày.
+
+### 5. Giá / khối lượng / khối ngoại
+
+- **DataPro** (`source="datapro"`, mã đuôi `.VN`) vẫn là nguồn đầy đủ nhất (có `REF_PX`).
+- Không chạy DataPro desktop → `source="vnstock_data"`: `Market().equity(...).ohlcv()`
+  và **`foreign_flow()`** (khối ngoại qua internet, thứ bản free KHÔNG có).
+- Số CP lưu hành: `RT_VALUE_OUTSTANDING_SHARES` hoặc `Company.overview().issue_share`
+  — không suy từ EPS.
+
+### 6. Đường lùi bản free
+
+Chưa có gói tài trợ → `Finance(source="kbs", symbol="X")`. Khi đó phải quay lại
+các quirk cũ: item_id trùng (`revenue`, `total_assets`), vốn chủ thật là
+`owners_equity_2`, có dòng header NaN → lấy **giá trị không-rỗng cuối cùng**, và
+**`ratio()` bản free trả số 2018, KHÔNG dùng được**.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

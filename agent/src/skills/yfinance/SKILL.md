@@ -13,7 +13,7 @@ The project has a built-in yfinance DataLoader (`backtest/loaders/yfinance_loade
 
 > ### ⚠️ Với thị trường Việt Nam — đọc trước khi dùng
 >
-> **yfinance KHÔNG phải nguồn dữ liệu cổ phiếu VN.** Yahoo Finance không có dữ liệu ổn định, đáng tin cậy cho cổ phiếu niêm yết HOSE/HNX/UPCoM và VN-Index. Chuỗi định tuyến của dự án đã cấu hình sẵn: `vn_equity → ["datapro", "vnstock"]` (xem `backtest/loaders/registry.py`). Đừng lách bằng cách tra ticker VN trên Yahoo — dữ liệu thiếu, sai điều chỉnh giá và không có giá tham chiếu.
+> **yfinance KHÔNG phải nguồn dữ liệu cổ phiếu VN.** Yahoo Finance không có dữ liệu ổn định, đáng tin cậy cho cổ phiếu niêm yết HOSE/HNX/UPCoM và VN-Index. Chuỗi định tuyến của dự án đã cấu hình sẵn: `vn_equity → ["datapro", "vnstock_data", "vnstock"]` (xem `backtest/loaders/registry.py`). Đừng lách bằng cách tra ticker VN trên Yahoo — dữ liệu thiếu, sai điều chỉnh giá và không có giá tham chiếu.
 >
 > **Vai trò của yfinance trong phân tích VN là lấy các chuỗi vĩ mô ngoại biên** làm đầu vào cho khung `global-macro`, `macro-analysis`, `commodity-analysis`: DXY, lợi suất TPCP Mỹ, vàng, dầu, đồng, USD/VND, USD/CNY, USD/JPY và rổ tiền tệ EM châu Á để so sánh chéo với VND. Xem mục [Chuỗi vĩ mô cho phân tích VN](#chuỗi-vĩ-mô-cho-phân-tích-vn) bên dưới.
 
@@ -196,7 +196,7 @@ macro = yf.download(
 | `ZC=F`, `ZM=F` | Ngô, khô đậu tương | Giá thức ăn chăn nuôi → biên của DBC, BAF, HAG (độ trễ 1-2 quý) |
 | `ZR=F` | Lúa gạo (rough rice, CBOT) | Tham chiếu xu hướng; **không thay được** giá gạo 5% tấm xuất khẩu VN (lấy từ VFA) |
 | `KC=F` | Cà phê Arabica | ⚠️ VN sản xuất **Robusta**, hợp đồng Robusta (ICE Europe) **không có trên Yahoo** — dùng KC=F chỉ để nhìn xu hướng ngành, giá robusta phải crawl từ nguồn chuyên ngành |
-| `VNM` | VanEck Vietnam ETF (niêm yết Mỹ) | Proxy khả dụng cho khẩu vị của nhà đầu tư nước ngoài với VN; **không thay VN-Index** — VN-Index lấy từ vnstock/DataPro |
+| `VNM` | VanEck Vietnam ETF (niêm yết Mỹ) | Proxy khả dụng cho khẩu vị của nhà đầu tư nước ngoài với VN; **không thay VN-Index** — VN-Index lấy từ vnstock_data/DataPro |
 
 **Không có trên Yahoo (đừng cố tra, phải crawl hoặc dùng nguồn khác):** giá thép HRC/quặng sắt nội địa, giá heo hơi, giá lúa/gạo xuất khẩu VN, giá cà phê robusta nhân xô, giá vàng SJC/nhẫn, lãi suất liên ngân hàng VND, lợi suất TPCP VN, tỷ giá tự do.
 
@@ -280,7 +280,7 @@ macro = yf.download(
 }
 ```
 
-`source: "auto"` routes automatically by ticker format: **VN equities (`.VN`) → datapro, fallback vnstock**; A-shares → tushare; HK/US stocks → yfinance; crypto → OKX. Xem `FALLBACK_CHAINS` trong `backtest/loaders/registry.py`.
+`source: "auto"` routes automatically by ticker format: **VN equities (`.VN`) → datapro, fallback vnstock_data**; A-shares → tushare; HK/US stocks → yfinance; crypto → OKX. Xem `FALLBACK_CHAINS` trong `backtest/loaders/registry.py`.
 
 ### Ví dụ backtest có mã VN
 
@@ -296,7 +296,7 @@ macro = yf.download(
 }
 ```
 
-Mã `.VN` sẽ đi qua datapro/vnstock, không chạm yfinance. Lưu ý phí: giao dịch VN có phí môi giới ~0,15% mỗi chiều **cộng thuế TNCN 0,1% trên giá bán**, và engine VN áp biên độ trần/sàn theo giá tham chiếu — khác hẳn giả định của thị trường Mỹ.
+Mã `.VN` sẽ đi qua datapro/vnstock_data, không chạm yfinance. Lưu ý phí: giao dịch VN có phí môi giới ~0,15% mỗi chiều **cộng thuế TNCN 0,1% trên giá bán**, và engine VN áp biên độ trần/sàn theo giá tham chiếu — khác hẳn giả định của thị trường Mỹ.
 
 ## Notes
 
@@ -308,7 +308,7 @@ Mã `.VN` sẽ đi qua datapro/vnstock, không chạm yfinance. Lưu ý phí: gi
 - **Timezone**: returned data includes timezone info; the DataLoader strips it automatically
 - **extra_fields not supported**: yfinance via the backtest loader returns OHLCV only; PE/PB and other fundamentals require separate `yf.Ticker().info` calls
 - **Comparison with Tushare**: Tushare covers deep A-share data (financials, fund flows, block trades, etc.); yfinance covers global markets but with less depth
-- **Không dùng cho cổ phiếu VN**: dữ liệu mã VN trên Yahoo thiếu và không đáng tin — dùng DataPro (chính) / vnstock (dự phòng). Riêng dòng tiền khối ngoại chỉ có ở DataPro, và trường `foreign` tính bằng **nghìn VND**
+- **Không dùng cho cổ phiếu VN**: dữ liệu mã VN trên Yahoo thiếu và không đáng tin — dùng DataPro (chính) / vnstock_data (dự phòng). Riêng dòng tiền khối ngoại chỉ có ở DataPro, và trường `foreign` tính bằng **nghìn VND**
 - **`VND=X` không phải tỷ giá chính thức**: đây là tỷ giá tham khảo của Yahoo. Tỷ giá trung tâm và biên ±5% lấy từ SBV; tỷ giá giao dịch lấy từ niêm yết NHTM; tỷ giá tự do phải crawl. Đừng dùng `VND=X` để tính vị trí trong biên
 - **Hàng hóa đặc thù VN không có trên Yahoo** (robusta, heo hơi, gạo XK, thép nội địa, vàng SJC) — xem bảng ở mục Chuỗi vĩ mô cho phân tích VN
 
@@ -316,5 +316,5 @@ Mã `.VN` sẽ đi qua datapro/vnstock, không chạm yfinance. Lưu ý phí: gi
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

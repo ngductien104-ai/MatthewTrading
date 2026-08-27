@@ -30,14 +30,14 @@ DataPro có giá điều chỉnh + `VNINDEX`. β bluechip ~1,0–1,1 (TCB/VCB), 
 - **Rf = lợi suất TPCP 10Y VN hiện tại** — crawl (investing.com / tradingeconomics / cafef / KBNN). **~4,4–4,5% (06/2026)** — dùng SỐ HIỆN TẠI, không bê số cũ của môi giới (MBS 03/2026 dùng 4,0%; nay đã ~4,47%).
 - **ERP** (frontier VN) ~7–9% (MBS 8,5%). → **COE = Rf + β·ERP** (ngành 13–15%).
 
-### P/B / P/E LỊCH SỬ — dựng từ DataPro (vnstock ratio LỖI THỜI)
+### P/B / P/E LỊCH SỬ — dựng từ DataPro (vnstock_data ratio LỖI THỜI)
 ```
 P/B_t = (close_t × SLCP) / VCSH(kỳ gần t) ;  P/E_t = (close_t × SLCP) / NPAT(TTM)
 ```
-DataPro `close` (adjusted) × SLCP / BVSH theo quý (vnstock) → chuỗi P/B lịch sử → **percentile** hiện tại + TB 3–5 năm. Nêu rõ window.
+DataPro `close` (adjusted) × SLCP / BVSH theo quý (vnstock_data) → chuỗi P/B lịch sử → **percentile** hiện tại + TB 3–5 năm. Nêu rõ window.
 
 ### Peer P/B–ROE (hồi quy chéo ngành)
-Kéo ~15 NH (vnstock income+balance + `overview` market_cap) → ROE & P/B từng mã → **hồi quy `P/B = a + b×ROE`** → mã trên/dưới đường = đắt/rẻ tương đối. (Đặt nền từ bảng peer task FA.)
+Kéo ~15 NH (vnstock_data income+balance + `overview` market_cap) → ROE & P/B từng mã → **hồi quy `P/B = a + b×ROE`** → mã trên/dưới đường = đắt/rẻ tương đối. (Đặt nền từ bảng peer task FA.)
 
 ### Param môi giới ≤3 tháng (neo, kiểm hạn) + SOTP comps
 Target/COE/g/P-B mục tiêu từ SSI/MBS/HSC/VCI/Shinhan ≤3 tháng. SOTP comps: TCBS (P/B ~2,5x), FE Credit, MCredit/MIC, HD Saison.
@@ -82,6 +82,6 @@ Lãi suất→NIM & Rf/COE; chu kỳ BĐS→chất lượng TS & ROE; room tín 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 1. Dùng **ROE/earnings CHUẨN HÓA từ task FA**, không dùng ROE danh nghĩa bị tô; adjusted book cho thiếu hụt dự phòng.
-2. **Rf, β, P/B lịch sử dùng SỐ HIỆN TẠI tự dựng** (TPCP 10Y crawl; β & P/B từ DataPro) — **vnstock ratio lỗi thời**, không lấy. Không bê param cũ của môi giới khi thị trường đã đổi (vd Rf 4,0%→4,47%).
+2. **Rf, β, P/B lịch sử dùng SỐ HIỆN TẠI tự dựng** (TPCP 10Y crawl; β & P/B từ DataPro) — **vnstock_data ratio lỗi thời**, không lấy. Không bê param cũ của môi giới khi thị trường đã đổi (vd Rf 4,0%→4,47%).
 3. **Báo cáo môi giới chỉ neo nếu ≤3 tháng**; cross-check ≥2 nguồn; mâu thuẫn nêu rõ; **không bịa số**.
 4. **Không cộng trùng** RI hợp nhất + SOTP. g < COE. Kiểm tra tính hợp lý P/B mục tiêu vs ROE (Gordon).

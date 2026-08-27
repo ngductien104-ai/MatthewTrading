@@ -1,6 +1,6 @@
 ---
 name: earnings-forecast
-description: "Dự phóng lợi nhuận & phân tích kỳ vọng thị trường VN (top-down/bottom-up, SUE, PEAD, % hoàn thành kế hoạch ĐHCĐ, momentum điều chỉnh dự phóng) để bắt cơ hội vượt/hụt kỳ vọng. Nguồn: vnstock (EPS thực) + DataPro (phản ứng giá) + báo cáo phân tích."
+description: "Dự phóng lợi nhuận & phân tích kỳ vọng thị trường VN (top-down/bottom-up, SUE, PEAD, % hoàn thành kế hoạch ĐHCĐ, momentum điều chỉnh dự phóng) để bắt cơ hội vượt/hụt kỳ vọng. Nguồn: vnstock_data (EPS thực) + DataPro (phản ứng giá) + báo cáo phân tích."
 category: analysis
 ---
 # Dự phóng lợi nhuận & kỳ vọng thị trường (Việt Nam)
@@ -9,7 +9,7 @@ category: analysis
 
 Xây tín hiệu giao dịch quanh **chênh lệch giữa lợi nhuận thực và kỳ vọng thị trường**. Logic cốt lõi: giá ngắn hạn bị dẫn dắt bởi "chênh kỳ vọng" (expectation gap) — bắt được CHÊNH KỲ VỌNG có giá trị hơn dự báo con số tuyệt đối. Hai trục: ① tự dự phóng vs kỳ vọng để tìm chênh lệch; ② bám momentum điều chỉnh dự phóng của giới phân tích.
 
-> ⚠️ **Trước khi tính (Karpathy):** bóc khoản một lần (lãi tỷ giá/thanh lý/đánh giá lại/hoàn nhập dự phòng) → dùng **LN cốt lõi** trước khi đo SUE; số CP lưu hành từ `Company.overview().issue_share` (không suy từ EPS); EPS thực từ vnstock, đừng đoán.
+> ⚠️ **Trước khi tính (Karpathy):** bóc khoản một lần (lãi tỷ giá/thanh lý/đánh giá lại/hoàn nhập dự phòng) → dùng **LN cốt lõi** trước khi đo SUE; số CP lưu hành từ `Company.overview().issue_share` (không suy từ EPS); EPS thực từ vnstock_data, đừng đoán.
 
 ## Khái niệm cốt lõi
 
@@ -192,15 +192,15 @@ config = {
 
 ## Nguồn dữ liệu
 
-- **EPS/LN THỰC → vnstock nguồn KBS**: `eps` (`earnings_per_share_vnd`) & `net_profit_loss_after_tax` / `attributable_to_parent_company` (bảng `income`); `trailing_eps`, tăng trưởng `profit_before_tax`/`net_revenue` (bảng `ratio`).
+- **EPS/LN THỰC → vnstock_data**: `eps` (`earnings_per_share_vnd`) & `net_profit_loss_after_tax` / `attributable_to_parent_company` (bảng `income`); `trailing_eps`, tăng trưởng `profit_before_tax`/`net_revenue` (bảng `ratio`).
 - **Phản ứng giá sau công bố / drift PEAD → DataPro** (`source="datapro"`, mã `.VN`): so giá từ ngày công bố qua 40 phiên.
 - **Kế hoạch LN ĐHCĐ + consensus/báo cáo phân tích → firecrawl/`web-reader`**: nghị quyết ĐHCĐ, báo cáo SSI/HSC/VCSC/VND, Vietstock, Wichart/FiinPro (consensus + ngày công bố KQKD).
 - **issue_share → `Company.overview().issue_share`** (không suy từ EPS).
-- ⚠️ vnstock cho EPS THỰC, KHÔNG cho consensus dự phóng — phần kỳ vọng phải lấy từ báo cáo phân tích/KH ĐHCĐ.
+- ⚠️ vnstock_data cho EPS THỰC, KHÔNG cho consensus dự phóng — phần kỳ vọng phải lấy từ báo cáo phân tích/KH ĐHCĐ.
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

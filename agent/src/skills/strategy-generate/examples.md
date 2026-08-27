@@ -1,6 +1,6 @@
 # Sinh chiến lược — Ví dụ
 
-## Ví dụ 1: Giao cắt 2 đường MA cổ phiếu VN (vnstock/datapro)
+## Ví dụ 1: Giao cắt 2 đường MA cổ phiếu VN (vnstock_data/datapro)
 
 Người dùng: "Làm chiến lược giao cắt 2 đường MA cho VCB, ngắn 5 phiên dài 20 phiên, backtest năm 2025"
 

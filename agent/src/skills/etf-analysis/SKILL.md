@@ -142,9 +142,9 @@ Quy đổi tín hiệu: ETF ngoại **phát hành ròng** (số CCQ tăng) → m
 |------|------|
 | Giá ETF, GTGD, OHLCV (tính TE/thanh khoản) | **DataPro** (`source="datapro"`, mã `.VN`, vd `E1VFVN30.VN`, `FUEVFVND.VN`) |
 | Giá chỉ số bám (VN30, VNDIAMOND, VNFINLEAD, VN100...) | **DataPro** (`VN30.VN`...) |
-| **iNAV / NAV / danh mục rổ (PCF) / số CCQ lưu hành / phí** | **Website công ty QLQ** (DCVFM, SSIAM, KIM, Mirae, Bảo Việt) — vnstock `Fund()` (Fmarket) **không phủ ETF niêm yết** |
-| Cơ bản cổ phiếu trong rổ (soi holdings) | **vnstock KBS** (`ratio`/`income`); ngành ICB qua `Listing.symbols_by_industries()` |
-| Dòng tiền ETF ngoại (Fubon/VNM/XFVT) | Website quỹ / nguồn quốc tế (DataPro/vnstock không cấp) |
+| **iNAV / NAV / danh mục rổ (PCF) / số CCQ lưu hành / phí** | **Website công ty QLQ** (DCVFM, SSIAM, KIM, Mirae, Bảo Việt) — vnstock_data `vndata.reference.funds()` (Fmarket) **không phủ ETF niêm yết** |
+| Cơ bản cổ phiếu trong rổ (soi holdings) | **vnstock_data** (`ratio`/`income`); ngành ICB qua `vndata.reference.symbols_by_industry()` |
+| Dòng tiền ETF ngoại (Fubon/VNM/XFVT) | Website quỹ / nguồn quốc tế (DataPro/vnstock_data không cấp) |
 
 Khi không có iNAV/holdings trực tiếp: nêu hạn chế, đưa khung phân tích, KHÔNG bịa số NAV/phụ trội.
 
@@ -158,5 +158,5 @@ pip install pandas numpy scipy
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

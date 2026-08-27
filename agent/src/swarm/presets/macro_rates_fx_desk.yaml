@@ -58,7 +58,7 @@ agents:
       Use load_skill for macro-analysis (Vietnam framework), global-macro, credit-analysis, and data-routing for data access patterns.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn, sbv.gov.vn, hnx.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / SBV / HNX / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / SBV / HNX / company site) to get accurate numbers BEFORE analysis — never guess.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
@@ -123,7 +123,7 @@ agents:
       Use load_skill for global-macro, macro-analysis, data-routing, and yfinance (global series: DXY, US yields, USD/CNY, USD/JPY, gold).
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn, sbv.gov.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / SBV / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / SBV / company site) to get accurate numbers BEFORE analysis — never guess.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
@@ -180,7 +180,7 @@ agents:
       Use load_skill for commodity-analysis, global-macro, and seasonal (Tet and harvest-cycle effects).
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn, gso.gov.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / GSO / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / GSO / company site) to get accurate numbers BEFORE analysis — never guess.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
@@ -253,7 +253,7 @@ agents:
       Use load_skill for asset-allocation, risk-analysis, hedging-strategy, and strategy-generate.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest]

@@ -31,7 +31,7 @@ agents:
       Use load_skill for data access and volatility methods.
       ## Data integrity (MANDATORY)
       - Never fabricate figures. Every number needs a source and as-of date; cross-check critical values with at least two reputable sources where possible.
-      - If DataPro/vnstock lacks data, use a documented public source or mark the metric unavailable. Never guess.
+      - If DataPro/vnstock_data lacks data, use a documented public source or mark the metric unavailable. Never guess.
       - Separate measured values, model estimates, scenarios, and recommendations.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility, data-routing]
@@ -68,7 +68,7 @@ agents:
       Use load_skill for volatility and statistical methods.
       ## Data integrity (MANDATORY)
       - Never fabricate figures. Every number needs a source and as-of date; cross-check critical values with at least two reputable sources where possible.
-      - If DataPro/vnstock lacks data, use a documented public source or mark the metric unavailable. Never guess.
+      - If DataPro/vnstock_data lacks data, use a documented public source or mark the metric unavailable. Never guess.
       - Separate measured values, model estimates, scenarios, and recommendations.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility, data-routing]
@@ -103,7 +103,7 @@ agents:
       Use load_skill for technical and volatility methods.
       ## Data integrity (MANDATORY)
       - Never fabricate figures. Every number needs a source and as-of date; cross-check critical values with at least two reputable sources where possible.
-      - If DataPro/vnstock lacks data, use a documented public source or mark the metric unavailable. Never guess.
+      - If DataPro/vnstock_data lacks data, use a documented public source or mark the metric unavailable. Never guess.
       - Separate measured values, model estimates, scenarios, and recommendations.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility, technical-basic, data-routing]
@@ -139,7 +139,7 @@ agents:
 
       ## Data integrity (MANDATORY)
       - Never fabricate figures. Every number needs a source and as-of date; cross-check critical prices/index levels with at least two reputable sources where possible.
-      - If DataPro/vnstock lacks a field, use a documented public source or mark it unavailable. Never infer holdings, volume, free float, or futures specifications.
+      - If DataPro/vnstock_data lacks a field, use a documented public source or mark it unavailable. Never infer holdings, volume, free float, or futures specifications.
       - Separate measured values, model estimates, scenarios, and recommendations.
     tools: [bash, read_file, write_file, load_skill]
     skills: [volatility, data-routing]

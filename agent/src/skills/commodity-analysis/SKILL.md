@@ -65,8 +65,16 @@ elif global_pmi < 48 and china_import_yoy < 0:
 
 **Lớp riêng của VN — chênh lệch giá vàng trong nước:**
 - Giá vàng miếng SJC và vàng nhẫn được giao dịch **tách khỏi giá thế giới** vì độc quyền thương hiệu và hạn chế nhập khẩu vàng nguyên liệu
-- **Chênh lệch SJC với giá thế giới quy đổi chính là chỉ báo vĩ mô**, không phải hàng hóa: nới rộng = cầu USD ngầm + mất niềm tin VND, thường xuất hiện đồng thời với căng thẳng tỷ giá
-- Chênh lệch có thể **tự co lại do chính sách** (SBV đấu thầu vàng, cấp quota nhập khẩu, mở rộng đơn vị được bán) — nghĩa là nắm SJC để phòng hộ có rủi ro chính sách một chiều
+- Chênh lệch SJC với giá thế giới quy đổi **có thể** là chỉ báo vĩ mô (cầu USD ngầm, mất niềm tin VND) — **nhưng chỉ khi có xác nhận chéo từ tỷ giá.** Bắt buộc kiểm điều kiện kép trước khi diễn giải:
+
+  | Chênh SJC | Tỷ giá USD/VND | Diễn giải đúng |
+  |---|---|---|
+  | Nới rộng | Đồng thời chịu áp lực (tiêu >90% biên trên, tự do vượt niêm yết >1-2%) | **Tín hiệu stress thật** — cầu USD ngầm, đô-la hóa |
+  | Nới rộng | Ổn định | **KHÔNG phải tín hiệu stress** — là méo mó độc quyền/quota. Dùng làm chỉ báo tỷ giá sẽ cho **tín hiệu giả** |
+  | Thu hẹp | Bất kỳ | Thường do can thiệp chính sách (đấu thầu, quota), không phải cầu giảm |
+
+- *Bằng chứng thực nghiệm 2026:* chênh SJC duy trì ~13,3 triệu (~10,3%) trong khi USD/VND chỉ biến động +0,07% nửa đầu năm — chênh lệch cao **không** đi kèm stress tỷ giá. Ai dùng chênh SJC đơn lẻ làm chỉ báo trong năm này đều đọc sai.
+- Chênh lệch có thể **tự co lại do chính sách** (SBV đấu thầu vàng, cấp quota nhập khẩu, mở rộng đơn vị được bán) — nghĩa là nắm SJC để phòng hộ có rủi ro chính sách một chiều; ưu tiên vàng nhẫn nếu mục tiêu là bám giá thế giới
 - Vàng nhẫn bám giá thế giới sát hơn vàng miếng ⇒ nếu mục tiêu là bám vàng thế giới, dùng vàng nhẫn làm tham chiếu
 - Cần theo: chênh SJC – thế giới (điểm % và tuyệt đối), chênh vàng nhẫn – thế giới, chênh mua–bán (thanh khoản)
 
@@ -235,5 +243,5 @@ commodity_score = {
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

@@ -60,6 +60,10 @@ _SYMBOL_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b\d{3,5}\.HK\b"),
     re.compile(r"\b\d{6}\.(?:SZ|SH|BJ)\b"),
     re.compile(r"\b[A-Z]{2,6}-USDT\b"),
+    # Vietnam. Tickers are 3 letters (VCB, FPT); indices and futures run longer
+    # (VNINDEX.VN, VN30F1M.VN). Without this pattern every VN preset ran
+    # ungrounded and workers quoted training-data prices.
+    re.compile(r"\b[A-Z0-9]{3,8}\.VN\b"),
 )
 
 

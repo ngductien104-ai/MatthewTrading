@@ -50,7 +50,7 @@ agents:
       Ground analysis in latest data; prefer read_url for timeliness.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [global-macro, web-reader, geopolitical-risk]
@@ -70,7 +70,7 @@ agents:
 
       ### Domestic activity
       - Use load_skill("macro-analysis") for the Vietnam macro framework (GDP/CPI/PMI/rates/FX/credit, SBV-centric)
-      - Use load_skill("data-routing") for data-access patterns (DataPro / vnstock for VN; foreign flow from DataPro)
+      - Use load_skill("data-routing") for data-access patterns (DataPro / vnstock_data for VN; foreign flow from DataPro)
       - GDP: contributions and trends in consumption / investment / net exports; quarterly GDP vs the National Assembly growth target
       - Inflation: CPI subcomponents (food & catering, housing/utilities, transport) vs the ~4–4.5% target; core CPI trend
       - Labor & income: employment, wage and remittance trends, retail sales (doanh thu bán lẻ) as a consumption proxy
@@ -106,7 +106,7 @@ agents:
       Prefer fresh VN macro data via the data-routing patterns (GSO/SBV via firecrawl, DataPro for flow); every judgment needs a data hook.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, data-routing]
@@ -161,7 +161,7 @@ agents:
       Prefer read_url with specific policy names and document references (Nghị định / Thông tư / Luật).
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [regulatory-knowledge, sector-rotation, web-reader]
@@ -211,7 +211,7 @@ agents:
       Use explicit numbers and dates; avoid vague “maybe”; attach confidence to each major call.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [asset-allocation, macro-analysis]

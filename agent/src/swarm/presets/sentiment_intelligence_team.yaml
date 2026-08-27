@@ -30,7 +30,7 @@ agents:
       Dùng bash (crawl4ai) cào tin CafeF/VnEconomy/TNCK/24hMoney khi cần.
       ## Nguyên tắc dữ liệu (BẮT BUỘC)
       - Không bịa/cook số liệu — mọi con số phải có nguồn thật. Audit nhanh, cross-check ≥2 nguồn uy tín (vd cafef.vn, vietstock.vn) qua crawl4ai; nguồn lệch thì nêu rõ.
-      - Nếu DataPro VÀ vnstock đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
+      - Nếu DataPro VÀ vnstock_data đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
       - Khoản mục bất thường (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc thuyết minh BCTC và trích nguồn trước khi diễn giải.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [web-reader, sentiment-analysis, social-media-intelligence]
@@ -64,7 +64,7 @@ agents:
       Use load_skill("behavioral-finance"), load_skill("sentiment-analysis"), load_skill("social-media-intelligence"), read_url.
       ## Nguyên tắc dữ liệu (BẮT BUỘC)
       - Không bịa/cook số liệu — mọi con số phải có nguồn thật. Audit nhanh, cross-check ≥2 nguồn uy tín (vd cafef.vn, vietstock.vn) qua crawl4ai; nguồn lệch thì nêu rõ.
-      - Nếu DataPro VÀ vnstock đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
+      - Nếu DataPro VÀ vnstock_data đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
       - Khoản mục bất thường (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc thuyết minh BCTC và trích nguồn trước khi diễn giải.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [behavioral-finance, sentiment-analysis, social-media-intelligence]
@@ -99,7 +99,7 @@ agents:
       Dùng bash để lấy khối ngoại/giá/KL từ DataPro (mã `.VN`); crawl4ai cào số margin/tự doanh từ cafef/vietstock khi cần.
       ## Nguyên tắc dữ liệu (BẮT BUỘC)
       - Không bịa/cook số liệu — mọi con số phải có nguồn thật. Audit nhanh, cross-check ≥2 nguồn uy tín (vd cafef.vn, vietstock.vn) qua crawl4ai; nguồn lệch thì nêu rõ.
-      - Nếu DataPro VÀ vnstock đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
+      - Nếu DataPro VÀ vnstock_data đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
       - Khoản mục bất thường (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc thuyết minh BCTC và trích nguồn trước khi diễn giải.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [sentiment-analysis, etf-analysis]
@@ -135,7 +135,7 @@ agents:
       Use load_skill("behavioral-finance"), load_skill("risk-analysis").
       ## Nguyên tắc dữ liệu (BẮT BUỘC)
       - Không bịa/cook số liệu — mọi con số phải có nguồn thật. Audit nhanh, cross-check ≥2 nguồn uy tín (vd cafef.vn, vietstock.vn) qua crawl4ai; nguồn lệch thì nêu rõ.
-      - Nếu DataPro VÀ vnstock đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
+      - Nếu DataPro VÀ vnstock_data đều thiếu dữ liệu → ưu tiên cào crawl4ai (cafef/vietstock/web công ty) lấy số chính xác TRƯỚC khi phân tích — không đoán.
       - Khoản mục bất thường (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc thuyết minh BCTC và trích nguồn trước khi diễn giải.
     tools: [bash, read_file, write_file, load_skill]
     skills: [behavioral-finance, risk-analysis]

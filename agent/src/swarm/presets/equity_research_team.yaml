@@ -24,7 +24,7 @@ agents:
       Use load_skill to access data query methods; prioritize tools to obtain the latest VN data to support the analysis.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, global-macro, web-reader, data-routing]
@@ -47,13 +47,13 @@ agents:
       1. **Sector Prosperity Ranking** — Top 5 ICB sectors with scoring rationale (Banks / Securities / Real Estate / Steel & Materials / Retail / Tech / Utilities, etc.)
       2. **Core Growth Drivers** — growth logic per recommended sector, tied to VN drivers (credit growth, public investment / đầu tư công, FDI, export demand, SBV rates)
       3. **Industry-Chain Analysis** — upstream / midstream / downstream benefit (e.g. public investment → steel/cement/construction)
-      4. **Competitive Landscape** — concentration, barriers, leading names (use vnstock ICB membership)
+      4. **Competitive Landscape** — concentration, barriers, leading names (use vnstock_data ICB membership)
       5. **Recommended Sectors & Rationale** — explicitly recommend 2–3 sectors with suggested allocation weights
 
       Use the factor_analysis tool for factor-based analysis to support judgments.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [sector-rotation, fundamental-filter, data-routing]
@@ -74,7 +74,7 @@ agents:
       ## Output Requirements
       Produce a structured analysis report with the following sections:
       1. **Recommended Target List** — each target with ticker (`.VN`), name, and ICB sector
-      2. **Fundamental Assessment** — core metrics from vnstock KBS `ratio`: P/E, P/B, ROE, revenue growth (for **Banks** emphasize P/B, NIM, CASA, NPL rather than gross margin)
+      2. **Fundamental Assessment** — core metrics from vnstock_data `ratio`: P/E, P/B, ROE, revenue growth (for **Banks** emphasize P/B, NIM, CASA, NPL rather than gross margin)
       3. **Technical Signals** — trend, support/resistance, price-volume (DataPro `.VN` prices; note ±7% HOSE band)
       4. **Entry Logic** — buy trigger conditions per target
       5. **Risk Disclosure** — primary risks per target (incl. foreign-room limits / liquidity)
@@ -83,7 +83,7 @@ agents:
       Use the backtest tool to validate selection logic on DataPro `.VN` prices, including the 0.1% sell tax + ~0.15% commission. Benchmark = VN-Index / VN30.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, backtest, factor_analysis]
     skills: [strategy-generate, technical-basic, fundamental-filter, earnings-revision, data-routing]
@@ -113,7 +113,7 @@ agents:
       Ensure the report is internally consistent, data is traceable, and conclusions are logically supported. Close with a note that this is research, not investment advice.
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file]
     skills: [report-generate]

@@ -39,6 +39,8 @@ VALID_SOURCES: set[str] = {
     "ccxt",
     "futu",
     "datapro",
+    "vnstock_data",
+    "vnstock",
     "auto",
 }
 
@@ -73,6 +75,8 @@ def _ensure_registered() -> None:
         "backtest.loaders.ccxt_loader",
         "backtest.loaders.futu",
         "backtest.loaders.datapro_loader",
+        "backtest.loaders.vnstock_data_loader",
+        "backtest.loaders.vnstock_loader",
     ]
     import importlib
     for mod in _loader_modules:
@@ -88,7 +92,14 @@ def _ensure_registered() -> None:
 
 FALLBACK_CHAINS: dict[str, list[str]] = {
     "a_share":   ["tushare", "mootdx", "akshare"],
-    "vn_equity": ["datapro"],
+    # DataPro first (REF_PX + the full tape: foreign, proprietary, put-through,
+    # active buy/sell), then the sponsored Unified UI as the internet-only
+    # backup. The free ``vnstock`` loader stays registered but is deliberately
+    # NOT in this chain: its ratio layout is stale and its bars carry no
+    # reference price, so falling back to it silently produced analysis that
+    # disagreed with the market. Ask for ``source="vnstock"`` explicitly if you
+    # really want it.
+    "vn_equity": ["datapro", "vnstock_data"],
     "us_equity": ["yfinance", "akshare"],
     "hk_equity": ["yfinance", "futu", "akshare"],
     "crypto":    ["okx", "ccxt", "yfinance"],

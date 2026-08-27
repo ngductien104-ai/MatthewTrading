@@ -1,6 +1,6 @@
 ---
 name: factor-research
-description: "Khung nghiên cứu nhân tố (factor) cho thị trường VN — phân tích IC/IR, backtest theo nhóm phân vị, kết hợp đa nhân tố, trung lập ngành theo ICB. Dùng cho đánh giá nhân tố cross-sectional trên rổ cổ phiếu .VN. Nguồn: DataPro (giá/KL/khối ngoại) + vnstock (cơ bản)."
+description: "Khung nghiên cứu nhân tố (factor) cho thị trường VN — phân tích IC/IR, backtest theo nhóm phân vị, kết hợp đa nhân tố, trung lập ngành theo ICB. Dùng cho đánh giá nhân tố cross-sectional trên rổ cổ phiếu .VN. Nguồn: DataPro (giá/KL/khối ngoại) + vnstock_data (cơ bản)."
 category: analysis
 ---
 
@@ -100,7 +100,7 @@ Khử cộng tuyến trước khi kết hợp (khi các nhân tố tương quan 
 ### Trung lập ngành (theo ICB) ⭐
 - Giá trị nhân tố dễ giống nhau trong cùng ngành → chọn cổ phiếu dồn vào vài ngành.
 - Giải: Z-score TRONG từng ngành (trung lập ngành) để khử hiệu ứng ngành.
-- **VN dùng phân ngành ICB**: `Listing(source="VCI").symbols_by_industries()` (`icb_code`/`icb_name`); ngân hàng nhận diện bằng `Company.overview().is_bank`.
+- **VN dùng phân ngành ICB**: `vndata.reference.symbols_by_industry()` (`icb_code`/`icb_name`); ngân hàng nhận diện bằng `Company.overview().is_bank`.
 
 ### Mẫu quá nhỏ / thanh khoản mỏng (đặc thù VN)
 - Mỗi cross-section cần ≥5 mã hợp lệ để IC có ý nghĩa; backtest phân vị cần ≥ `n_groups` mã.
@@ -120,8 +120,8 @@ Khử cộng tuyến trước khi kết hợp (khi các nhân tố tương quan 
 | Đầu vào nhân tố | Nguồn |
 |------|------|
 | Giá / khối lượng / **dòng tiền khối ngoại** (factor flow) | **DataPro** (`source="datapro"`, mã `.VN`; `FRN_BUY_VOL/FRN_SELL_VOL`) |
-| Cơ bản (ROE, biên, tăng trưởng, P/E, P/B...) | **vnstock KBS** (`ratio`, `income`/`balancesheet`) — point-in-time qua `fundamental_fields` |
-| Phân ngành (trung lập ngành) | **vnstock** `Listing.symbols_by_industries()` (ICB); `Company.overview().is_bank/icb_code_lv2` |
+| Cơ bản (ROE, biên, tăng trưởng, P/E, P/B...) | **vnstock_data** (`ratio`, `income`/`balancesheet`) — point-in-time qua `fundamental_fields` |
+| Phân ngành (trung lập ngành) | **vnstock_data** `vndata.reference.symbols_by_industry()` (ICB); `Company.overview().is_bank/icb_code_lv2` |
 | Lợi suất forward (return CSV) | **DataPro** giá đóng cửa điều chỉnh, dịch N ngày |
 
 ## Phụ thuộc
@@ -151,5 +151,5 @@ factor_panel.to_csv("factor_alpha101_001.csv")
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

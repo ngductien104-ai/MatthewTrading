@@ -1,6 +1,6 @@
 ---
 name: valuation-model
-description: "Định giá cổ phiếu Việt Nam THEO NGÀNH — phân loại ngành trước, rồi chọn bộ phương pháp phù hợp (ngân hàng→RIM, BĐS→RNAV, chu kỳ→EV/EBITDA chuẩn hóa, sản xuất/tiêu dùng→DCF, holdings→SOTP). Kèm thư viện phương pháp, độ nhạy, bẫy định giá. Nguồn: vnstock + DataPro."
+description: "Định giá cổ phiếu Việt Nam THEO NGÀNH — phân loại ngành trước, rồi chọn bộ phương pháp phù hợp (ngân hàng→RIM, BĐS→RNAV, chu kỳ→EV/EBITDA chuẩn hóa, sản xuất/tiêu dùng→DCF, holdings→SOTP). Kèm thư viện phương pháp, độ nhạy, bẫy định giá. Nguồn: vnstock_data (BCTC + chỉ số) + vnstock_data Company.overview() (phân loại ngành) + DataPro (giá)."
 category: analysis
 ---
 
@@ -14,7 +14,7 @@ category: analysis
 
 ## Bước 0 — Phân loại ngành (quyết định phương pháp)
 
-**Cách TỰ ĐỘNG (khuyến nghị):** chạy script đi kèm — nó đọc `is_bank/sector/icb_code_lv2` từ vnstock và TRẢ THẲNG bộ phương pháp:
+**Cách TỰ ĐỘNG (khuyến nghị):** chạy script đi kèm — nó đọc `is_bank/sector/icb_code_lv2` từ vnstock_data và TRẢ THẲNG bộ phương pháp:
 
 ```bash
 python classify_valuation.py VCB            # 1 mã
@@ -106,7 +106,7 @@ Giá mục tiêu = (RNAV / issue_share) × (1 ± premium/discount)
    discount theo: pháp lý chưa hoàn thiện, quản trị, đòn bẩy cao, thanh khoản quỹ đất
 ```
 
-**Động lực & dữ liệu cần (ngoài BCTC):** quỹ đất & pháp lý từng dự án, tiến độ bán hàng (**presales** = "Người mua trả tiền trước"/"Doanh thu chưa thực hiện" trên CĐKT = backlog đã chốt), giá bán khu vực. → Cần bổ sung từ báo cáo thường niên / bản cáo bạch (dùng skill `web-reader`/firecrawl); BCTC vnstock chỉ cho số sổ sách (giá vốn).
+**Động lực & dữ liệu cần (ngoài BCTC):** quỹ đất & pháp lý từng dự án, tiến độ bán hàng (**presales** = "Người mua trả tiền trước"/"Doanh thu chưa thực hiện" trên CĐKT = backlog đã chốt), giá bán khu vực. → Cần bổ sung từ báo cáo thường niên / bản cáo bạch (dùng skill `web-reader`/firecrawl); BCTC vnstock_data chỉ cho số sổ sách (giá vốn).
 
 **Biến thể KCN:** RNAV quỹ đất cho thuê còn lại + DCF dòng tiền cho thuê định kỳ. **Cho thuê/TTTM:** NAV = NOI / cap rate.
 
@@ -167,17 +167,50 @@ Ví dụ: mảng ngân hàng → RIM; mảng BĐS → RNAV; mảng bán lẻ →
 
 ## Nguồn dữ liệu
 
-- **Phân loại ngành → vnstock** `Company.overview()`: `is_bank`, `sector`, `icb_code_lv2/lv4`; hoặc `Listing.symbols_by_industries()` → `icb_name`.
-- **BCTC → vnstock nguồn KBS** (`Finance(source="kbs", ...)`, chi tiết theo VAS): dùng KEY SẠCH (loader tự ánh xạ + xử lý quirk KBS): `net_sales`, `gross_profit`, `net_profit_loss_after_tax`, `attributable_to_parent_company`, `owners_equity` (B0/RIM — thực ở KBS là `owners_equity_2`, đã map sẵn), `total_assets`, `short_term_borrowings`, `long_term_borrowings`, `cash_and_cash_equivalents` (nợ ròng), CFO (`net_cash_inflows_outflows_from_operating_activities`), `eps`.
-- **Chỉ số định giá/sinh lời → vnstock bảng `ratio` (nguồn KBS)**: `from vnstock import Finance; Finance(source="kbs", symbol="X").ratio(period="year")` → SẴN `pe_ratio`, `pb_ratio`, `ps_ratio`, `ev_ebit`, `ev_ebitda`, `roe`, `roa`, `net_margin`, `beta`, `dividend_yield`, tăng trưởng...; ngân hàng có `net_interest_margin_nim`. *(Dùng KBS, KHÔNG dùng VCI cho ratio — VCI trả layout kỳ lỗi.)*
-- **Giá / vốn hóa / β → DataPro** (`source="datapro"`, mã `.VN`); **β tự tính regress vs VNINDEX full-history** (nêu cửa sổ + R²) cho WACC; `ratio.beta` của KBS chỉ dùng kiểm chứng nhanh.
-- **issue_share / market_cap / target_price → `Company.overview()`.**
-- **RNAV / quỹ đất / presales / backlog → báo cáo thường niên + `web-reader`/firecrawl** (BCTC chỉ cho số sổ sách giá vốn).
-- ⚠️ vnstock KBS bản community trả ~4 kỳ năm gần nhất.
+- **Phân loại ngành → `vnstock_data`** qua `vndata`. Bản tài trợ không có cờ
+  `is_bank` sẵn, nhưng cả ba trường đều dựng lại được và dựng chắc hơn:
+  `vndata.fundamental.is_bank()` suy từ **cấu trúc KQKD** (có
+  `IS_NET_INTEREST_INCOME` ⇒ tổ chức tín dụng — là sự thật kế toán chứ không
+  phải một cờ metadata có thể dán sai), `sector` từ
+  `vndata.reference.company()`, `icb_code_lv2` từ
+  `vndata.reference.symbols_by_industry()` lọc `icb_level == 2`.
+  Script `classify_valuation.py` đã cấu hình đúng như vậy (đã kiểm chứng:
+  TCB→Banks, HPG→Basic Resources 1700, VHM→Real Estate 8600, SSI→8700).
+- **BCTC → `vnstock_data`** `Fundamental().equity("X").income_statement(period="year")`
+  (và `balance_sheet` / `cash_flow`): frame dạng dài, mã `id` ổn định, **8 kỳ năm
+  + 34 kỳ quý**. Mã hay dùng cho định giá: `IS_NET_REVENUE`, `IS_GROSS_PROFIT`,
+  `IS_NET_PROFIT_AFTER_TAX`, `IS_PROFIT_AFTER_TAX_FOR_SHAREHOLDERS_OF_PARENT_COMPANY`,
+  `IS_BASIC_EARNINGS_PER_SHARE`, `BS_EQUITY` (B0 cho RIM), `BS_TOTAL_ASSETS`,
+  `BS_SHORT_TERM_BORROWINGS`, `BS_LONG_TERM_BORROWINGS`,
+  `BS_CASH_AND_PRECIOUS_METALS` (nợ ròng), `CF_NET_CASH_FLOWS_FROM_OPERATING_ACTIVITIES`.
+  Trong backtest vẫn dùng được **key sạch** cũ (`net_sales`, `owners_equity`, …) —
+  loader `vnstock_data_fundamentals` ánh xạ sẵn.
+- **Chỉ số định giá/sinh lời → `f.ratio(period="year")`**: `RT_VALUE_PE`,
+  `RT_VALUE_PB`, `RT_VALUE_PS`, `RT_VALUE_EV_EBITDA`, `RT_VALUE_DIVIDEND_YIELD`,
+  `RT_VALUE_MARKET_CAP`, `RT_VALUE_OUTSTANDING_SHARES`, `RT_PRT_ROE`,
+  `RT_PRT_ROA`, `RT_PRT_ROIC`, `RT_PRT_NET_MARGIN`; ngân hàng thêm nguyên nhóm
+  `RT_BANK_*` (NIM/NPL/CASA/CAR/CIR/LDR). Bản tài trợ trả **số kỳ hiện hành** —
+  cảnh báo "ratio lỗi thời (số 2018)" chỉ còn đúng với bản free.
+- ⚠️ **Bốn bẫy khi đọc `RT_*`** (đã verify bằng giá trị trên HPG/TCB 2025):
+  1. `RT_PRT_*` và `RT_BANK_*` là **phân số** dù `unit` ghi `%`.
+  2. `RT_VALUE_MARKET_CAP` tính bằng **đồng**, không phải `tỷ VNĐ` như nhãn.
+  3. `RT_VALUE_EQUITY` **hỏng** → vốn chủ luôn lấy `BS_EQUITY`.
+  4. Với ngân hàng, các chỉ tiêu công nghiệp (`EBIT`, `EBITDA`, `ATR`, `CR`,
+     `LEV_DE`) trả **0,0 = KHÔNG ÁP DỤNG**, không phải bằng không.
+  Ngoài ra `RT_VALUE_EPS`, `RT_VALUE_BVPS`, `RT_VALUE_BETA` thường **NaN** → EPS
+  lấy `IS_BASIC_EARNINGS_PER_SHARE`, BVPS tự tính từ `BS_EQUITY` / số CP.
+- **Giá / vốn hóa / β → DataPro** (`source="datapro"`, mã `.VN`); không chạy
+  DataPro thì `source="vnstock_data"` (có cả `foreign_flow()`).
+  **β tự tính regress vs VNINDEX** (2Y khung tuần, nêu cửa sổ + R²) cho WACC —
+  KHÔNG dùng `RT_VALUE_BETA` (đang NaN).
+- **issue_share / target_price / room ngoại → `vndata.reference.company()`** (bản free),
+  hoặc `RT_VALUE_OUTSTANDING_SHARES` cho số CP lưu hành.
+- **RNAV / quỹ đất / presales / backlog → báo cáo thường niên + `web-reader`/firecrawl**
+  (BCTC chỉ cho số sổ sách giá vốn).
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

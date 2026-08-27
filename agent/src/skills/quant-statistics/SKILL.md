@@ -10,7 +10,7 @@ category: analysis
 
 Bộ phương pháp thống kê dùng trong đầu tư định lượng: kiểm định chuỗi thời gian, mô hình biến động, chẩn đoán hồi quy, suy luận thống kê — nền tảng cho phát triển chiến lược & nghiên cứu nhân tố. Phần lớn là **phương pháp phổ quát** (toán không đổi theo thị trường); các điểm đặc thù VN được đánh dấu ⚠️.
 
-> **Nguồn dữ liệu:** giá/KL từ **DataPro** (mã `.VN`), dùng **log-return**. Chuỗi P/E–P/B nếu cần lấy từ skill định giá ([[valuation-model]]) — KHÔNG dùng `ratio()` vnstock (lỗi thời).
+> **Nguồn dữ liệu:** giá/KL từ **DataPro** (mã `.VN`), dùng **log-return**. Chuỗi P/E–P/B nếu cần lấy từ skill định giá ([[valuation-model]]) — KHÔNG dùng `ratio()` vnstock_data (lỗi thời).
 
 ## Kiểm định chuỗi thời gian
 
@@ -439,5 +439,5 @@ pip install pandas numpy statsmodels arch scipy
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

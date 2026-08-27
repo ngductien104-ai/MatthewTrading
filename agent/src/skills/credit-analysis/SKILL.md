@@ -1,6 +1,6 @@
 ---
 name: credit-analysis
-description: "Phân tích thu nhập cố định & tín dụng tại VN — định giá trái phiếu/YTM, duration/convexity/DV01, đường cong lợi suất TPCP, mô hình rủi ro vỡ nợ (Altman Z, Merton/KMV), phân tích chênh lệch tín dụng, và đặc thù trái phiếu doanh nghiệp VN (khủng hoảng TPDN 2022, trái phiếu BĐS, NĐ 65/08). Nguồn: HNX/VBMA (TPCP, TPDN) + vnstock KBS (cơ bản tổ chức phát hành)."
+description: "Phân tích thu nhập cố định & tín dụng tại VN — định giá trái phiếu/YTM, duration/convexity/DV01, đường cong lợi suất TPCP, mô hình rủi ro vỡ nợ (Altman Z, Merton/KMV), phân tích chênh lệch tín dụng, và đặc thù trái phiếu doanh nghiệp VN (khủng hoảng TPDN 2022, trái phiếu BĐS, NĐ 65/08). Nguồn: HNX/VBMA (TPCP, TPDN) + vnstock_data (cơ bản tổ chức phát hành)."
 category: analysis
 ---
 
@@ -261,7 +261,7 @@ Tỷ lệ thu hồi (tham khảo VN, bất định cao):
 |------|------|
 | `convertible-bond` | Phần quyền chọn chuyển đổi; skill này lo định giá trái phiếu thuần & rủi ro tín dụng |
 | `macro-analysis` | Môi trường lãi suất NHNN & chu kỳ tín dụng làm đầu vào |
-| `financial-statement` | Chia sẻ khung đọc BCTC (đòn bẩy, ICR, dòng tiền) — qua vnstock KBS |
+| `financial-statement` | Chia sẻ khung đọc BCTC (đòn bẩy, ICR, dòng tiền) — qua vnstock_data |
 | `risk-analysis` | Rủi ro tín dụng danh mục (VaR/CVaR) |
 
 ## VIII. Nguồn dữ liệu (VN)
@@ -270,8 +270,8 @@ Tỷ lệ thu hồi (tham khảo VN, bất định cao):
 |------|------|
 | Đường cong lợi suất TPCP, kết quả đấu thầu | **HNX**, **VBMA** (nguồn ngoài) |
 | Thông tin/giá TPDN (thứ cấp) | **Hệ thống TPDN riêng lẻ HNX** (từ 2023), FiinPro/FiinRatings, VBMA |
-| Cơ bản tổ chức phát hành (đòn bẩy, ICR, dòng tiền, Altman) | **vnstock KBS** (`income`/`balancesheet`/`cashflow`) |
-| Vốn hóa & biến động vốn chủ (Merton) | **DataPro** (giá `.VN`) + vnstock |
+| Cơ bản tổ chức phát hành (đòn bẩy, ICR, dòng tiền, Altman) | **vnstock_data** (`income`/`balancesheet`/`cashflow`) |
+| Vốn hóa & biến động vốn chủ (Merton) | **DataPro** (giá `.VN`) + vnstock_data |
 | Xếp hạng tín nhiệm (nếu có) | FiinRatings, Saigon Ratings/S&I (nguồn ngoài) |
 | Lãi suất điều hành NHNN, vĩ mô | skill `macro-analysis` |
 
@@ -291,12 +291,12 @@ DD→PD: DD>4 ⇒ rất thấp; DD 2–4 ⇒ thấp–trung; DD<1 ⇒ rất cao
 ## Phụ thuộc
 
 ```bash
-pip install pandas numpy scipy vnstock
+pip install pandas numpy scipy vnstock_data
 ```
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

@@ -1,6 +1,6 @@
 ---
 name: sector-rotation
-description: "Phân tích xoay vòng ngành thị trường VN — phân ngành ICB, chấm điểm sức khỏe ngành (prosperity), xếp hạng momentum, truyền dẫn chuỗi ngành, so sánh đa chiều định giá/lợi nhuận/dòng tiền (khối ngoại). Nguồn: vnstock (phân ngành + chỉ số) + DataPro (giá + dòng tiền ngoại)."
+description: "Phân tích xoay vòng ngành thị trường VN — phân ngành ICB, chấm điểm sức khỏe ngành (prosperity), xếp hạng momentum, truyền dẫn chuỗi ngành, so sánh đa chiều định giá/lợi nhuận/dòng tiền (khối ngoại). Nguồn: vnstock_data (phân ngành + chỉ số) + DataPro (giá + dòng tiền ngoại)."
 category: asset-class
 ---
 
@@ -8,7 +8,7 @@ category: asset-class
 
 ## Tổng quan
 
-Dựa trên hệ phân ngành **ICB** (vnstock dùng), phân tích xoay vòng ngành qua 4 chiều — sức khỏe ngành (prosperity), momentum, định giá, dòng tiền — để đưa khuyến nghị **tăng tỷ trọng / giảm tỷ trọng** ngành.
+Dựa trên hệ phân ngành **ICB** (vnstock_data dùng), phân tích xoay vòng ngành qua 4 chiều — sức khỏe ngành (prosperity), momentum, định giá, dòng tiền — để đưa khuyến nghị **tăng tỷ trọng / giảm tỷ trọng** ngành.
 
 ## Hệ phân ngành ICB (thị trường VN)
 
@@ -22,7 +22,7 @@ Dựa trên hệ phân ngành **ICB** (vnstock dùng), phân tích xoay vòng ng
 | Bất động sản | Nhà ở, Khu công nghiệp | VHM, NLG, KBC, BCM |
 | Tiện ích / phòng thủ | Điện, Nước, Khí, Dược | POW, REE, DHG |
 
-> Lấy thành viên ngành: `Listing(source="VCI").symbols_by_industries()` → cột `icb_name`. Nhận diện ngân hàng nhanh: `Company.overview().is_bank` (xem `valuation-model/classify_valuation.py`).
+> Lấy thành viên ngành: `vndata.reference.symbols_by_industry()` → cột `icb_name`. Nhận diện ngân hàng nhanh: `Company.overview().is_bank` (xem `valuation-model/classify_valuation.py`).
 
 ### Thuộc tính chu kỳ ngành
 
@@ -117,7 +117,7 @@ Ngân hàng:   tăng trưởng tín dụng → NIM → LN ngân hàng (dẫn d�
 
 ## Khung so sánh ngành
 
-### So sánh định giá (rổ ngành — vnstock KBS `ratio`)
+### So sánh định giá (rổ ngành — vnstock_data `ratio`)
 
 | Chỉ tiêu | Dùng | Lưu ý |
 |------|------|---------|
@@ -182,8 +182,8 @@ Ngân hàng:   tăng trưởng tín dụng → NIM → LN ngân hàng (dẫn d�
 
 ## Nguồn dữ liệu
 
-- **Phân ngành + thành viên → vnstock** `Listing(source="VCI").symbols_by_industries()` (`icb_name`); `Company.overview().is_bank/sector/icb_code_lv2`.
-- **Chỉ số ngành (PE/PB/ROE/biên/tăng trưởng) → vnstock KBS `ratio`** tổng hợp theo rổ thành viên.
+- **Phân ngành + thành viên → vnstock_data** `vndata.reference.symbols_by_industry()` (`icb_name`); `Company.overview().is_bank/sector/icb_code_lv2`.
+- **Chỉ số ngành (PE/PB/ROE/biên/tăng trưởng) → vnstock_data `ratio`** tổng hợp theo rổ thành viên.
 - **Momentum giá ngành → DataPro** (`source="datapro"`, mã `.VN`): lợi suất rổ ngành.
 - **Dòng tiền khối ngoại theo ngành → DataPro** (`FRN_BUY_VOL/FRN_SELL_VOL` cộng dồn theo ngành) — lợi thế: có sẵn theo ngày.
 - **Vĩ mô (PMI VN, tăng trưởng tín dụng, lãi suất SBV, đầu tư công, FDI, giá hàng hóa) → firecrawl/`web-reader`**: GSO, SBV, S&P Global Vietnam PMI.
@@ -192,5 +192,5 @@ Ngân hàng:   tăng trưởng tín dụng → NIM → LN ngân hàng (dẫn d�
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

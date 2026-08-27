@@ -1,6 +1,6 @@
 name: fundamental_research_team
 title: "Fundamental Deep Research Team (Vietnam)"
-description: "Financial / valuation / quality three-dimensional parallel analysis of a single VN-listed name → research editor consolidates into a buy-side deep research report. Data: vnstock (KBS financials/ratios) + DataPro (prices)."
+description: "Financial / valuation / quality three-dimensional parallel analysis of a single VN-listed name → research editor consolidates into a buy-side deep research report. Data: vnstock_data (KBS financials/ratios) + DataPro (prices)."
 
 agents:
   - id: financial_analyst
@@ -13,7 +13,7 @@ agents:
       Conduct comprehensive financial statement analysis of {target} ({market} market), identifying financial quality signals and potential risks.
 
       ## Vietnam specifics (read FIRST)
-      - Source the three statements + ratios from **vnstock KBS** (`income` / `balancesheet` / `cashflow` / `ratio`); all figures in VND. KBS community typically returns only the **last ~4 annual periods** — state this when a 5-year trend is requested and work with what is available.
+      - Source the three statements + ratios from **vnstock_data** (`income` / `balancesheet` / `cashflow` / `ratio`); all figures in VND. KBS community typically returns only the **last ~4 annual periods** — state this when a 5-year trend is requested and work with what is available.
       - **Banks / financials use a different template**: there is no gross margin / inventory / receivables-days. Use **NIM, NPL ratio, CAR, CASA, LDR, credit cost, provision coverage, ROE/ROA, P/B**. Detect a bank via `Company.overview().is_bank`. Apply the bank template for banks/securities/insurance, the standard template otherwise.
       - **Related-party transactions** are a key VN earnings-quality flag (ecosystem groups, e.g. cross-holdings/affiliate sales) — scrutinize them.
 
@@ -37,7 +37,7 @@ agents:
       - Free cash flow (FCF): FCF Yield compared to P/E
       - Financing activities: excessive reliance on external funding
 
-      Use load_skill("financial-statement") for financial analysis standards; load_skill("fundamental-filter") for the VN ratio fields (vnstock KBS); load_skill("data-routing") to route data sources.
+      Use load_skill("financial-statement") for financial analysis standards; load_skill("fundamental-filter") for the VN ratio fields (vnstock_data); load_skill("data-routing") to route data sources.
       Use the factor_analysis tool to extract key financial factor data.
 
       ## Output Requirements
@@ -49,7 +49,7 @@ agents:
       6. **Peer Comparison** — Key financial metrics vs industry average / sector leaders
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [financial-statement, fundamental-filter, data-routing]
@@ -73,12 +73,12 @@ agents:
         - Forecast period (5 years): based on historical growth, industry cycle, management guidance
         - Transition period (years 6–10): convergence toward industry average
         - Terminal value: Gordon Growth Model, perpetuity growth rate ~3–5% (tied to VN nominal GDP, higher than DM)
-        - WACC (VN inputs): **risk-free = VN 10Y government bond yield (~3–5%)**; **equity risk premium for VN is elevated (frontier-market, ~7–9%)**; beta from vnstock `ratio`; cost of debt at VND lending rates
+        - WACC (VN inputs): **risk-free = VN 10Y government bond yield (~3–5%)**; **equity risk premium for VN is elevated (frontier-market, ~7–9%)**; beta from vnstock_data `ratio`; cost of debt at VND lending rates
       - **DDM / bank valuation**: for banks use the **ROE–P/B (Gordon) framework** [P/B = (ROE − g)/(COE − g)] rather than FCF-DCF (bank cash flows are not FCF-meaningful); DDM for high-dividend utilities
 
       ### II. Relative Valuation
-      - **Comparable Company Method**: select 3–5 VN ICB peers (vnstock `Listing.symbols_by_industries()`), compare P/E / P/B / P/S / EV/EBITDA
-      - **Historical Valuation Method**: compare current P/E and P/B to historical percentile — **note vnstock KBS community gives only ~4 years of ratio history**, so a full "5-year percentile" may be unavailable; for a longer price-based P/E/P/B use DataPro `close` × shares vs reported earnings/book, and state the window used
+      - **Comparable Company Method**: select 3–5 VN ICB peers (vnstock_data `vndata.reference.symbols_by_industry()`), compare P/E / P/B / P/S / EV/EBITDA
+      - **Historical Valuation Method**: compare current P/E and P/B to historical percentile — **vnstock_data (sponsored) carries 8 annual + 34 quarterly periods**, so a 5-year percentile is available — build it; for a longer price-based P/E/P/B use DataPro `close` × shares vs reported earnings/book, and state the window used
       - **PEG Analysis**: P/E divided by earnings growth rate (mind thin/uneven VN sell-side forecasts)
 
       ### III. Asset-Based Approach (for capital-intensive / financial sectors)
@@ -104,7 +104,7 @@ agents:
       6. **Valuation Catalysts** — 3–5 positive and negative catalysts that could drive re-rating
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
     skills: [valuation-model, earnings-forecast, data-routing]
@@ -160,7 +160,7 @@ agents:
       6. **Long-Term Holding Viability Conclusion** — Based on moat + management + competitive landscape: "Recommended for long-term hold / medium-term hold / not suitable for long-term"
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [fundamental-filter, web-reader]
@@ -198,7 +198,7 @@ agents:
       7. **Catalysts and Time Windows** — Potential positive/negative catalysts in the next 3–6 months to help identify optimal entry timing
       ## Data integrity (MANDATORY)
       - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and vnstock lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill]
     skills: [report-generate]

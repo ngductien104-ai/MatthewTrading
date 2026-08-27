@@ -30,7 +30,7 @@ Cơ chế: thiên lệch neo (anchoring) + bảo thủ (conservatism)
 Quan sát ở VN (định tính — TỰ KIỂM CHỨNG):
   - KQKD/ước tính vượt kỳ vọng thường còn dư địa tăng vài tuần sau đó (post-earnings drift).
   - Nâng hạng/khuyến nghị từ môi giới lớn có thể kéo momentum 1–3 tháng.
-  - LƯU Ý PIT: dữ liệu cơ bản vnstock trễ ~90 ngày → tránh look-ahead khi dựng SUE.
+  - LƯU Ý PIT: dữ liệu cơ bản vnstock_data trễ ~90 ngày → tránh look-ahead khi dựng SUE.
 Tín hiệu định lượng:
   SUE (standardized unexpected earnings) > 2σ → mua, nắm ~40–60 phiên (tự hiệu chỉnh).
   Top decile suất sinh lời 20 phiên → tiếp tục nắm ~20 phiên (chu kỳ VN ngắn).
@@ -196,5 +196,5 @@ pip install pandas numpy scipy
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

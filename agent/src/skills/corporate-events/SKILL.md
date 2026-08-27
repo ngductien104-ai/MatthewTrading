@@ -1,6 +1,6 @@
 ---
 name: corporate-events
-description: "Phân tích sự kiện doanh nghiệp VN theo hướng event-driven — chào mua công khai/M&A, thoái vốn Nhà nước (SCIC), giao dịch nội bộ & cổ đông lớn (rủi ro 'bán chui'), phát hành riêng lẻ/quyền mua/ESOP, mua cổ phiếu quỹ, diện cảnh báo–kiểm soát–hủy niêm yết, vào/ra rổ chỉ số. Nguồn: vnstock (events/insider/shareholders) + DataPro (giá/KL/khối ngoại)."
+description: "Phân tích sự kiện doanh nghiệp VN theo hướng event-driven — chào mua công khai/M&A, thoái vốn Nhà nước (SCIC), giao dịch nội bộ & cổ đông lớn (rủi ro 'bán chui'), phát hành riêng lẻ/quyền mua/ESOP, mua cổ phiếu quỹ, diện cảnh báo–kiểm soát–hủy niêm yết, vào/ra rổ chỉ số. Nguồn: vnstock_data (events/shareholders) + vndata.corporate (insider) + DataPro (giá/KL/khối ngoại)."
 category: flow
 ---
 
@@ -153,12 +153,12 @@ T+N (dài hạn):
 
 | Việc cần | Nguồn |
 |------|------|
-| Lịch & nội dung sự kiện DN (ĐHĐCĐ, phát hành, chia thưởng, GDKHQ...) | **vnstock** `Company.events()` (lọc theo `category`/`event_title_vi`) |
-| Giao dịch nội bộ & người liên quan | **vnstock** `Company.insider_deals()`; danh sách lãnh đạo `Company.officers()` |
-| Cơ cấu cổ đông lớn & thay đổi sở hữu | **vnstock** `Company.shareholders()` |
-| Lịch sử tăng vốn / phát hành (pha loãng) | **vnstock** `Company.capital_history()`; `issue_share` từ `Company.overview()` |
+| Lịch & nội dung sự kiện DN (ĐHĐCĐ, phát hành, chia thưởng, GDKHQ...) | **vnstock_data** `vndata.reference.events()` (lọc theo `category`/`event_title_vi`) |
+| Giao dịch nội bộ & người liên quan | **vnstock_data** `vndata.corporate.insider_trading()`; danh sách lãnh đạo `vndata.reference.officers()` |
+| Cơ cấu cổ đông lớn & thay đổi sở hữu | **vnstock_data** `vndata.reference.shareholders()` |
+| Lịch sử tăng vốn / phát hành (pha loãng) | **vnstock_data** `vndata.corporate.capital_history()`; `issue_share` từ `vndata.reference.company()` |
 | Giá / khối lượng / **khối ngoại mua-bán ròng** (rò rỉ, lực mua) | **DataPro** (`source="datapro"`, mã `.VN`; trường khối ngoại) |
-| Diện cảnh báo/kiểm soát/hủy niêm yết, thoái vốn, chào mua | Công bố HOSE/HNX/UBCKNN, SCIC (event-based; vnstock `events` không phủ hết → đọc tin chính thức) |
+| Diện cảnh báo/kiểm soát/hủy niêm yết, thoái vốn, chào mua | Công bố HOSE/HNX/UBCKNN, SCIC (event-based; vnstock_data `events` không phủ hết → đọc tin chính thức) |
 
 Khi không có dữ liệu trực tiếp: nêu hạn chế, đưa khung phân tích, KHÔNG bịa số liệu sự kiện.
 
@@ -194,12 +194,12 @@ Lưu ý: Đây là nghiên cứu, không phải khuyến nghị giao dịch.
 ## Phụ thuộc
 
 ```bash
-pip install pandas numpy vnstock
+pip install pandas numpy vnstock_data
 ```
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

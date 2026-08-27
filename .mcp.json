@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vnstock": {
+      "command": ".venv/Scripts/python.exe",
+      "args": ["agent/vnstock_mcp_server.py"],
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}

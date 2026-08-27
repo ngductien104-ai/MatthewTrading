@@ -1,7 +1,7 @@
 """Signal engine lọc cổ phiếu theo yếu tố cơ bản.
 
 Lọc giá trị bằng ROE / biên LN / P-B, các mã đạt điều kiện được long đều trọng số.
-Ưu tiên thị trường Việt Nam: dùng BCTC vnstock gắn qua ``fundamental_fields``
+Ưu tiên thị trường Việt Nam: dùng BCTC vnstock_data gắn qua ``fundamental_fields``
 (cột tiền tố ``income_`` / ``balancesheet_``) + giá DataPro, tự tính tỷ số.
 Vẫn tương thích A-share (tushare ``extra_fields``) và US/HK (cột pe/pb/roe).
 """
@@ -43,7 +43,7 @@ class SignalEngine:
             pb_max: Trần P/B (áp khi có số CP lưu hành).
             pe_max: Trần P/E (áp khi có số CP lưu hành).
             margin_min: Sàn biên ròng (%) (tuỳ chọn).
-            revenue_min: Sàn doanh thu thuần (đơn vị đồng theo BCTC vnstock).
+            revenue_min: Sàn doanh thu thuần (đơn vị đồng theo BCTC vnstock_data).
             equity_min: Sàn vốn chủ sở hữu (đồng).
             shares_map: ``{mã: issue_share}``; thiếu thì bỏ qua lọc P/B, P/E.
         """
@@ -58,13 +58,13 @@ class SignalEngine:
     def _passes_statement_filter(self, code: str, row: pd.Series) -> Optional[bool]:
         """Quyết định lọc theo cơ bản, hoặc None khi không có dữ liệu cơ bản.
 
-        Ưu tiên cột chỉ số SẴN ``ratio_*`` (vnstock KBS) → lùi về tính tay từ
+        Ưu tiên cột chỉ số SẴN ``ratio_*`` (vnstock_data) → lùi về tính tay từ
         BCTC ``income_*``/``balancesheet_*`` (VN/A-share) cho tương thích.
         """
         # --- Việt Nam: chỉ số CÓ SẴN (bảng ratio, KBS) — ưu tiên cao nhất ---
         roe_r = _first_number(row, ["ratio_roe"])
-        pe_r = _first_number(row, ["ratio_pe_ratio"])
-        pb_r = _first_number(row, ["ratio_pb_ratio"])
+        pe_r = _first_number(row, ["ratio_pe"])
+        pb_r = _first_number(row, ["ratio_pb"])
         nm_r = _first_number(row, ["ratio_net_margin"])
         if not all(pd.isna(v) for v in (roe_r, pe_r, pb_r)):
             if pd.isna(roe_r) or roe_r < self.roe_min:
@@ -77,7 +77,7 @@ class SignalEngine:
                 return False
             return True
 
-        # --- Lùi về tính tay từ BCTC thô (vnstock statement / tushare) ---
+        # --- Lùi về tính tay từ BCTC thô (vnstock_data statement / tushare) ---
         revenue = _first_number(row, ["income_net_sales"])
         profit = _first_number(
             row, ["income_net_profit_loss_after_tax", "income_attributable_to_parent_company"]
@@ -179,7 +179,7 @@ def _first_number(row: pd.Series, columns: List[str]) -> float:
 
 
 if __name__ == "__main__":
-    # Demo: lọc bằng chỉ số CÓ SẴN (cột ratio_*, query trực tiếp từ vnstock KBS)
+    # Demo: lọc bằng chỉ số CÓ SẴN (cột ratio_*, query trực tiếp từ vnstock_data)
     np.random.seed(42)
     dates = pd.bdate_range("2024-01-01", "2024-12-31")
 
@@ -189,8 +189,8 @@ if __name__ == "__main__":
             "close": np.random.uniform(10, 120, n),
             "volume": np.random.uniform(1e6, 1e7, n),
             "ratio_roe": np.full(n, roe),
-            "ratio_pe_ratio": np.full(n, pe),
-            "ratio_pb_ratio": np.full(n, pb),
+            "ratio_pe": np.full(n, pe),
+            "ratio_pb": np.full(n, pb),
         }, index=dates)
 
     data_map = {

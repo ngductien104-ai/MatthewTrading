@@ -143,19 +143,19 @@ Lưu ý: Đây là nghiên cứu, không phải khuyến nghị đầu tư.
 |------|------|
 | Điều khoản TPCĐ (giá/tỷ lệ chuyển đổi, lãi suất, call/put, TSĐB) | Bản cáo bạch / nghị quyết ĐHĐCĐ / công bố thông tin tổ chức phát hành (nguồn ngoài) |
 | Giá cổ phiếu cơ sở (tính giá trị chuyển đổi) | **DataPro** (`source="datapro"`, mã `.VN`) |
-| Cơ bản & sức khỏe tín dụng tổ chức phát hành | **vnstock KBS** (`income`/`balancesheet`/`cashflow`, đòn bẩy, ICR) + skill `credit-analysis` |
-| Lịch sử tăng vốn / pha loãng | **vnstock** `Company.capital_history()` |
+| Cơ bản & sức khỏe tín dụng tổ chức phát hành | **vnstock_data** (`income`/`balancesheet`/`cashflow`, đòn bẩy, ICR) + skill `credit-analysis` |
+| Lịch sử tăng vốn / pha loãng | **vnstock_data** `vndata.corporate.capital_history()` |
 | Thông tin trái phiếu DN (thứ cấp) | Hệ thống giao dịch TPDN riêng lẻ tập trung HNX (từ 2023), FiinPro (nguồn ngoài) |
 
 ## Phụ thuộc
 
 ```bash
-pip install pandas numpy vnstock
+pip install pandas numpy vnstock_data
 ```
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.
