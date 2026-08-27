@@ -3,13 +3,35 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 from src.agent.tools import BaseTool
 
 _OUTPUT_LIMIT = 50_000
 _DEFAULT_TIMEOUT = 120
+
+
+def _child_env() -> dict[str, str]:
+    """Return the environment for a child shell, with ``python`` pinned.
+
+    Running a virtualenv's interpreter does not put its ``Scripts``/``bin`` on
+    ``PATH`` — activation does that — so a bare ``python`` typed by an agent
+    resolves to whatever the OS finds first. On 2026-08-27 that was an
+    unrelated runtime carrying neither vnstock_data nor akshare, and the
+    quality analyst in a live FPT run concluded the data layer "is not
+    available in the runtime" and fell back to Wikipedia for a buy-side
+    report. Pinning the directory keeps an agent on the same interpreter the
+    swarm itself is running on, which is by construction the one whose
+    packages the presets assume.
+    """
+    env = dict(os.environ)
+    bin_dir = str(Path(sys.executable).resolve().parent)
+    env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+    return env
 
 
 class BashTool(BaseTool):
@@ -50,6 +72,7 @@ class BashTool(BaseTool):
                 timeout=_DEFAULT_TIMEOUT,
                 encoding="utf-8",
                 errors="replace",
+                env=_child_env(),
             )
             stdout = result.stdout[:_OUTPUT_LIMIT] if len(result.stdout) > _OUTPUT_LIMIT else result.stdout
             stderr = result.stderr[:_OUTPUT_LIMIT] if len(result.stderr) > _OUTPUT_LIMIT else result.stderr
