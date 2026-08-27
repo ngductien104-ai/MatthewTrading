@@ -89,12 +89,15 @@ def series(domain: str, name: str, **kwargs) -> pd.DataFrame:
         hint = ""
         if ASEAN_HOST in str(exc) and (domain, name) not in NON_ASEAN_SERIES:
             hint = (
-                f"\n{ASEAN_HOST} is the upstream backend for this series and it is "
-                "not reachable from this machine (DNS resolves, TCP does not connect "
-                "— check the network's secure web gateway). Macro work has no second "
-                "truth source: fall back to crawling the primary publisher "
-                "(GSO, SBV, Ministry of Finance) and cite it explicitly. "
-                "'currency.interest_rate' uses a different backend and still works."
+                f"\n{ASEAN_HOST} is the upstream backend for this series and it is not "
+                "answering right now. This host has gone down for a stretch and come "
+                "back on its own before (observed 2026-08-27), so retry before "
+                "concluding anything is broken locally — DNS resolving while TCP fails "
+                "is what its outage looks like, and it is not a local network problem. "
+                "If it stays down, macro has no second truth source: crawl the primary "
+                "publisher (GSO, SBV, Ministry of Finance) and cite it explicitly, "
+                "rather than estimating. 'currency.interest_rate' uses a different "
+                "backend and keeps working through these outages."
             )
         raise SourceUnavailable(f"vnstock_data could not serve {domain}.{name}: {exc}{hint}") from exc
 

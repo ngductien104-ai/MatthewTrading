@@ -109,12 +109,17 @@ Bản đặc tả nằm ở `agent/vndata/normalize.py` và được **cả** pr
 
 ## 4. Tình trạng nguồn đã biết (27/08/2026)
 
-- **Macro qua `asean-apigw.aseansc.com.vn` không truy cập được từ máy này.**
-  DNS phân giải ra `119.17.209.229` nhưng TCP và ICMP đều không thông (máy đi qua
-  Cisco Umbrella SSE). Ảnh hưởng: `macro.economy.*`, `macro.commodity.*`, hầu hết
-  `macro.currency.*`, và `Insights.flow` / `Insights.sentiment`.
-  **Còn chạy:** `vndata.macro.currency("interest_rate")`, `vndata.macro.index_valuation()`.
-  Khi cần số vĩ mô → cào từ cơ quan công bố gốc (GSO, NHNN, Bộ Tài chính) và ghi rõ nguồn.
+- **`asean-apigw.aseansc.com.vn` (backend của macro) hay sập tạm thời.** Sáng
+  27/08/2026 host này không nhận TCP trong khoảng một tiếng rồi tự sống lại; đã
+  xác minh **không phải lỗi mạng nội bộ**: DNS trả đúng IP thật `119.17.209.229`
+  (không phải trang chặn của Umbrella dạng `146.112.61.x`), hai DNS khác nhau
+  cùng ra một IP, và `aseansc.com.vn` gốc vẫn sống trong lúc subdomain apigw chết.
+  Ảnh hưởng khi sập: `macro.economy.*`, `macro.commodity.*`, hầu hết
+  `macro.currency.*`, cùng `Insights.flow` / `Insights.sentiment`.
+  **Xử lý: thử lại trước đã.** Kiểm nhanh bằng `vndata.health()["asean_macro_backend"]`.
+  Nếu sập kéo dài → cào từ cơ quan công bố gốc (GSO, NHNN, Bộ Tài chính) và ghi rõ nguồn.
+  `vndata.macro.currency("interest_rate")` và `index_valuation()` dùng backend khác,
+  chạy xuyên qua các đợt sập này.
 - **Các method phẳng `Macro().gdp()`, `.cpi()`, `.interest_rate()`… bị DEPRECATED,
   gỡ sau 31/08/2026.** `vndata.macro` chỉ bọc API sub-domain mới, nên không cần sửa lại.
 - `vnstock_pipeline` cần tier golden/diamond — silver chưa có.

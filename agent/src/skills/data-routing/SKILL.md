@@ -95,14 +95,17 @@ Hai quy ước nữa: **`0.0` trong bảng ratio nghĩa là "không áp dụng"*
 
 ### Tình trạng nguồn đã biết (27/08/2026)
 
-- **Macro qua `asean-apigw.aseansc.com.vn` đang không truy cập được từ máy này**
-  (DNS phân giải ra 119.17.209.229 nhưng TCP không kết nối — máy đi qua Cisco
-  Umbrella SSE). Ảnh hưởng: `macro.economy.*` (CPI, GDP, tín dụng, FDI...),
-  `macro.commodity.*`, và hầu hết `macro.currency.*`; kèm theo `Insights.flow` /
-  `Insights.sentiment` của vnstock_data. **Ngoại lệ còn chạy:**
-  `vndata.macro.currency("interest_rate")` và `vndata.macro.index_valuation()`.
-  Khi cần số vĩ mô mà nguồn chết → cào thẳng từ **cơ quan công bố gốc**
-  (GSO, NHNN, Bộ Tài chính) bằng crawl4ai và **ghi rõ nguồn**, không ước lượng.
+- **`asean-apigw.aseansc.com.vn` (backend macro) hay sập tạm thời rồi tự sống lại.**
+  Sáng 27/08/2026 nó chết ~1 tiếng rồi hồi. Ảnh hưởng khi sập: `macro.economy.*`
+  (CPI, GDP, tín dụng, FDI...), `macro.commodity.*`, hầu hết `macro.currency.*`,
+  kèm `Insights.flow` / `Insights.sentiment`.
+  **Gặp lỗi thì THỬ LẠI trước** — kiểm bằng `vndata.health()["asean_macro_backend"]`.
+  Dấu hiệu sập của nó là DNS vẫn phân giải nhưng TCP không kết nối; **đó không
+  phải lỗi mạng máy anh**, đừng đi chỉnh firewall/proxy.
+  Chỉ khi sập kéo dài mới cào từ **cơ quan công bố gốc** (GSO, NHNN, Bộ Tài chính)
+  bằng crawl4ai và **ghi rõ nguồn**, không ước lượng.
+  `vndata.macro.currency("interest_rate")` và `vndata.macro.index_valuation()`
+  dùng backend khác, chạy xuyên qua các đợt sập.
 - **Các method phẳng `Macro().gdp()`, `.cpi()`, `.interest_rate()`… bị
   DEPRECATED, gỡ sau 31/08/2026.** `vndata.macro` chỉ bọc API sub-domain mới
   (`economy` / `currency` / `commodity`), nên không viết code gọi method phẳng.
