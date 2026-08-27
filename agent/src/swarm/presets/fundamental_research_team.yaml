@@ -40,6 +40,13 @@ agents:
       Use load_skill("financial-statement") for financial analysis standards; load_skill("fundamental-filter") for the VN ratio fields (vnstock_data); load_skill("data-routing") to route data sources.
       Use the factor_analysis tool to extract key financial factor data.
 
+      ## Upstream context
+
+      Empty on the first pass. On the rebuttal pass it carries the other analysts'
+      reports — read them before writing, and address where they contradict you.
+
+      {upstream_context}
+
       ## Output Requirements
       1. **Financial Health Score** — Composite score 1–10, with rationale (equally weighted across earnings / assets / cash flow)
       2. **Earnings Quality Judgment** — Identify earnings quality, label as "high quality / moderate / questionable" with core reasoning
@@ -94,6 +101,13 @@ agents:
 
       Use load_skill("valuation-model") for valuation modeling standards; load_skill("earnings-forecast") for earnings forecasting methods; load_skill("data-routing") to route data sources.
       Use the factor_analysis tool to extract valuation factor data.
+
+      ## Upstream context
+
+      Empty on the first pass. On the rebuttal pass it carries the other analysts'
+      reports — read them before writing, and address where they contradict you.
+
+      {upstream_context}
 
       ## Output Requirements
       1. **Valuation Summary Conclusion** — Explicit "overvalued / fair / undervalued" judgment with margin of safety calculation (% premium/discount of current price vs intrinsic value)
@@ -151,6 +165,13 @@ agents:
       Use load_skill("fundamental-filter") for fundamental screening criteria; load_skill("web-reader") for supplementary industry information.
       Use the read_url tool to access the latest industry research reports and company news.
 
+      ## Upstream context
+
+      Empty on the first pass. On the rebuttal pass it carries the other analysts'
+      reports — read them before writing, and address where they contradict you.
+
+      {upstream_context}
+
       ## Output Requirements
       1. **Moat Overall Rating** — Strong / Moderate / Weak / None, with dimensional scoring table (each of the five moat types scored and totaled)
       2. **Core Competitive Advantage Description** — 3–5 precise sentences describing the company's most critical competitive barriers, with specific data evidence
@@ -163,7 +184,7 @@ agents:
       - If BOTH DataPro and vnstock_data lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
       - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
     tools: [bash, read_file, write_file, load_skill, read_url]
-    skills: [fundamental-filter, web-reader]
+    skills: [fundamental-filter, web-reader, data-routing]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -207,6 +228,9 @@ agents:
     max_retries: 1
 
 tasks:
+  # --- Pass 1: three independent reads, deliberately without each other's work.
+  # Independence is the point: shared context up front converges the three views
+  # before they have been tested against each other.
   - id: task-financial
     agent_id: financial_analyst
     prompt_template: "Conduct deep financial statement analysis of {target}, focusing on financial quality, profitability, cash flow health, and debt risk."
@@ -222,14 +246,45 @@ tasks:
     prompt_template: "Conduct moat assessment, management quality analysis, and competitive landscape research on {target}."
     depends_on: []
 
-  - id: task-report
-    agent_id: report_editor
-    prompt_template: "Synthesize the research outputs from all three analysts to produce a complete deep research report on {target}, with a clear investment rating and target price."
-    depends_on: [task-financial, task-valuation, task-quality]
+  # --- Pass 2: each analyst reads the other two and answers them. A live FPT run
+  # on 2026-08-27 showed what this pass is worth: the valuation analyst found a
+  # double-counted equity-income line that had inflated its own margin case, and
+  # both it and the quality analyst reversed their conclusions. Neither finding
+  # existed after pass 1.
+  - id: task-financial-rebuttal
+    agent_id: financial_analyst
+    prompt_template: "Read the valuation and quality reports on {target}. Name every place they contradict the statements you built, with figures. Say which of your own conclusions you are revising and why, and which you are keeping and on what evidence. Do not restate your first report."
+    depends_on: [task-valuation, task-quality]
+    input_from:
+      valuation: task-valuation
+      quality: task-quality
+
+  - id: task-valuation-rebuttal
+    agent_id: valuation_analyst
+    prompt_template: "Read the financial and quality reports on {target}. If the earnings quality or moat they describe is weaker than your multiples assume, your target price is too high — defend it with figures or move it. State explicitly whether the target changes, from what to what, and why."
+    depends_on: [task-financial, task-quality]
+    input_from:
+      financial: task-financial
+      quality: task-quality
+
+  - id: task-quality-rebuttal
+    agent_id: quality_analyst
+    prompt_template: "Read the financial and valuation reports on {target}. Test your moat score against the margin, return-on-capital and cash-flow trends they report. State whether the score changes, which component moved, and whether the business deserves its historical multiple."
+    depends_on: [task-financial, task-valuation]
     input_from:
       financial: task-financial
       valuation: task-valuation
-      quality: task-quality
+
+  # --- Pass 3: the editor reads the rebuttals, which carry the first pass inside
+  # them, and reports what the debate settled and what it did not.
+  - id: task-report
+    agent_id: report_editor
+    prompt_template: "Synthesize the debate on {target} into a complete deep research report with a clear investment rating and target price. Say which conclusions changed between the two passes and why, and name anything the analysts left unresolved rather than papering over it."
+    depends_on: [task-financial-rebuttal, task-valuation-rebuttal, task-quality-rebuttal]
+    input_from:
+      financial: task-financial-rebuttal
+      valuation: task-valuation-rebuttal
+      quality: task-quality-rebuttal
 
 variables:
   - name: target
