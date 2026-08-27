@@ -39,42 +39,78 @@ from __future__ import annotations
 import functools
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 # The layer lives next to this file, under agent/.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import pandas as pd  # noqa: E402
 from fastmcp import FastMCP  # noqa: E402
 
 import vndata  # noqa: E402
 from vndata.errors import VnDataError  # noqa: E402
+from vndata_render import table as _table  # noqa: E402
 
 mcp = FastMCP("vnstock")
 
-#: Hard cap so a careless call cannot flood the client's context.
-MAX_ROWS_LIMIT = 200
+#: The sponsored packages hang, and sometimes kill this process, when they run
+#: inside the server's long-lived asyncio loop. They run in a child process
+#: instead, on a deadline. :mod:`vndata_worker` records the measurements.
+_WORKER = Path(__file__).resolve().parent / "vndata_worker.py"
+
+#: Seconds a sponsored call may take before the child is killed. The slowest
+#: healthy call measured was 35s and the MCP client backgrounds a tool at 120s,
+#: so the default sits between the two: a stuck call comes back as a timeout
+#: message rather than disappearing into a background task.
+CALL_TIMEOUT = float(os.getenv("VNDATA_CALL_TIMEOUT", "90"))
 
 
-def _table(df: pd.DataFrame, max_rows: int = 30) -> str:
-    """Render *df* as markdown, tail-truncated, with the source stamp attached."""
-    if df is None or len(df) == 0:
-        return "(no rows)"
-    rows = min(max(int(max_rows), 1), MAX_ROWS_LIMIT)
-    shown = df.tail(rows)
-    header = f"{len(df)} rows total, showing last {len(shown)}."
+def _isolated(op: str, timeout: float | None = None, **kwargs) -> str:
+    """Run one sponsored ``vndata`` call in a child process and render its reply.
 
-    source = df.attrs.get("source")
-    if source:
-        header += f" source={source}"
-    if df.attrs.get("degraded"):
-        header += f"  ⚠️ DEGRADED: {df.attrs.get('degraded_reason', 'fallback source in use')}"
-    units = [f"{k}={v}" for k, v in df.attrs.items() if k.endswith("_unit")]
-    if units:
-        header += "  units: " + ", ".join(units)
+    A hang now costs this one tool a timeout message. It no longer costs the
+    session every other ``vn_*`` tool.
+    """
+    deadline = CALL_TIMEOUT if timeout is None else timeout
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(_WORKER)],
+            input=json.dumps({"op": op, "kwargs": kwargs}),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=deadline,
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            f"TIMED OUT after {deadline:.0f}s — the sponsored source did not answer, and the "
+            "call was killed rather than left to wedge the server. Retry once; if it times "
+            "out again, run this against the vndata layer in Python instead of through MCP."
+        )
 
-    return header + "\n\n" + shown.to_markdown()
+    if proc.returncode != 0:
+        stderr_tail = (proc.stderr or "").strip().splitlines()
+        detail = stderr_tail[-1] if stderr_tail else f"exit code {proc.returncode}"
+        return (
+            f"WORKER DIED ({detail}) — the call was isolated, so every other vn_* tool is "
+            "still available."
+        )
+
+    try:
+        response = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return f"WORKER RETURNED MALFORMED OUTPUT: {proc.stdout[:400]!r}"
+
+    if response.get("ok"):
+        return response["text"]
+    if response.get("kind") == "source_unavailable":
+        return (
+            "SOURCE UNAVAILABLE — do not substitute another source silently.\n\n"
+            f"{response.get('message', '')}"
+        )
+    return f"ERROR ({response.get('kind', 'Error')}): {response.get('message', '')}"
 
 
 def _guard(fn):
@@ -104,7 +140,7 @@ def vn_health() -> str:
 
     Call this first when anything returns unexpectedly empty.
     """
-    return json.dumps(vndata.health(), ensure_ascii=False, indent=2, default=str)
+    return _isolated("health")
 
 
 @mcp.tool
@@ -173,7 +209,8 @@ def vn_financials(symbol: str, statement: str = "income_statement", period: str 
 
     Values are plain VND. Sponsored depth is 8 annual and 34 quarterly periods.
     """
-    return _table(vndata.fundamental.wide(symbol, statement, period=period), max_rows)
+    return _isolated("financials", symbol=symbol, statement=statement,
+                     period=period, max_rows=max_rows)
 
 
 @mcp.tool
@@ -187,7 +224,7 @@ def vn_ratios(symbol: str, period: str = "year", max_rows: int = 12) -> str:
     ``vn_financials`` balance sheet instead. A stored ``0.0`` means "not
     applicable to this company type" and is returned as ``NaN``.
     """
-    return _table(vndata.fundamental.ratios_wide(symbol, period=period), max_rows)
+    return _isolated("ratios", symbol=symbol, period=period, max_rows=max_rows)
 
 
 @mcp.tool
@@ -200,7 +237,7 @@ def vn_derived(symbol: str, period: str = "year", max_rows: int = 12) -> str:
     ``equity`` is read from the balance sheet (upstream's ratio field is
     corrupt). All in plain VND.
     """
-    return _table(vndata.fundamental.derived(symbol, period=period), max_rows)
+    return _isolated("derived", symbol=symbol, period=period, max_rows=max_rows)
 
 
 @mcp.tool
@@ -218,21 +255,8 @@ def vn_indicator(symbol: str, start: str, end: str, family: str, name: str,
         length: Lookback passed to the indicator when it accepts one.
         max_rows: Rows to render.
     """
-    if family not in vndata.ta.FAMILIES:
-        return f"family must be one of {vndata.ta.FAMILIES}"
-    ind = vndata.ta.indicator(symbol, start, end)
-    group = getattr(ind, family)
-    fn = getattr(group, name, None)
-    if fn is None:
-        available = sorted(n for n in dir(group) if not n.startswith("_") and n != "data")
-        return f"unknown {family} indicator {name!r}. Available: {available}"
-    try:
-        out = fn(length=length)
-    except TypeError:
-        out = fn()
-    frame = out.to_frame() if isinstance(out, pd.Series) else pd.DataFrame(out)
-    frame.attrs["source"] = getattr(ind, "source", "datapro")
-    return _table(frame, max_rows)
+    return _isolated("indicator", symbol=symbol, start=start, end=end, family=family,
+                     name=name, length=length, max_rows=max_rows)
 
 
 @mcp.tool
@@ -247,22 +271,7 @@ def vn_company(symbol: str, what: str = "info", max_rows: int = 30) -> str:
             ``capital_history`` / ``insider_trading`` / ``ownership``.
         max_rows: Rows to render.
     """
-    sponsored = {
-        "info": vndata.reference.company,
-        "shareholders": vndata.reference.shareholders,
-        "officers": vndata.reference.officers,
-        "subsidiaries": vndata.reference.subsidiaries,
-        "events": vndata.reference.events,
-    }
-    carve_out = {
-        "capital_history": vndata.corporate.capital_history,
-        "insider_trading": vndata.corporate.insider_trading,
-        "ownership": vndata.corporate.ownership,
-    }
-    fn = sponsored.get(what) or carve_out.get(what)
-    if fn is None:
-        return f"what must be one of {sorted([*sponsored, *carve_out])}"
-    return _table(fn(symbol), max_rows)
+    return _isolated("company", symbol=symbol, what=what, max_rows=max_rows)
 
 
 @mcp.tool
@@ -275,9 +284,7 @@ def vn_universe(group: str = "", max_rows: int = 60) -> str:
             the full ICB classification (one row per symbol per ICB level).
         max_rows: Rows to render.
     """
-    if group:
-        return _table(vndata.reference.symbols_by_group(group), max_rows)
-    return _table(vndata.reference.symbols_by_industry(), max_rows)
+    return _isolated("universe", group=group, max_rows=max_rows)
 
 
 @mcp.tool
@@ -294,17 +301,9 @@ def vn_news(symbol: str = "", sites: str = "", max_articles: int = 10,
         time_frame: Lookback window when crawling, e.g. ``1d``, ``7d``.
         max_rows: Rows to render.
     """
-    if symbol:
-        return _table(vndata.news.company_news(symbol), max_rows)
-    if not sites:
-        supported = [s["name"] for s in vndata.news.supported_sites()]
-        return f"pass symbol=, or sites= from: {supported}"
-    articles = vndata.news.crawl(
-        [s.strip() for s in sites.split(",") if s.strip()],
-        max_articles=max_articles,
-        time_frame=time_frame,
-    )
-    return _table(pd.DataFrame(articles), max_rows)
+    # Crawling several outlets for full article text is legitimately slow.
+    return _isolated("news", timeout=max(CALL_TIMEOUT, 240.0), symbol=symbol, sites=sites,
+                     max_articles=max_articles, time_frame=time_frame, max_rows=max_rows)
 
 
 @mcp.tool
@@ -320,7 +319,7 @@ def vn_macro(domain: str, name: str, max_rows: int = 24) -> str:
     Most series are served by an upstream backend that may be blocked on this
     network; the error says so explicitly rather than returning a guess.
     """
-    return _table(vndata.macro.series(domain, name), max_rows)
+    return _isolated("macro", domain=domain, name=name, max_rows=max_rows)
 
 
 def main() -> None:

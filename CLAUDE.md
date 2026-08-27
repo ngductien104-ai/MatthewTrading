@@ -68,6 +68,20 @@ Có thể gọi qua MCP `vnstock` (đăng ký ở `.mcp.json`): `vn_health`, `vn
 `vn_flow`, `vn_financials`, `vn_ratios`, `vn_derived`, `vn_indicator`,
 `vn_company`, `vn_universe`, `vn_news`, `vn_macro`.
 
+Hai nhánh MCP này KHÔNG giống nhau về độ tin cậy. `vn_ohlcv` / `vn_flow` /
+`vn_source_map` đi thẳng DataPro và luôn trả trong dưới một giây. Chín tool còn
+lại đi qua gói tài trợ, và ngày 27/08/2026 nhánh đó đã làm chết cả server: gọi
+`vn_ratios` không bao giờ trả về (đo 11p32 và 8p, trong khi chính đoạn code đó
+chạy 35s trong Python), còn gọi `vn_indicator` cùng `vn_universe` một lượt thì
+tiến trình server tắt hẳn và phiên mất sạch 12 tool. Nay mỗi lệnh tài trợ chạy
+trong tiến trình con có hạn giờ (`VNDATA_CALL_TIMEOUT`, mặc định 90s) nên tệ
+nhất là một tool báo timeout, không kéo theo tool khác — xem `agent/vndata_worker.py`.
+
+**Trong swarm hoặc phiên chạy dài, ưu tiên gọi thẳng lớp `vndata` bằng Python**
+(`$HOME\.venv\Scripts\python.exe`, xem skill `data-routing`) thay vì các tool
+tài trợ qua MCP: cùng code, cùng hiệu chỉnh đơn vị, không phải trả 90s cho một
+lần timeout. Giữ MCP cho nhánh DataPro và cho các truy vấn lẻ.
+
 ---
 
 ## 👤 User Configuration & License Check
