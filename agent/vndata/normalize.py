@@ -18,7 +18,32 @@ RT_VALUE_DIVIDEND_YIELD      %              2.2676 = 2.27%         already %
 RT_BANK_COF/CIR/NPL_COVER..  %              -1.2805 (TCB)          sign lost
 RT_VALUE_EQUITY              tỷ VNĐ         0.209 (HPG) / 0 (TCB)  broken
 RT_BANK_NOII                 tỷ VNĐ         0.398 (TCB)            broken
+RT_LEV_EQUITY_TO_ASSETS      lần            0.1505 (TCB)           ratio -> %
+RT_LEV_EQUITY_TO_LIABILITIES lần            0.1772 (TCB)           ratio -> %
 ===========================  =============  =====================  ============
+
+The two ``RT_LEV_EQUITY_TO_*`` fields are the odd case: the stored number is
+*correct* and the ``lần`` label is *honest* — 0.1505 really is equity/assets as
+a ratio, and it reconciles to the cent against the balance sheet for all eight
+TCB years. They are converted anyway, because their sibling
+``RT_BANK_EQUITY_TO_LOANS`` is served as a percent, and a wide table that puts
+``0.15`` beside ``23.38`` for two ratios of the same shape invites a misread.
+Genuine multiples — ``RT_LEV_DE``, ``RT_LEV_FINANCIAL_LEVERAGE``,
+``RT_LQD_CR``, the ``RT_VALUE_P*`` block — keep ``lần``, because a debt/equity
+of 0.97x is quoted as a multiple and always has been.
+
+The ``RT_VALUE_P*`` valuation block carries a different hazard, and one this
+module deliberately does **not** "fix". Its numbers disagree with a market cap
+rebuilt from DataPro's year-end close for most historical years (TCB FY2023:
+stored P/B 0.67 against 0.79 rebuilt; the stored market cap implies a 47,400đ
+share price TCB never traded at that December). The stored *latest* year does
+reconcile — TCB FY2025 P/B 1.39 against 1.35 rebuilt, P/E 9.37 against 9.58 —
+and no reconstruction available here is trustworthy enough to overwrite the
+history with, because DataPro's close is back-adjusted and understates older
+market caps by the cash dividends paid since. So the values pass through
+untouched and the row is stamped instead: quote the newest period, treat the
+series as indicative, and rebuild from price x shares when a historical
+multiple has to carry weight.
 
 Two further conventions apply across the whole table:
 
@@ -45,6 +70,23 @@ BROKEN_RATIO_IDS: dict[str, str] = {
 # Declared "%" but the number is already expressed in percent, so it must NOT
 # be multiplied by 100 like its neighbours.
 RATIO_ALREADY_PERCENT: frozenset[str] = frozenset({"RT_VALUE_DIVIDEND_YIELD"})
+
+# Stored as a true ratio under a ``lần`` label, but conventionally read as a
+# percent — and their siblings in the RT_BANK_* block already arrive as one.
+# Only fields of that shape belong here, never a genuine multiple like D/E.
+RATIO_QUOTED_IN_PERCENT: frozenset[str] = frozenset({
+    "RT_LEV_EQUITY_TO_ASSETS",
+    "RT_LEV_EQUITY_TO_LIABILITIES",
+})
+
+# Valuation multiples whose history does not reconcile against a market cap
+# rebuilt from DataPro prices. The value is left alone; only a note is added.
+RATIO_UNRELIABLE_HISTORY: frozenset[str] = frozenset({
+    "RT_VALUE_PE",
+    "RT_VALUE_PB",
+    "RT_VALUE_PS",
+    "RT_VALUE_P_CF",
+})
 
 # Cost/coverage ratios stored with a flipped sign (a cost is booked negative).
 # Magnitude is the meaningful quantity.
@@ -120,6 +162,18 @@ def normalize_ratio(df: pd.DataFrame) -> pd.DataFrame:
     flip = ids.isin(RATIO_ABS_IDS) & ~broken
     out.loc[flip, "value"] = out.loc[flip, "value"].abs()
     out.loc[flip & out["note"].eq(""), "note"] = "sign dropped (cost stored negative)"
+
+    # True ratios under a ``lần`` label that are read as percentages.
+    as_pct = ids.isin(RATIO_QUOTED_IN_PERCENT) & ~broken
+    out.loc[as_pct, "value"] = out.loc[as_pct, "value"] * 100.0
+    out.loc[as_pct, "unit"] = "%"
+    out.loc[as_pct & out["note"].eq(""), "note"] = "ratio scaled to percent for consistency"
+
+    # Valuation multiples: value untouched, reader warned.
+    shaky = ids.isin(RATIO_UNRELIABLE_HISTORY) & ~broken
+    out.loc[shaky & out["note"].eq(""), "note"] = (
+        "history does not reconcile against DataPro market cap; trust the latest period only"
+    )
 
     # Money columns mislabelled as billions.
     money = (out["unit_raw"] == _MONEY_UNIT) & ~broken

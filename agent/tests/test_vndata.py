@@ -40,6 +40,31 @@ class TestNormalizeRatio:
         )
         assert out.loc[0, "value"] == pytest.approx(2.267574)
 
+    def test_equity_to_assets_is_scaled_even_though_the_label_is_honest(self):
+        """TCB FY2025 equity/assets is a correct 0.1505 under 'lần'; quote it as 15.05%."""
+        out = normalize.normalize_ratio(
+            _ratio_frame([("2025", "RT_LEV_EQUITY_TO_ASSETS", "lần", 0.1505450)])
+        )
+        assert out.loc[0, "value"] == pytest.approx(15.05450)
+        assert out.loc[0, "unit"] == "%"
+        assert out.loc[0, "value_raw"] == pytest.approx(0.1505450)
+
+    def test_a_genuine_multiple_is_not_scaled(self):
+        """HPG FY2025 D/E is 0.9654x — a multiple, not a percentage."""
+        out = normalize.normalize_ratio(
+            _ratio_frame([("2025", "RT_LEV_DE", "lần", 0.9653954)])
+        )
+        assert out.loc[0, "value"] == pytest.approx(0.9653954)
+        assert out.loc[0, "unit"] == "lần"
+
+    def test_valuation_multiples_keep_their_value_but_carry_a_warning(self):
+        """RT_VALUE_PB history is unreliable; the number passes through, flagged."""
+        out = normalize.normalize_ratio(
+            _ratio_frame([("2023", "RT_VALUE_PB", "lần", 0.6663884)])
+        )
+        assert out.loc[0, "value"] == pytest.approx(0.6663884)
+        assert "latest period" in out.loc[0, "note"]
+
     def test_cost_ratios_lose_their_flipped_sign(self):
         """TCB NPL coverage arrives as -1.2805; the truth is 128.05%."""
         out = normalize.normalize_ratio(
