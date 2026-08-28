@@ -11,6 +11,7 @@ from typing import Optional
 
 import pandas as pd
 
+from backtest.loaders.registry import resolve_loader
 from backtest.loaders.yfinance_loader import DataLoader as YfinanceLoader
 
 
@@ -22,10 +23,26 @@ MARKET_BENCHMARKS: dict[str, Optional[str]] = {
     "us_equity":  "SPY",
     "hk_equity":  "HK.03100",   # Hang Seng China Enterprises ETF
     "a_share":    "000300.SH",  # CSI 300 (China A-share core index)
+    "vn_equity":  "VNINDEX.VN",  # broad market; pass explicit "VN30INDEX.VN" for a VN30 mandate
     "crypto":     "BTC-USDT",
     "futures":    "ES.CME",      # E-mini S&P 500 futures
     "forex":      None,         # no universal benchmark
 }
+
+# Label written into metrics when no external benchmark was fetched and the
+# engine fell back to the equal-weight mean of the strategy's own universe.
+# That fallback is *not* a market benchmark, and unlabelled it silently turns
+# information_ratio / excess_return into self-comparison.
+INTERNAL_FALLBACK_LABEL = "internal_equal_weight_universe"
+
+
+class BenchmarkUnavailable(RuntimeError):
+    """Raised when a benchmark was requested but could not be fetched.
+
+    Deliberately loud, matching the ``SourceUnavailable`` doctrine in
+    ``VN_DATA_SOURCE.md``: a dead benchmark source must stop the run rather
+    than degrade into comparing the strategy against itself.
+    """
 
 
 @dataclass
@@ -55,23 +72,37 @@ def resolve_benchmark(
 
     Returns:
         BenchmarkResult with return series and total return, or None if no
-        benchmark applies (forex, or fetch failure).
+        benchmark applies to this market at all (forex).
+
+    Raises:
+        BenchmarkUnavailable: A benchmark applies but could not be fetched.
+            Callers must not silently continue — an unfetchable benchmark
+            previously degraded into comparing the strategy against its own
+            universe, which quietly invalidated information_ratio and
+            excess_return.
     """
-    ticker = _resolve_ticker(strategy_codes, source, explicit)
+    market = _infer_market(strategy_codes, source)
+    ticker = explicit or MARKET_BENCHMARKS.get(market)
     if ticker is None:
         return None
 
     try:
-        bench_df = _fetch_benchmark(ticker, start_date, end_date, interval)
-    except Exception:
-        return None
+        bench_df = _fetch_benchmark(ticker, start_date, end_date, interval, market)
+    except Exception as exc:
+        raise BenchmarkUnavailable(
+            f"benchmark {ticker!r} (market={market}) could not be fetched: {exc}"
+        ) from exc
 
     if bench_df.empty or "close" not in bench_df.columns:
-        return None
+        raise BenchmarkUnavailable(
+            f"benchmark {ticker!r} (market={market}) returned no usable close series"
+        )
 
     close = bench_df["close"].dropna()
     if len(close) < 2:
-        return None
+        raise BenchmarkUnavailable(
+            f"benchmark {ticker!r} (market={market}) returned fewer than 2 bars"
+        )
 
     ret_series = close.pct_change().fillna(0.0)
     total_ret   = float((1 + ret_series).prod() - 1)
@@ -83,29 +114,6 @@ def resolve_benchmark(
 # Internal helpers
 # -------------------------------------------------------------------
 
-def _resolve_ticker(
-    codes:     list[str],
-    source:    str,
-    explicit:  Optional[str],
-) -> Optional[str]:
-    """Pick the benchmark ticker to use."""
-
-    if explicit:
-        return explicit
-
-    # Infer market from source + first code pattern
-    market = _infer_market(codes, source)
-    ticker = MARKET_BENCHMARKS.get(market)
-
-    # yfinance is the universal fallback for benchmark fetch
-    # but it only works for us_equity / hk_equity market types
-    if ticker and market not in {"us_equity", "hk_equity"}:
-        # Only use benchmark if we can actually fetch it
-        pass
-
-    return ticker
-
-
 def _infer_market(codes: list[str], source: str) -> str:
     """Rough market inference from symbol patterns and source."""
     if not codes:
@@ -115,6 +123,8 @@ def _infer_market(codes: list[str], source: str) -> str:
 
     if source in ("okx", "ccxt") or "-" in first or "/" in first:
         return "crypto"
+    if first.endswith(".VN") or source in ("datapro", "vnstock_data", "vnstock"):
+        return "vn_equity"
     if first.endswith(".US"):
         return "us_equity"
     if first.endswith(".HK"):
@@ -134,9 +144,17 @@ def _fetch_benchmark(
     start_date: str,
     end_date:   str,
     interval:   str,
+    market:     str = "us_equity",
 ) -> pd.DataFrame:
-    """Fetch benchmark OHLCV data via yfinance (single symbol, no auth)."""
-    loader = YfinanceLoader()
+    """Fetch benchmark OHLCV data.
+
+    Vietnam goes through its own loader chain (DataPro, then the sponsored
+    Unified UI): VNINDEX / VN30INDEX are not reachable from yfinance at all.
+    Every other market keeps the pre-existing yfinance path — which in
+    practice only ever worked for us_equity / hk_equity, a limitation left
+    untouched here rather than changed blind.
+    """
+    loader = resolve_loader(market) if market == "vn_equity" else YfinanceLoader()
     result = loader.fetch([ticker], start_date, end_date, interval=interval)
 
     if isinstance(result, dict):

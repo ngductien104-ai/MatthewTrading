@@ -417,12 +417,23 @@ class BaseEngine(ABC):
             index=[s.timestamp for s in self.equity_snapshots],
         )
         bench_ret = ret_df.mean(axis=1) if ret_df.shape[1] > 0 else pd.Series(0.0, index=dates)
-        benchmark_metadata = {}
+
+        # Always label the benchmark. The default is the equal-weight mean of
+        # the strategy's own universe, which is NOT a market benchmark: left
+        # unlabelled it silently turned information_ratio / excess_return into
+        # self-comparison, and a failed external fetch was indistinguishable
+        # from a successful one.
+        from backtest.benchmark import INTERNAL_FALLBACK_LABEL
+        benchmark_metadata = {"benchmark_ticker": INTERNAL_FALLBACK_LABEL}
 
         # ── External benchmark fetch ──────────────────────────────────────────
         bench_ticker = config.get("benchmark")
         if bench_ticker and bench_ticker != "auto":
             from backtest.benchmark import resolve_benchmark
+            # Not wrapped in try/except on purpose: resolve_benchmark raises
+            # BenchmarkUnavailable when a benchmark was asked for and could not
+            # be fetched, and that must stop the run rather than fall through
+            # to the internal universe.
             bench_result = resolve_benchmark(
                 strategy_codes=codes,
                 source=config.get("source", "yfinance"),
