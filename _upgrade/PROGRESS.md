@@ -105,6 +105,56 @@ Chưa push. Ba việc còn chờ anh:
 2. Xoá `OPENROUTER_API_KEY` chết trong `agent/.env`
 3. Xác nhận push nhánh `upgrade/learning-loop` lên repo public
 
-## Giai đoạn 1 — Sổ cái quyết định *(chưa bắt đầu)*
+## Đính chính đã phát hiện trong quá trình làm (đọc trước khi tiếp)
+
+1. **Provider thật là DeepSeek, không phải openai-codex.** Có **hai** file `.env` và
+   `~/.vibe-trading/.env` **thắng** `agent/.env` (`src/providers/llm.py:247-251`, lấy file
+   đầu tiên rồi `break`). File thắng đặt `LANGCHAIN_PROVIDER=deepseek`.
+   API `/user/balance` trả **`is_available: false`, số dư $0.00** → đây mới là nguồn của
+   31 lỗi `402 Insufficient Balance` (đúng định dạng lỗi DeepSeek).
+   `_run_fpt.py` gọi `load_dotenv(agent/.env)` thẳng nên đường đó lại dùng openai-codex —
+   **hai đường chạy, hai provider khác nhau.** Đã xoá `OPENROUTER_API_KEY/BASE_URL` khỏi
+   `agent/.env` (sao lưu ra `~/.vibe-trading/env-backups/`, ngoài repo).
+   → **Việc cần làm:** chốt MỘT provider ở `~/.vibe-trading/.env`, hoặc nạp tiền DeepSeek.
+
+2. **Transcript có lỗ hổng 47 ngày: 12/06 → 29/07.** Nghiên cứu PET 18/06, LPB 23/06,
+   TPB→HDB 29/06, PHR 30/06, macro forum 20/07, sector rotation 21/07, **MWG 24/07** đều
+   rơi vào đó. Backfill `ProcessRecord` chỉ làm được cho phần có transcript;
+   `CallRecord` cho phần còn lại phải lấy từ markdown trong `_*` (mtime + nội dung).
+
+3. **Transcript không chứa sidechain** (0 event) → phần suy luận của subagent không được lưu.
+
+4. **Hook hiện có KHÔNG bắt được gì** — `.claude/settings.json` chỉ khớp `PreToolUse`
+   matcher `Skill`, và `check-gstack.sh` chỉ trả `{}`. Cần hook cuối phiên thật sự.
+
+## Giai đoạn 1 — Sổ cái quyết định *(đang làm)*
+
+Thứ tự đã chốt sau phản biện Codex lượt hai:
+
+- [ ] **1.1 `records.py` TRƯỚC TIÊN** — đóng băng hợp đồng dữ liệu:
+  - **Đơn vị quan sát: `episode` chứa nhiều `revision`.** Phiên FPT (93.000 → 69.500 →
+    59.000 → 58.800) là **1 quan sát, không phải 4** — đếm thành 4 là pseudo-replication,
+    thổi phồng n và làm sai khoảng tin cậy. Khoá `(session_id, ticker, thesis_episode)`.
+    Điểm dự báo chính = **revision cuối còn hiệu lực trước cutoff**; các revision trước
+    dùng riêng để đo trôi dạt hiệu chỉnh.
+  - Provenance là `source_session_id` + `source_uuid` + hash sự kiện gốc — **KHÔNG phải
+    `source_commit`**: transcript nằm ngoài repo nên commit không chứng minh được gì.
+  - `deadline` tính theo **phiên giao dịch**, không phải `known_at + horizon_days`
+    (rơi vào cuối tuần/nghỉ lễ). Chốt rõ giá tham chiếu: close / next open / giá lúc phát ngôn.
+  - Cổng chống hindsight áp theo **provenance từng bằng chứng**, không chỉ timestamp record.
+- [ ] **1.2 `transcript.py`** — parser + golden fixtures từ transcript thật.
+  Bẫy đã kiểm chứng: **JSONL là DAG sự kiện, không phải log tuyến tính.** Tool chạy song song
+  phát ở dòng 18-19, kết quả về dòng 20-21 → ghép theo thứ tự dòng là gán nhầm bằng chứng.
+  Phải ghép `tool_use.id ↔ tool_result.tool_use_id`, dựng nhánh bằng `parentUuid`,
+  loại `thinking`/`attachment`/`file-history-*` khỏi văn bản, và chịu được
+  4 `tool_use` không có kết quả (bị ngắt).
+- [ ] **1.3 `store.py`** — idempotency theo hash sự kiện + test migration.
+  ⚠️ **Không** bê nguyên "evidence gate" của `goal/store.py:894` — đó là cổng *hoàn tất goal*,
+  ngữ nghĩa khác, và nó không chứng minh gì về append-only.
+- [ ] **1.4 `extract.py`** — đầu ra phải kèm trích dẫn + UUID sự kiện nguồn + span.
+- [ ] ~~`resolve.py`~~ — **hoãn sang Giai đoạn 2** (Codex đúng): resolver kéo theo lịch giao dịch,
+  sự kiện doanh nghiệp, phiên bản dữ liệu, và dễ che lỗi dataset bằng một outcome đẹp mắt.
+  Làm xong capture/backfill/dedupe/audit rồi mới chấm điểm.
+- [ ] **1.5 Hook cuối phiên Claude Code** + integration test chạy một phiên thật.
 ## Giai đoạn 2 — PIT + backtest cứng *(chưa bắt đầu)*
 ## Giai đoạn 3 — Playbook + vòng lặp tự động *(chưa bắt đầu)*
