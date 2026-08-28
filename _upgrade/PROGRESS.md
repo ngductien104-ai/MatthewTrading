@@ -48,15 +48,31 @@ Bất kỳ fail nào **ngoài** danh sách này là do mình gây ra.
 - [x] **0.3 Định tuyến thị trường** — `backtest/engines/_market_hooks.py`
   - `_detect_market` giữ mặc định `a_share` (có test cũ khẳng định), nhưng **cảnh báo to một lần/mã**
     khi gặp ticker chữ cái trần (`VCB` → gợi ý `VCB.VN`)
-- [ ] **0.4 Chặn mất dữ liệu — ĐANG CHỜ ANH QUYẾT ĐỊNH**
-  - ⚠️ Repo `ngductien104-ai/MatthewTrading` là **PUBLIC**. Không được đưa thẳng vault +
-    `_*` vào git: sẽ công khai `70_DuAn_CongViec/{NAC,CBR}`, `VNDIRECT/`, `DichVuSSE/`,
-    `Database/` (danh mục khách hàng), `_portfolio_review_202608/` (NAV + lệnh thật).
-  - Hiện trạng: `git ls-files Obsidian/` = 0. `_vre_committee`, `_mwg_research`,
-    `_portfolio_review_202608`, `_fund_panel_202608` đều không track. Chỉ `_fpt_research` có.
-  - Mỗi lần ghi đè `Home.md` là mất vĩnh viễn một call.
+- [x] **0.4 Chặn mất dữ liệu** — kho nghiên cứu nay có version control
+  - ⚠️ Repo `ngductien104-ai/MatthewTrading` là **PUBLIC** → không được đưa vault/`Database`/
+    `VNDIRECT`/`_portfolio_review*` vào đây. Anh chọn phương án **repo GitHub riêng tư thứ hai**.
+  - Kỹ thuật: **bare repo + work-tree** — repo thứ hai theo dõi cùng thư mục, index riêng,
+    không phải di chuyển file nào, không lồng `.git`.
+    ```sh
+    BARE="C:/Users/VVVZV/research-vault.git"
+    git --git-dir=$BARE --work-tree=C:/Users/VVVZV/MatthewTrading <lệnh git bình thường>
+    ```
+    `status.showUntrackedFiles=no`; danh sách loại trừ ở `$BARE/info/exclude`
+    (mp4/mp3/exe/dll/pak + phần ứng dụng Obsidian nằm chung thư mục vault).
+  - Ảnh chụp đầu tiên `36f6e84`: **917 file, 93 MB**, gồm đủ 24 `*_MOC.md`, `Home.md`,
+    `_portfolio_review_202608/data/*`, `_fund_panel_202608/data/fund_metrics.csv`.
+  - [ ] **Còn lại: nối remote riêng tư.** `gh` chưa cài. Anh tạo repo **private** rỗng trên
+    GitHub (tên gợi ý `MatthewResearch`), rồi:
+    ```sh
+    git --git-dir=C:/Users/VVVZV/research-vault.git --work-tree=C:/Users/VVVZV/MatthewTrading         remote add origin https://github.com/<user>/<repo>.git
+    git --git-dir=C:/Users/VVVZV/research-vault.git --work-tree=C:/Users/VVVZV/MatthewTrading         push -u origin master
+    ```
+    `credential.helper=manager` đã có sẵn nên không phải nhập lại mật khẩu.
 - [ ] **0.5 Sửa provider chết** — 402 hết số dư = 31 task, 401 = 8, 503 chỉ 4.
-  Xoá key chết, thêm preflight credential + số dư.
+  Anh chốt: giữ `openai-codex` cho swarm, **và** vẫn dùng subagent Claude trong phiên
+  Claude Code như 3 tháng qua (đó là nơi mọi việc thật đã diễn ra). Việc cần làm:
+  xoá `OPENROUTER_API_KEY` chết (22 ký tự), viết preflight kiểm credential trước khi
+  khởi chạy run để không lặp lại cảnh 31 task chết lặng lẽ.
 - [ ] **0.6** Chạy lại full suite, đối chiếu với baseline ở trên.
 
 ## Giai đoạn 1 — Sổ cái quyết định *(chưa bắt đầu)*
