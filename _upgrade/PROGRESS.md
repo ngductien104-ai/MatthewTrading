@@ -84,7 +84,20 @@ Bất kỳ fail nào **ngoài** danh sách này là do mình gây ra.
   - [ ] **Việc của anh:** `agent/.env` còn `OPENROUTER_API_KEY` dài 22 ký tự (placeholder chết).
     Em không tự sửa file secrets. Anh xoá dòng đó khi tiện — hiện vô hại vì provider là
     `openai-codex`, nhưng sẽ gây khó hiểu nếu sau này đổi provider.
-- [ ] **0.6** Chạy lại full suite, đối chiếu với baseline ở trên.
+- [x] **0.6 Đối chiếu full suite**
+  - baseline `11 failed, 3131 passed, 1 skipped, 9 errors`
+  - sau G0 `11 failed, **3142** passed, 1 skipped, 9 errors`
+  - +11 pass = đúng 11 test mới (2 optimizer look-ahead + 9 swarm fatal-error).
+    Fail và error **không đổi một cái nào**.
+
+---
+
+## ✅ GIAI ĐOẠN 0 HOÀN TẤT — 5 commit trên nhánh `upgrade/learning-loop`
+
+Chưa push. Ba việc còn chờ anh:
+1. Tạo repo GitHub **private** rồi `remote add origin` cho `research-vault.git` (lệnh ở mục 0.4)
+2. Xoá `OPENROUTER_API_KEY` chết trong `agent/.env`
+3. Xác nhận push nhánh `upgrade/learning-loop` lên repo public
 
 ## Giai đoạn 1 — Sổ cái quyết định *(chưa bắt đầu)*
 ## Giai đoạn 2 — PIT + backtest cứng *(chưa bắt đầu)*
