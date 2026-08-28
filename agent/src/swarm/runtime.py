@@ -44,6 +44,48 @@ from src.swarm.worker import run_worker
 
 logger = logging.getLogger(__name__)
 
+# Provider failures that no amount of retrying will fix: a revoked key, an
+# exhausted balance, a forbidden account. On 2026-08-27 a single dead balance
+# took down 31 of the tasks on disk one at a time — each burned its full retry
+# budget, and every later layer ran into the same wall. Detect these once and
+# stop the whole run instead.
+# Anchored to how providers actually phrase these ("Error code: 402 - ..."),
+# not to the bare number: a loose "402" would also match a token count or a
+# timestamp, and a false positive here cancels a healthy run.
+_FATAL_PROVIDER_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("insufficient balance", "provider account is out of credit"),
+    ("insufficient_quota", "provider account is out of credit"),
+    ("error code: 402", "provider returned 402 (payment required)"),
+    ("status 402", "provider returned 402 (payment required)"),
+    ("payment required", "provider returned 402 (payment required)"),
+    ("error code: 401", "provider returned 401 (credentials rejected)"),
+    ("status 401", "provider returned 401 (credentials rejected)"),
+    ("invalid_api_key", "provider rejected the API key"),
+    ("incorrect api key", "provider rejected the API key"),
+    ("error code: 403", "provider returned 403 (account forbidden)"),
+    ("status 403", "provider returned 403 (account forbidden)"),
+)
+
+
+def classify_fatal_provider_error(error: str | None) -> str | None:
+    """Return a human-readable reason when *error* is a non-retryable provider failure.
+
+    Args:
+        error: Error text from a worker result, if any.
+
+    Returns:
+        A short reason string, or None when the error is worth retrying
+        (rate limits, overload, timeouts, transient network faults).
+    """
+    if not error:
+        return None
+    haystack = error.lower()
+    for needle, reason in _FATAL_PROVIDER_PATTERNS:
+        if needle in haystack:
+            return reason
+    return None
+
+
 
 class SwarmRuntime:
     """Swarm DAG orchestration engine.
@@ -603,6 +645,15 @@ class SwarmRuntime:
                     tid = futures[future]
                     try:
                         results[tid] = future.result()
+                        fatal_reason = classify_fatal_provider_error(results[tid].error)
+                        if fatal_reason is not None and not cancel_event.is_set():
+                            cancel_event.set()
+                            logger.error(
+                                "Cancelling swarm run: %s. Every remaining task "
+                                "would fail the same way; fix the provider "
+                                "credentials and start again.",
+                                fatal_reason,
+                            )
                     except Exception as exc:
                         logger.error("Worker for task %s raised exception", tid, exc_info=True)
                         results[tid] = WorkerResult(
@@ -709,6 +760,21 @@ class SwarmRuntime:
 
             cumulative_input_tokens += result.input_tokens
             cumulative_output_tokens += result.output_tokens
+
+            fatal_reason = classify_fatal_provider_error(result.error)
+            if fatal_reason is not None:
+                logger.error(
+                    "Task %s hit a non-retryable provider failure (%s); "
+                    "abandoning its remaining retries",
+                    task.id,
+                    fatal_reason,
+                )
+                return result.model_copy(
+                    update={
+                        "input_tokens": cumulative_input_tokens,
+                        "output_tokens": cumulative_output_tokens,
+                    }
+                )
 
             if result.status != "failed":
                 # Success (or timeout/token_limit/completed) — no more retries

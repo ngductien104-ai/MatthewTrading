@@ -68,11 +68,22 @@ Bất kỳ fail nào **ngoài** danh sách này là do mình gây ra.
     git --git-dir=C:/Users/VVVZV/research-vault.git --work-tree=C:/Users/VVVZV/MatthewTrading         push -u origin master
     ```
     `credential.helper=manager` đã có sẵn nên không phải nhập lại mật khẩu.
-- [ ] **0.5 Sửa provider chết** — 402 hết số dư = 31 task, 401 = 8, 503 chỉ 4.
-  Anh chốt: giữ `openai-codex` cho swarm, **và** vẫn dùng subagent Claude trong phiên
-  Claude Code như 3 tháng qua (đó là nơi mọi việc thật đã diễn ra). Việc cần làm:
-  xoá `OPENROUTER_API_KEY` chết (22 ký tự), viết preflight kiểm credential trước khi
-  khởi chạy run để không lặp lại cảnh 31 task chết lặng lẽ.
+- [x] **0.5 Lỗi provider không còn giết từng task một** — `src/swarm/runtime.py`
+  - Nguyên nhân thật của 3/18: **402 hết số dư = 31 task**, `401 User not found` = 8,
+    blocked 17, connection 4, **503 chỉ 4**. Mỗi task còn đốt hết ngân sách retry trước khi chết,
+    rồi mọi layer sau đâm vào đúng bức tường đó.
+  - Thêm `classify_fatal_provider_error()`: 402/401/403/insufficient balance/invalid key là
+    **không đáng retry** → bỏ ngay phần retry còn lại **và** `cancel_event.set()` để dừng cả run.
+  - 503/overload, 429, connection, timeout **vẫn retry** — huỷ run vì 503 còn tệ hơn lỗi đang sửa.
+  - Pattern neo theo cách provider thật sự viết (`"error code: 402"`), không khớp số trần —
+    dương tính giả ở đây là huỷ oan một run đang khoẻ.
+  - `tests/test_swarm_fatal_provider_error.py` (9 test), dùng **chuỗi lỗi lấy nguyên văn**
+    từ `agent/.swarm/runs`.
+  - Anh chốt: giữ `openai-codex` cho swarm, **và** vẫn dùng subagent Claude trong phiên
+    Claude Code như 3 tháng qua.
+  - [ ] **Việc của anh:** `agent/.env` còn `OPENROUTER_API_KEY` dài 22 ký tự (placeholder chết).
+    Em không tự sửa file secrets. Anh xoá dòng đó khi tiện — hiện vô hại vì provider là
+    `openai-codex`, nhưng sẽ gây khó hiểu nếu sau này đổi provider.
 - [ ] **0.6** Chạy lại full suite, đối chiếu với baseline ở trên.
 
 ## Giai đoạn 1 — Sổ cái quyết định *(chưa bắt đầu)*
