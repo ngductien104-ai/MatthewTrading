@@ -12,12 +12,22 @@ GlobalFutures because composite.py used a suffix-only check) cannot recur.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Dict, List
 
 import pandas as pd
 
 from backtest.models import Position
+
+logger = logging.getLogger(__name__)
+
+# Bare alphabetic tickers are the dangerous unmatched case: ``VCB`` looks
+# like nothing in _MARKET_PATTERNS and silently became an A-share, routing
+# a Vietnamese name to Tushare + ChinaAEngine (T+1, ±10% band) instead of
+# DataPro + VNEquityEngine (T+2, ±7%). Warn once per symbol.
+_BARE_EQUITY_TICKER = re.compile(r"^[A-Za-z]{2,9}$")
+_warned_unmatched: set[str] = set()
 
 
 # ── Symbol -> market classification (shared by runner.py + composite.py) ──
@@ -72,12 +82,25 @@ def _detect_market(code: str) -> str:
         code: Ticker / symbol string.
 
     Returns:
-        Market type (a_share/us_equity/hk_equity/crypto/futures/forex);
-        unknown defaults to ``a_share``.
+        Market type (a_share/us_equity/hk_equity/crypto/futures/forex/
+        vn_equity); unknown still defaults to ``a_share`` for back-compat,
+        but a bare alphabetic ticker now warns first.
     """
     for pattern, market in _MARKET_PATTERNS:
         if pattern.match(code):
             return market
+
+    if _BARE_EQUITY_TICKER.match(code) and code not in _warned_unmatched:
+        _warned_unmatched.add(code)
+        logger.warning(
+            "market for %r could not be inferred; defaulting to 'a_share'. "
+            "If this is a Vietnamese name, write %r — the suffix is what "
+            "routes it to DataPro and the VN engine (T+2, price bands, "
+            "100-share lots). Without it the run silently uses Tushare and "
+            "Chinese market rules.",
+            code,
+            f"{code.upper()}.VN",
+        )
     return "a_share"
 
 
