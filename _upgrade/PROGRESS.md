@@ -62,12 +62,12 @@ Bất kỳ fail nào **ngoài** danh sách này là do mình gây ra.
   - Ảnh chụp đầu tiên `36f6e84`: **917 file, 93 MB**, gồm đủ 24 `*_MOC.md`, `Home.md`,
     `_portfolio_review_202608/data/*`, `_fund_panel_202608/data/fund_metrics.csv`.
   - [x] **Remote riêng tư đã nối và đẩy lên.** `origin` =
-    `https://github.com/ngductien104-ai/MatthewResearch` — **917 file, nhánh `master`**.
+    `<repo private, xem memory>` — **917 file, nhánh `master`**.
     ⚠️ Repo này lúc đầu bị tạo nhầm thành PUBLIC; đã kiểm bằng API ẩn danh
     (`"private": false`) và **từ chối push**, chờ đổi sang private rồi kiểm lại
     (HTTP 404 + `ls-remote` ẩn danh không thấy ref) mới đẩy.
     **Quy tắc: trước mỗi lần push kho này, xác minh bằng
-    `curl -s -o /dev/null -w "%{http_code}" https://api.github.com/repos/ngductien104-ai/MatthewResearch`
+    `curl -s -o /dev/null -w "%{http_code}" https://api.github.com/repos/<owner>/<repo-private>`
     — phải là 404. Không tin lời khai, chỉ tin mã HTTP.**
   - Lệnh hằng ngày:
     ```sh
