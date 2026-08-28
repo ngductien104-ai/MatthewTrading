@@ -59,7 +59,12 @@ class BaseOptimizer(ABC):
             if not active or i < self.lookback:
                 continue
 
-            window = ret.loc[:dt, active].tail(self.lookback)
+            # Cut the window at the PREVIOUS bar. ``ret.loc[:dt]`` is inclusive
+            # of ``dt``, so the realised close-to-close return of the very bar
+            # being sized leaked into the covariance used to size it. The
+            # signal shift in ``BaseEngine._align`` was correct; this optimizer
+            # overlay re-introduced a one-bar look-ahead on top of it.
+            window = ret.loc[:dates[i - 1], active].tail(self.lookback)
             if len(window) < max(self.lookback // 2, 5):
                 continue
 
