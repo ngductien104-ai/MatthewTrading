@@ -131,6 +131,14 @@ Chưa push. Ba việc còn chờ anh:
 
 Thứ tự đã chốt sau phản biện Codex lượt hai:
 
+### ✅ Hai quyết định anh đã chốt 28/08 — dùng luôn, KHÔNG hỏi lại
+
+- **Giá tham chiếu (`ref_price`) = giá ĐÓNG CỬA của ngày ra nhận định.**
+  Không dùng giá mở cửa phiên kế tiếp, không dùng giá lúc phát ngôn.
+- **Horizon mặc định khi call không ghi rõ = 3 tháng ≈ 63 phiên giao dịch.**
+  Đếm theo phiên giao dịch VN, không theo ngày lịch (lý do: `deadline` rơi vào
+  cuối tuần/nghỉ lễ thì sai — xem mục 1.1). Call có ghi rõ deadline thì dùng của nó.
+
 - [ ] **1.1 `records.py` TRƯỚC TIÊN** — đóng băng hợp đồng dữ liệu:
   - **Đơn vị quan sát: `episode` chứa nhiều `revision`.** Phiên FPT (93.000 → 69.500 →
     59.000 → 58.800) là **1 quan sát, không phải 4** — đếm thành 4 là pseudo-replication,
