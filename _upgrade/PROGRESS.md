@@ -61,13 +61,19 @@ Bất kỳ fail nào **ngoài** danh sách này là do mình gây ra.
     (mp4/mp3/exe/dll/pak + phần ứng dụng Obsidian nằm chung thư mục vault).
   - Ảnh chụp đầu tiên `36f6e84`: **917 file, 93 MB**, gồm đủ 24 `*_MOC.md`, `Home.md`,
     `_portfolio_review_202608/data/*`, `_fund_panel_202608/data/fund_metrics.csv`.
-  - [ ] **Còn lại: nối remote riêng tư.** `gh` chưa cài. Anh tạo repo **private** rỗng trên
-    GitHub (tên gợi ý `MatthewResearch`), rồi:
+  - [x] **Remote riêng tư đã nối và đẩy lên.** `origin` =
+    `https://github.com/ngductien104-ai/MatthewResearch` — **917 file, nhánh `master`**.
+    ⚠️ Repo này lúc đầu bị tạo nhầm thành PUBLIC; đã kiểm bằng API ẩn danh
+    (`"private": false`) và **từ chối push**, chờ đổi sang private rồi kiểm lại
+    (HTTP 404 + `ls-remote` ẩn danh không thấy ref) mới đẩy.
+    **Quy tắc: trước mỗi lần push kho này, xác minh bằng
+    `curl -s -o /dev/null -w "%{http_code}" https://api.github.com/repos/ngductien104-ai/MatthewResearch`
+    — phải là 404. Không tin lời khai, chỉ tin mã HTTP.**
+  - Lệnh hằng ngày:
     ```sh
-    git --git-dir=C:/Users/VVVZV/research-vault.git --work-tree=C:/Users/VVVZV/MatthewTrading         remote add origin https://github.com/<user>/<repo>.git
-    git --git-dir=C:/Users/VVVZV/research-vault.git --work-tree=C:/Users/VVVZV/MatthewTrading         push -u origin master
+    git --git-dir=C:/Users/VVVZV/research-vault.git         --work-tree=C:/Users/VVVZV/MatthewTrading <lệnh git>
     ```
-    `credential.helper=manager` đã có sẵn nên không phải nhập lại mật khẩu.
+
 - [x] **0.5 Lỗi provider không còn giết từng task một** — `src/swarm/runtime.py`
   - Nguyên nhân thật của 3/18: **402 hết số dư = 31 task**, `401 User not found` = 8,
     blocked 17, connection 4, **503 chỉ 4**. Mỗi task còn đốt hết ngân sách retry trước khi chết,
