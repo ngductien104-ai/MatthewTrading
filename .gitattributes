@@ -1,0 +1,4 @@
+# core.autocrlf is true on this machine, so a fresh clone would receive shell
+# scripts with carriage returns -- and a hook whose lines end in CR fails
+# before its first line runs.
+*.sh text eol=lf
