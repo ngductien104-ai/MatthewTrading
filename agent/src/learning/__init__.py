@@ -26,8 +26,42 @@ from src.learning.records import (
     resolve_deadline,
     sessions_between,
 )
+from src.learning.store import (
+    SCHEMA_VERSION,
+    AppendResult,
+    LearningStore,
+    LedgerError,
+    append_call_with_evidence,
+    default_db_path,
+)
+from src.learning.transcript import (
+    CONTENT_TYPES,
+    HARNESS_TYPES,
+    ToolCall,
+    Transcript,
+    TranscriptEvent,
+    default_transcript_dir,
+    iter_transcripts,
+    parse_transcript,
+    tool_calls_by_name,
+)
 
 __all__ = [
+    "SCHEMA_VERSION",
+    "AppendResult",
+    "LearningStore",
+    "LedgerError",
+    "append_call_with_evidence",
+    "default_db_path",
+    "CONTENT_TYPES",
+    "HARNESS_TYPES",
+    "ToolCall",
+    "Transcript",
+    "TranscriptEvent",
+    "default_transcript_dir",
+    "iter_transcripts",
+    "parse_transcript",
+    "tool_calls_by_name",
     "ACTIONS",
     "CHECKPOINT_SESSIONS",
     "DEFAULT_HORIZON_SESSIONS",
