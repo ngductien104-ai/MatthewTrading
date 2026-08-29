@@ -603,3 +603,77 @@ def test_an_empty_run_report_is_refused_rather_than_loaded(tmp_path):
     path = _write(tmp_path, "runs/swarm-a/run.json", json.dumps({"final_report": ""}))
     with pytest.raises(ExtractionError, match="empty final_report"):
         load_document(path)
+
+
+# -- the two decimal conventions this corpus mixes -----------------------------
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Giá tham chiếu **54.8**", 54.8),
+        ("chỉ ≤ 53,5", 53.5),
+        ("EPS_TTM ~2.700", 2700.0),
+        ("Giá chốt 72.200 đ/cp", 72200.0),
+        ("KLCP 1.714.326.422", 1714326422.0),
+    ],
+)
+def test_a_dot_before_three_digits_groups_and_before_fewer_decimates(text, expected):
+    """``54.8`` and ``53,5`` sit four lines apart in one real document.
+
+    Reading the dot as a thousands group truncates the price to ``54``. The
+    dot-decimal form appears 5,909 times across 32 research folders, so this is
+    the convention, not an anomaly.
+    """
+    values = [number.value for number in parse_prices(text) if number.kind == "price"]
+    assert expected in values
+
+
+def test_only_the_grouped_form_is_anchored():
+    """``26.35`` leaves the scale open; ``26.350`` pins it."""
+    by_raw = {n.raw.strip(): n for n in parse_prices("26.35 và 26.350")}
+    assert by_raw["26.35"].anchored is False
+    assert by_raw["26.350"].anchored is True
+
+
+def test_a_bare_reference_price_is_settled_by_any_anchored_price_quoted(tmp_path):
+    """PHR states ``62,0`` but quotes ``~72k`` in the same call.
+
+    Demanding an anchored token equal to ref_price x 1000 was too strict: what
+    settles the scale is that one reading sits in a sane ratio to a price the
+    document does state with a unit.
+    """
+    from src.learning.extract import _document
+
+    body = "Giá tham chiếu 62,0 (đóng cửa). BASE: RNAV thận trọng ~72k."
+    path = _write(tmp_path, "_phr/doc.md", body)
+    doc = _document(path, "markdown", "_phr")
+    candidate = {
+        "ticker": "PHR",
+        "as_of": "2026-08-27",
+        "action": "mua theo đợt",
+        "ref_price": 62.0,
+        "target": 72,
+        "quotes": [body],
+    }
+    record, _ = validate_candidate(candidate, doc)
+    assert record.ref_price == 62000.0
+    assert record.target == 72000.0
+
+
+def test_a_share_count_is_not_allowed_to_be_the_ruler(tmp_path):
+    """Only numbers inside a plausible share-price band settle the scale."""
+    from src.learning.extract import _document
+
+    body = "Giá tham chiếu 54.8. KLCP lưu hành 1.714.326.422."
+    path = _write(tmp_path, "_pet/doc.md", body)
+    doc = _document(path, "markdown", "_pet")
+    candidate = {
+        "ticker": "PET",
+        "as_of": "2026-08-27",
+        "action": "chờ",
+        "ref_price": 54.8,
+        "quotes": [body],
+    }
+    with pytest.raises(ExtractionError, match="no quote states any price"):
+        validate_candidate(candidate, doc)

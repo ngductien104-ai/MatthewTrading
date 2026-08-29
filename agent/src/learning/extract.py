@@ -62,6 +62,11 @@ from src.learning.store import AppendResult, LearningStore
 #: FPT's bear at -63.8%, comfortably inside.
 PLAUSIBLE_RATIO = (0.2, 5.0)
 
+#: Where a listed Vietnamese share price can plausibly sit, in dong. Used only
+#: to keep non-prices out of the pool that settles an unanchored ref_price: a
+#: share count of 1,714,326,422 must never act as the ruler.
+PLAUSIBLE_PRICE_RANGE = (1000.0, 1_000_000.0)
+
 #: Reasons a candidate is refused. Closed, so recurrence can be counted the way
 #: :data:`~src.learning.records.ERROR_TAXONOMY` counts debate findings.
 REJECTION_CODES = (
@@ -101,7 +106,7 @@ _PRICE_FIELDS = ("ref_price", "target", "bull", "bear", "stop")
 
 _NUMBER_RE = re.compile(
     r"(?<![\w.,])"
-    r"(?P<num>\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)"
+    r"(?P<num>\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{1,3}\.\d{1,2}(?!\d)|\d+(?:,\d+)?)"
     r"\s*(?P<unit>k\b|nghìn\b|đồng\b|đ/cp|đ|vnd\b|vnđ\b|%|tỷ\b|triệu\b)?",
     re.IGNORECASE,
 )
@@ -197,8 +202,18 @@ class ExtractionResult:
 # -- reading numbers ----------------------------------------------------------
 
 
+#: A dot followed by one or two digits is a decimal point, not a thousands
+#: group. Both conventions appear inside single documents -- ``Giá tham chiếu
+#: **54.8**`` sits four lines from ``chỉ ≤ 53,5`` -- and the dot-decimal form
+#: occurs 5,909 times across 32 research folders, so reading it as a group
+#: silently truncates a price to its integer part.
+_DOT_DECIMAL_RE = re.compile(r"^\d{1,3}\.\d{1,2}$")
+
+
 def _to_float(token: str) -> float:
-    """Read a Vietnamese-formatted number: ``.`` groups, ``,`` decimates."""
+    """Read a number written in either of the conventions this corpus mixes."""
+    if _DOT_DECIMAL_RE.match(token):
+        return float(token)
     return float(token.replace(".", "").replace(",", "."))
 
 
@@ -573,16 +588,32 @@ def _anchor_price(stated: float | None, quoted: str) -> tuple[float | None, str]
     """
     if stated is None or stated >= 1000.0:
         return stated, ""
-    for number in parse_prices(quoted):
-        if number.kind != "price" or not number.anchored:
-            continue
-        if math.isclose(number.value, stated * 1000.0, rel_tol=1e-6):
-            note = f"ref_price {stated:g} read as {number.value:.0f} from {number.raw!r}"
-            return number.value, note
+    lowest, highest = PLAUSIBLE_PRICE_RANGE
+    anchored = sorted(
+        number.value
+        for number in parse_prices(quoted)
+        if number.kind == "price" and number.anchored and lowest <= number.value <= highest
+    )
+    if not anchored:
+        raise ExtractionError(
+            f"ref_price={stated:g} is written without a unit and no quote states any price "
+            "with one, so its scale cannot be settled. ref_price is the ruler every other "
+            "price on this call is measured against; it is the one number that must not be "
+            "inferred."
+        )
+    ruler = anchored[len(anchored) // 2]
+    low, high = PLAUSIBLE_RATIO
+    as_written = low <= stated / ruler <= high
+    as_thousands = low <= (stated * 1000.0) / ruler <= high
+    if as_thousands and not as_written:
+        note = f"ref_price {stated:g} read as {stated * 1000.0:.0f} against quoted {ruler:.0f}"
+        return stated * 1000.0, note
+    if as_written and not as_thousands:
+        return stated, ""
     raise ExtractionError(
-        f"ref_price={stated:g} is written without a unit and no quote states it with one, "
-        "so its scale cannot be settled. ref_price is the ruler every other price on this "
-        "call is measured against; it is the one number that must not be inferred."
+        f"ref_price={stated:g} is written without a unit and the quoted prices "
+        f"(nearest {ruler:.0f}) settle nothing: neither reading is clearly the right one. "
+        "Quote the line that states the reference price with its unit."
     )
 
 
