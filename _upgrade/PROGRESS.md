@@ -10,44 +10,76 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 29/08/2026, tối (sau 1.5)
+## 🔖 ĐIỂM DỪNG — 29/08/2026, tối muộn (hết quota giữa backfill)
 
 **Nhánh:** `upgrade/learning-loop`, **chưa push**, cây làm việc sạch.
+4 commit hôm nay: `63924cd` (1.4) · `408f280` (1.5) · `78facab` (gitattributes) · `e513689` (verb backfill).
 
-**Giai đoạn 1 xong phần hạ tầng:** 1.1 `records.py` · 1.2 `transcript.py` · 1.3 `store.py`
-· 1.4 `extract.py` · 1.5 `session.py` + `cli.py` + hook `SessionEnd`.
-**183 test learning xanh** (49 + 25 + 32 + 52 + 25).
+**Đã xong:** 1.1 → 1.5 + hai verb backfill `prompt` / `extract`.
+**191 test learning xanh** (49 + 25 + 32 + 56 + 29).
+
+### VIỆC ĐẦU TIÊN KHI MỞ LẠI — sửa từ vựng action, rồi chạy lại backfill
+
+Backfill đã chạy thử 12 tài liệu. **Chỉ 1/12 lọt: FPT.** Nguyên nhân **KHÔNG phải
+lỗi trích xuất** — là **lỗi hợp đồng của em**, và nó lộ ra đúng chỗ đáng lộ:
+
+`extract.py` bảo model *"action, exactly as written in the document"*, nên model chép
+**cả câu**, trong khi `normalize_action()` là **từ vựng đóng** chỉ nhận cụm ngắn.
+Kết quả thật (đây là dữ liệu, không phải phỏng đoán):
+
+| Tài liệu | `action` model trả về | Kết quả |
+|---|---|---|
+| `_fpt_research/00_bao_cao_tong_hop.md` | `GIẢM TỶ TRỌNG` | ✅ `reduce`, 4 bằng chứng |
+| `_vre_committee/PM_DECISION.md` | `CÓ — VRE ĐÁNG ĐẦU TƯ, NHƯNG KHÔNG PHẢI Ở GIÁ NÀY VÀ KHÔNG PHẢI HÔM NAY.` | ❌ unknown_action |
+| `_bsr_research/report.md` | `WAIT (đứng ngoài chủ động)` | ❌ |
+| `_php_research/report.md` | `WAIT (cho), nghieng nhe tich luy co dieu kien...` | ❌ |
+| `_HAH_research/HAH_BaoCao.md` | `TRUNG LẬP / TÍCH LŨY` | ❌ |
+| `_sector_rotation_2026H2/00_TONGHOP...` | `nắm` ×4, `loại tuyệt đối` ×1 | ❌ |
+| `_phr_committee/PM_DECISION.md`, `_pet_committee/PM_DECISION.md` | (câu dài) | ❌ |
+| `_hpg_research/BAO_CAO_HPG_forum_bao.md` | — | 0 call, model tự thấy không có call |
+| `_social_alpha_lpb/04_alpha_synthesis.md` | 3 câu dài + 1 giá mập mờ | ❌ scale_ambiguous ×1 |
+
+**Cách sửa — chọn MỘT, đừng làm cả hai:**
+- **(A, em nghiêng về cái này)** Sửa **prompt** trong `extract.py`: bắt model trả
+  `action` là **một cụm ngắn có trong tài liệu** (`GIẢM TỶ TRỌNG`, `TÍCH LŨY`, `nắm`…),
+  **và** thêm câu đó vào `quotes`. Từ vựng đóng giữ nguyên — đó là cổng chống đoán bừa,
+  đừng nới nó ra thành khớp-chuỗi-con.
+- **(B)** Thêm alias thật vào `ACTION_ALIASES`: `nam` → hold, `loai tuyet doi` → avoid,
+  `dung ngoai` → wait. **Chỉ** thêm cụm ngắn thật sự là từ vựng ngành; **không** thêm câu dài.
+
+Sau khi sửa, chạy lại **không tốn token model** — mọi reply đã lưu:
+
+```sh
+cd C:/Users/VVVZV/MatthewTrading/agent
+C:/Users/VVVZV/MatthewTrading/.venv/Scripts/python.exe -m src.learning.cli extract   --doc ../_vre_committee/PM_DECISION.md --reply ~/.vibe-trading/backfill_replies/vre_pm.json
+```
+
+**10 file reply đã lưu ở `~/.vibe-trading/backfill_replies/`** (NGOÀI git — repo public,
+reply chứa trích dẫn nghiên cứu). Ánh xạ tài liệu ↔ reply nằm ở bảng trên.
+
+### Trạng thái sổ cái thật (`~/.vibe-trading/learning.db`)
+
+`process_records=21` · `calls=1` (FPT) · `evidence=4` · `outcomes=0` · `lessons=0`
+21 phiên = **1.024.256.148 token, 92 giờ, 63 lần viết lại**.
+
+### Mốc test
 
 | Mốc | passed | failed | errors |
 |---|---|---|---|
 | baseline sau G0 | 3142 | 11 | 9 |
-| + 1.1 `records.py` (49) | 3191 | 11 | 9 |
-| + 1.2 `transcript.py` (25) | 3216 | 11 | 9 |
-| + 1.3 `store.py` (32) | 3248 | 11 | 9 |
-| + 1.4 `extract.py` (52) | 3300 | 11 | 9 |
-| + 1.5 `session.py`/`cli.py` (25) | **3325** | 11 | 9 |
+| + 1.4 `extract.py` | 3300 | 11 | 9 |
+| + 1.5 `session.py`/`cli.py` (**đã đối chiếu**) | **3325** | 11 | 9 |
+| + 10 test verb backfill (**CHƯA đối chiếu full suite**) | *3335 (dự kiến)* | 11 | 9 |
 
-Fail/error không đổi một cái nào so với mục "Mốc test baseline".
+**Món nợ:** chạy `pytest tests/ -q` từ `agent/`, phải ra **3335 pass**, fail/error không đổi.
+(85 test của hai file learning mới đã xanh riêng.)
 
-**Hook đã sống.** Lần chạy thật đầu tiên bắt **21 phiên, 1.011.623.992 token**.
-Kiểm tay bất cứ lúc nào:
+### Sau đó
 
-```sh
-cd C:/Users/VVVZV/MatthewTrading/agent
-C:/Users/VVVZV/MatthewTrading/.venv/Scripts/python.exe -m src.learning.cli scan
-```
-
-Log ở `~/.vibe-trading/hook.log`, sổ cái ở `~/.vibe-trading/learning.db`.
-
-**MỘT nút thắt duy nhất còn lại của Giai đoạn 1: ai đóng vai `propose` cho `extract.py`.**
-Cho tới khi chốt, sổ cái chỉ có `ProcessRecord` (suy ra được, không cần LLM), chưa có
-`CallRecord`. Ba lựa chọn, cần anh chốt:
-1. **Nạp tiền DeepSeek** (hoặc đổi provider ở `~/.vibe-trading/.env`) → backfill chạy tự động.
-2. **Dùng subagent Claude trong phiên** làm `propose` — đúng cách 3 tháng qua vẫn làm.
-3. **Trích tay theo lô**: `build_prompt()` in ra prompt, dán reply vào `parse_proposal()`.
-
-**Mục kế tiếp sau đó: Giai đoạn 2, và 2.2 làm TRƯỚC 2.1** (dữ liệu point-in-time trước,
-thống kê sau) — CPCV/DSR/PBO không cứu nổi universe dính survivorship bias.
+Còn 2 tài liệu chưa trích (agent bị 429 giết giữa chừng): `_switch_tpb_hdb/04_pm_decision.md`
+và `_sbt_committee/PM_DECISION.md`. MWG **không có `.md`** — chỉ HTML/PDF, nên call MWG 24/07
+trong tiêu chí nghiệm thu G1 phải lấy đường khác.
+Rồi mới sang **Giai đoạn 2, làm 2.2 TRƯỚC 2.1** (point-in-time trước, thống kê sau).
 
 ---
 
