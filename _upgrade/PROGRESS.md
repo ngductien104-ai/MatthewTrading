@@ -30,7 +30,7 @@ Kết quả thật (đây là dữ liệu, không phải phỏng đoán):
 | Tài liệu | `action` model trả về | Kết quả |
 |---|---|---|
 | `_fpt_research/00_bao_cao_tong_hop.md` | `GIẢM TỶ TRỌNG` | ✅ `reduce`, 4 bằng chứng |
-| `_vre_committee/PM_DECISION.md` | `CÓ — VRE ĐÁNG ĐẦU TƯ, NHƯNG KHÔNG PHẢI Ở GIÁ NÀY VÀ KHÔNG PHẢI HÔM NAY.` | ❌ unknown_action |
+| `_vre_committee/PM_DECISION.md` | *(nguyên một câu kết luận 17 chữ — cắt ở đây vì repo public)* | ❌ unknown_action |
 | `_bsr_research/report.md` | `WAIT (đứng ngoài chủ động)` | ❌ |
 | `_php_research/report.md` | `WAIT (cho), nghieng nhe tich luy co dieu kien...` | ❌ |
 | `_HAH_research/HAH_BaoCao.md` | `TRUNG LẬP / TÍCH LŨY` | ❌ |
