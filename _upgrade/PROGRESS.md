@@ -139,7 +139,43 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
   Đếm theo phiên giao dịch VN, không theo ngày lịch (lý do: `deadline` rơi vào
   cuối tuần/nghỉ lễ thì sai — xem mục 1.1). Call có ghi rõ deadline thì dùng của nó.
 
-- [ ] **1.1 `records.py` TRƯỚC TIÊN** — đóng băng hợp đồng dữ liệu:
+- [x] **1.1 `records.py` TRƯỚC TIÊN** — đóng băng hợp đồng dữ liệu:
+  - `agent/src/learning/{__init__,records}.py` + `agent/tests/test_learning_records.py`
+    (**49 test, xanh hết**). Năm dataclass: `Evidence`, `CallRecord`, `ProcessRecord`,
+    `Outcome`, `Lesson` — thuần validate, chưa đụng lưu trữ.
+  - **Bốn chỗ em đi lệch kế hoạch, có lý do:**
+    1. `horizon_days` → **`horizon_sessions`** (mặc định 63). Giữ tên cũ là mời gọi
+       đúng cái bẫy ngày lịch mà anh đã chốt bỏ.
+    2. **`deadline` là trường DẪN XUẤT, để rỗng cho tới khi lịch giao dịch chạm tới.**
+       Hệ quả trực tiếp của quyết định "đếm theo phiên": một call ra hôm nay, horizon 63
+       phiên, thì ngày tới hạn **chưa tồn tại** — chưa ai biết phiên thứ 63 rơi vào ngày nào.
+       `resolve_deadline()` trả `None` trong trường hợp đó thay vì bịa một ngày lịch.
+       Câu hỏi "call này tới hạn chưa" trả lời bằng `sessions_between()`, không bằng ngày.
+    3. Kế hoạch ghi hai trường song song `errors_caught[]` + `error_taxonomy[]`. Em gộp
+       còn **một** trường `errors_caught[]` (mỗi mục bắt buộc có `code` + `evidence_id`),
+       `error_taxonomy` thành property dẫn xuất. Hai trường song song thì sẽ lệch nhau.
+    4. Thêm dataclass **`Evidence`** — kế hoạch không liệt kê, nhưng cổng chống hindsight
+       "áp theo provenance từng bằng chứng" **không thể** thực hiện nếu bằng chứng chỉ là
+       một chuỗi id. `assert_no_hindsight(wall, evidences)` so `observed_at` của TỪNG mục
+       với `known_at` của record.
+  - **Các cổng đã cắm vào chính dataclass** (không chờ tới store):
+    - `confidence` là phân số `[0,1]`; ghi `61` thay vì `0.61` → **raise**, kèm thông báo
+      chỉ đúng lỗi đơn vị.
+    - `verdict != "open"` bắt buộc có `resolved_price` **và** `evidence_ids` — mô hình
+      không được tự khai "hit". (Đây là tinh thần cổng bằng chứng của `goal/store.py`,
+      viết lại cho đúng ngữ nghĩa Outcome, không bê nguyên.)
+    - Bài học không có `evidence_ids` bị **ép** về `provisional` + tự đặt hạn 90 ngày;
+      `confirmed` mà rỗng bằng chứng → raise.
+    - `known_at < as_of` → raise.
+    - Từ vựng action đóng, có bảng ánh xạ tiếng Việt thật đang dùng (`TÍCH LŨY`,
+      `MUA THEO ĐỢT`, `TRUNG LẬP`, `không đuổi`…). Chữ lạ → **raise**, không đoán.
+  - **`call_id` cố tình KHÔNG chứa `parser_version`**: đổi parser phải rơi trúng cùng
+    `call_id` để store nhận ra là cùng một quan sát; nội dung đổi thì đó là bản mới
+    `supersedes` bản cũ, không phải quan sát thứ hai.
+  - Test neo vào dữ liệu thật: episode FPT 27/08 (93.000 → 69.500 → 59.000 → 58.800) =
+    **1 episode, 4 revision**; `latest_revision(cutoff=...)` không bao giờ chấm một
+    revision chưa tồn tại. Có test lỗ hổng Tết chứng minh cộng ngày lịch ra sai phiên.
+  - Hợp đồng gốc, giữ nguyên để đối chiếu:
   - **Đơn vị quan sát: `episode` chứa nhiều `revision`.** Phiên FPT (93.000 → 69.500 →
     59.000 → 58.800) là **1 quan sát, không phải 4** — đếm thành 4 là pseudo-replication,
     thổi phồng n và làm sai khoảng tin cậy. Khoá `(session_id, ticker, thesis_episode)`.
