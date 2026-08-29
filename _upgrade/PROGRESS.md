@@ -25,13 +25,21 @@ cd C:/Users/VVVZV/MatthewTrading/agent
 C:/Users/VVVZV/MatthewTrading/.venv/Scripts/python.exe -m pytest tests/ -q
 ```
 
-Mốc phải khớp: **11 failed, 3247 passed, 1 skipped, 9 errors**
-(= baseline sau G0 là 3142 pass, cộng 106 test learning mới, trừ 1 vì cách đếm skip).
-Con số pass chính xác chưa xác minh — 1.1 đã đối chiếu full suite (3191 pass, fail/error
-không đổi), nhưng **1.2 và 1.3 mới chỉ qua cổng nhẹ**: 106 test learning xanh +
-`--collect-only` thu 3269 test không vỡ import. Full suite cho 1.2/1.3 **chưa chạy xong**
-(mất ~11 phút, anh tắt máy trước khi nó về). Nếu có fail nào **ngoài** danh sách 11 fail /
-9 error có sẵn ở mục "Mốc test baseline" thì đó là do 3 module mới, sửa trước khi đi tiếp.
+Mốc phải khớp: **11 failed, 3248 passed, 1 skipped, 9 errors**.
+
+Đường đi của con số, để anh tự kiểm:
+
+| Mốc | passed | failed | errors |
+|---|---|---|---|
+| baseline sau G0 | 3142 | 11 | 9 |
+| + 1.1 `records.py` (49 test) — **đã đối chiếu** | 3191 | 11 | 9 |
+| + 1.2 `transcript.py` (25 test) — **đã đối chiếu** | 3216 | 11 | 9 |
+| + 1.3 `store.py` (32 test) — **CHƯA đối chiếu** | *3248 (dự kiến)* | 11 | 9 |
+
+Chỉ mình **1.3** còn nợ full suite: 32 test store xanh riêng và `--collect-only` thu
+3269 test không vỡ import, nhưng lần chạy full cuối cùng khởi động **trước khi** `store.py`
+tồn tại. Nếu ra đúng 3248 pass và fail/error không đổi thì hết nợ, đi thẳng vào 1.4.
+Fail nào **ngoài** danh sách 11 fail / 9 error ở mục "Mốc test baseline" là do `store.py`.
 
 **Mục kế tiếp: 1.4 `extract.py`.** Đã có sẵn mọi thứ nó cần:
 - `parse_transcript()` cho ra sự kiện đã ghép tool + `observed_at` đơn điệu
