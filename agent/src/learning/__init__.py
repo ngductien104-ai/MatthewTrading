@@ -49,6 +49,16 @@ from src.learning.records import (
     resolve_deadline,
     sessions_between,
 )
+from src.learning.session import (
+    CaptureResult,
+    build_process_record,
+    capture_session,
+    capture_transcript,
+    research_writes,
+    rework_count,
+    scan_transcripts,
+    summarize,
+)
 from src.learning.store import (
     SCHEMA_VERSION,
     AppendResult,
@@ -70,6 +80,14 @@ from src.learning.transcript import (
 )
 
 __all__ = [
+    "CaptureResult",
+    "build_process_record",
+    "capture_session",
+    "capture_transcript",
+    "research_writes",
+    "rework_count",
+    "scan_transcripts",
+    "summarize",
     "CANDIDATE_FIELDS",
     "PLAUSIBLE_RATIO",
     "PROMPT_TEMPLATE",

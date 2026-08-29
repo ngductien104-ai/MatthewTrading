@@ -19,6 +19,10 @@ agent/.env
 
 .claude/*
 !.claude/hooks.json
+# The learning-loop capture only exists if its hook config travels with the repo.
+# settings.local.json stays ignored: that is where machine-specific permissions live.
+!.claude/settings.json
+!.claude/hooks/
 CLAUDE.md
 .vscode/
 learn-claude-code-main/

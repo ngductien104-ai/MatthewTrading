@@ -544,6 +544,21 @@ class LearningStore:
         return ProcessRecord.from_dict(payload) if payload else None
 
     @_synchronized
+    def process_for_session(self, session_id: str) -> ProcessRecord | None:
+        """Return the current process record for a Claude Code session.
+
+        The capture path needs this to avoid un-knowing things: a catch-up scan
+        cannot say whether a session ended cleanly, so it must not overwrite a
+        ``completed`` flag the session-end hook already set.
+        """
+        row = self._conn.execute(
+            "SELECT process_id FROM process_records WHERE source_session_id = ? "
+            "ORDER BY seq DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        return self.get_process(row["process_id"]) if row else None
+
+    @_synchronized
     def append_lesson(self, lesson: Lesson) -> AppendResult:
         """Append a playbook lesson."""
         return self._append(

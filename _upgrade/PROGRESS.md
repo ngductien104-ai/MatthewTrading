@@ -10,32 +10,44 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 29/08/2026, tối
+## 🔖 ĐIỂM DỪNG — 29/08/2026, tối (sau 1.5)
 
 **Nhánh:** `upgrade/learning-loop`, **chưa push**, cây làm việc sạch.
 
-**Đã xong:** 1.1 `records.py` · 1.2 `transcript.py` · 1.3 `store.py` · 1.4 `extract.py`
-**158 test learning xanh** (49 + 25 + 32 + 52).
-
-**Món nợ 1.3 đã trả.** Full suite chạy lại đầu phiên ra **đúng** con số dự kiến:
+**Giai đoạn 1 xong phần hạ tầng:** 1.1 `records.py` · 1.2 `transcript.py` · 1.3 `store.py`
+· 1.4 `extract.py` · 1.5 `session.py` + `cli.py` + hook `SessionEnd`.
+**183 test learning xanh** (49 + 25 + 32 + 52 + 25).
 
 | Mốc | passed | failed | errors |
 |---|---|---|---|
 | baseline sau G0 | 3142 | 11 | 9 |
-| + 1.1 `records.py` (49 test) | 3191 | 11 | 9 |
-| + 1.2 `transcript.py` (25 test) | 3216 | 11 | 9 |
-| + 1.3 `store.py` (32 test) — **đã đối chiếu 29/08** | **3248** | 11 | 9 |
-| + 1.4 `extract.py` (52 test) | 3300 | 11 | 9 |
+| + 1.1 `records.py` (49) | 3191 | 11 | 9 |
+| + 1.2 `transcript.py` (25) | 3216 | 11 | 9 |
+| + 1.3 `store.py` (32) | 3248 | 11 | 9 |
+| + 1.4 `extract.py` (52) | 3300 | 11 | 9 |
+| + 1.5 `session.py`/`cli.py` (25) | **3325** | 11 | 9 |
 
-Fail/error không đổi một cái nào so với danh sách ở mục "Mốc test baseline".
+Fail/error không đổi một cái nào so với mục "Mốc test baseline".
 
-**Mục kế tiếp: 1.5 — hook cuối phiên Claude Code.** Cần biết trước khi bắt đầu:
-- `.claude/settings.json` hiện **chỉ** có `PreToolUse` matcher `Skill`, và `check-gstack.sh`
-  trả `{}` — tức là **chưa bắt được gì**. Phải thêm hook cuối phiên thật.
-- Đường ống đã đủ để hook gọi: `parse_transcript()` → `extract_document(doc, propose)` →
-  `store_result(store, result)`. Thiếu đúng hai mảnh: **ai đóng vai `propose`** (xem quyết
-  định 2 ở mục 1.4 — provider chưa ngã ngũ) và **một integration test chạy trên phiên thật**.
-- `resolve.py` vẫn hoãn sang Giai đoạn 2, theo phản biện Codex.
+**Hook đã sống.** Lần chạy thật đầu tiên bắt **21 phiên, 1.011.623.992 token**.
+Kiểm tay bất cứ lúc nào:
+
+```sh
+cd C:/Users/VVVZV/MatthewTrading/agent
+C:/Users/VVVZV/MatthewTrading/.venv/Scripts/python.exe -m src.learning.cli scan
+```
+
+Log ở `~/.vibe-trading/hook.log`, sổ cái ở `~/.vibe-trading/learning.db`.
+
+**MỘT nút thắt duy nhất còn lại của Giai đoạn 1: ai đóng vai `propose` cho `extract.py`.**
+Cho tới khi chốt, sổ cái chỉ có `ProcessRecord` (suy ra được, không cần LLM), chưa có
+`CallRecord`. Ba lựa chọn, cần anh chốt:
+1. **Nạp tiền DeepSeek** (hoặc đổi provider ở `~/.vibe-trading/.env`) → backfill chạy tự động.
+2. **Dùng subagent Claude trong phiên** làm `propose` — đúng cách 3 tháng qua vẫn làm.
+3. **Trích tay theo lô**: `build_prompt()` in ra prompt, dán reply vào `parse_proposal()`.
+
+**Mục kế tiếp sau đó: Giai đoạn 2, và 2.2 làm TRƯỚC 2.1** (dữ liệu point-in-time trước,
+thống kê sau) — CPCV/DSR/PBO không cứu nổi universe dính survivorship bias.
 
 ---
 
@@ -325,6 +337,46 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
 - [ ] ~~`resolve.py`~~ — **hoãn sang Giai đoạn 2** (Codex đúng): resolver kéo theo lịch giao dịch,
   sự kiện doanh nghiệp, phiên bản dữ liệu, và dễ che lỗi dataset bằng một outcome đẹp mắt.
   Làm xong capture/backfill/dedupe/audit rồi mới chấm điểm.
-- [ ] **1.5 Hook cuối phiên Claude Code** + integration test chạy một phiên thật.
+- [x] **1.5 Hook cuối phiên Claude Code** — `session.py` + `cli.py` +
+  `.claude/hooks/learning-capture.sh`. **25 test xanh**, gồm một test chạy **thẳng script
+  hook thật** qua `bash` (không mô phỏng), và một test đọc `.claude/settings.json` để chắc
+  hook đã đăng ký.
+  - **Hook KHÔNG đáng tin, và thiết kế phải giả định vậy.** `SessionEnd` chỉ bắn với
+    `clear` / `resume` / `logout` / `prompt_input_exit` — **không** bắn khi tắt terminal,
+    máy sleep, hay tiến trình chết. Nên hook làm hai việc: `capture` phiên hiện tại, rồi
+    `scan` toàn bộ transcript trên đĩa để vá những phiên hook chưa từng bắn. Phiên bị mất
+    không mất dữ liệu, chỉ trễ tới lần kết phiên bình thường kế tiếp.
+  - **Không cần LLM, không cần provider.** Mọi trường đều **suy ra** từ transcript:
+    `tokens` (cộng đủ 4 bộ đếm), `wall_time_sec` (đo trên `observed_at`, không phải
+    timestamp thô — thứ chạy lùi 36 lần), `rework_count`, `research_paths`.
+    `errors_caught` / `rounds` / `data_violations` **cố tình để trống**: chúng cần người
+    đọc phân biệt "lỗi bị bắt" với "sửa văn", và mỗi mục phải có `evidence_id` mới qua
+    được cổng của `ProcessRecord`. Bịa chúng từ số lần gọi tool chính là thứ sổ cái này
+    sinh ra để chặn.
+  - **Idempotent theo nội dung**: `process_id` gieo từ sự kiện **ĐẦU** phiên (không phải
+    sự kiện cuối) nên chạy lại rơi trúng cùng record; `known_at` = `last_observed_at` của
+    phiên, **không phải `utc_now()`** — lấy "bây giờ" thì payload đổi mỗi lần chạy và
+    idempotency chết ngay. Đã kiểm: chạy hook 2 lần → lần 2 append **0**.
+  - ⚠️ **Bẫy đã dính và đã sửa, giữ lại làm test hồi quy** (`test_the_scan_never_un_knows_a_completed_session`):
+    `scan` không biết phiên kết thúc thế nào, nên nó ghi đè `completed=True` của hook thành
+    `False` → payload khác → **mỗi lần chạy lại đẻ thêm một version của cùng một quan sát**.
+    Quy tắc rút ra: **scan chỉ được cộng thêm hiểu biết, không được xoá hiểu biết.**
+  - Cùng bệnh đó làm em **bỏ hẳn `git_commit`** khỏi capture: một phiên Claude Code kéo
+    dài nhiều commit nên "commit mà phiên chạy trên" không có nghĩa xác định; giữ lại chỉ
+    tạo một trường lúc có lúc không. Trường này thuộc về **swarm run** (một lần chạy bó gọn
+    trên một checkout), không thuộc về phiên tương tác.
+  - **`timeout: 30` là bắt buộc, không phải cho sang.** Hook `SessionEnd` dùng chung ngân
+    sách **1,5 giây**; đặt timeout dài hơn thì Claude Code mới nâng ngân sách (tối đa 60s).
+    Đo thật: capture + scan 21 transcript = **~4 giây**. Không đặt timeout thì hook bị giết
+    giữa chừng. Có test khoá điều này.
+  - ⚠️ **`.gitignore` đang chặn `.claude/*`** — hook chỉ tồn tại trên máy này thì đúng bằng
+    cái bệnh cũ (xem Đính chính 4). Đã mở đúng hai lối: `!.claude/settings.json` và
+    `!.claude/hooks/`. `settings.local.json` **vẫn bị chặn** (chỗ để quyền hạn theo máy).
+  - Log: `~/.vibe-trading/hook.log` (cạnh `learning.db`). Mọi lỗi được ghi kèm giờ + exit 1
+    — `SessionEnd` coi đó là cảnh báo không chặn, nên hook không bao giờ giết phiên.
+  - **Số đo thật lần chạy đầu, 21 phiên:** tổng **1.011.623.992 token**; phiên lớn nhất
+    317,8 triệu token / 9,5 giờ; `rework_count` cao nhất 10.
+  - Còn thiếu để khép Giai đoạn 1: **ai đóng vai `propose`** cho `extract.py` (provider chưa
+    ngã ngũ) — `research_paths` đã sẵn trong `CaptureResult` để nạp cho vòng trích xuất đó.
 ## Giai đoạn 2 — PIT + backtest cứng *(chưa bắt đầu)*
 ## Giai đoạn 3 — Playbook + vòng lặp tự động *(chưa bắt đầu)*
