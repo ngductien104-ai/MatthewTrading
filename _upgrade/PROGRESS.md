@@ -10,44 +10,32 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 29/08/2026, chiều
+## 🔖 ĐIỂM DỪNG — 29/08/2026, tối
 
-**Nhánh:** `upgrade/learning-loop`, **chưa push**, cây làm việc sạch (không có gì dở dang).
+**Nhánh:** `upgrade/learning-loop`, **chưa push**, cây làm việc sạch.
 
-**Đã xong hôm nay:** 1.1 `records.py` · 1.2 `transcript.py` · 1.3 `store.py`
-→ 5 commit: `0507337`, `b099a5d`, `3095f14`, `f3a4991` + commit docs này.
-**106 test learning xanh** (49 + 25 + 32).
+**Đã xong:** 1.1 `records.py` · 1.2 `transcript.py` · 1.3 `store.py` · 1.4 `extract.py`
+**158 test learning xanh** (49 + 25 + 32 + 52).
 
-**Việc ĐẦU TIÊN khi mở lại — một món nợ, làm trước khi viết code mới:**
-
-```sh
-cd C:/Users/VVVZV/MatthewTrading/agent
-C:/Users/VVVZV/MatthewTrading/.venv/Scripts/python.exe -m pytest tests/ -q
-```
-
-Mốc phải khớp: **11 failed, 3248 passed, 1 skipped, 9 errors**.
-
-Đường đi của con số, để anh tự kiểm:
+**Món nợ 1.3 đã trả.** Full suite chạy lại đầu phiên ra **đúng** con số dự kiến:
 
 | Mốc | passed | failed | errors |
 |---|---|---|---|
 | baseline sau G0 | 3142 | 11 | 9 |
-| + 1.1 `records.py` (49 test) — **đã đối chiếu** | 3191 | 11 | 9 |
-| + 1.2 `transcript.py` (25 test) — **đã đối chiếu** | 3216 | 11 | 9 |
-| + 1.3 `store.py` (32 test) — **CHƯA đối chiếu** | *3248 (dự kiến)* | 11 | 9 |
+| + 1.1 `records.py` (49 test) | 3191 | 11 | 9 |
+| + 1.2 `transcript.py` (25 test) | 3216 | 11 | 9 |
+| + 1.3 `store.py` (32 test) — **đã đối chiếu 29/08** | **3248** | 11 | 9 |
+| + 1.4 `extract.py` (52 test) | 3300 | 11 | 9 |
 
-Chỉ mình **1.3** còn nợ full suite: 32 test store xanh riêng và `--collect-only` thu
-3269 test không vỡ import, nhưng lần chạy full cuối cùng khởi động **trước khi** `store.py`
-tồn tại. Nếu ra đúng 3248 pass và fail/error không đổi thì hết nợ, đi thẳng vào 1.4.
-Fail nào **ngoài** danh sách 11 fail / 9 error ở mục "Mốc test baseline" là do `store.py`.
+Fail/error không đổi một cái nào so với danh sách ở mục "Mốc test baseline".
 
-**Mục kế tiếp: 1.4 `extract.py`.** Đã có sẵn mọi thứ nó cần:
-- `parse_transcript()` cho ra sự kiện đã ghép tool + `observed_at` đơn điệu
-- `LearningStore.append_call()` đã cưỡng chế cổng bằng chứng và append-only
-- Việc còn lại của 1.4: LLM trích → **validator thuần code chốt** (thiếu `ticker`/`as_of`/
-  `action` → từ chối; thiếu `target`/`confidence` → nhận + cờ `incomplete` — logic này
-  `CallRecord` đã làm sẵn, `extract.py` chỉ cần gọi đúng). Đầu ra bắt buộc kèm
-  `Evidence` có `source_uuid` + `sha256` + đoạn trích, đúng thứ tự: bằng chứng trước, call sau.
+**Mục kế tiếp: 1.5 — hook cuối phiên Claude Code.** Cần biết trước khi bắt đầu:
+- `.claude/settings.json` hiện **chỉ** có `PreToolUse` matcher `Skill`, và `check-gstack.sh`
+  trả `{}` — tức là **chưa bắt được gì**. Phải thêm hook cuối phiên thật.
+- Đường ống đã đủ để hook gọi: `parse_transcript()` → `extract_document(doc, propose)` →
+  `store_result(store, result)`. Thiếu đúng hai mảnh: **ai đóng vai `propose`** (xem quyết
+  định 2 ở mục 1.4 — provider chưa ngã ngũ) và **một integration test chạy trên phiên thật**.
+- `resolve.py` vẫn hoãn sang Giai đoạn 2, theo phản biện Codex.
 
 ---
 
@@ -280,7 +268,60 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
   - Migration: `PRAGMA user_version`, `SCHEMA_VERSION = 1`. DB cũ chưa đóng dấu → nâng
     tại chỗ, **không đụng bảng lạ có sẵn**. DB đóng dấu **cao hơn** build hiện tại →
     `LedgerError`, từ chối mở, thà không ghi còn hơn ghi ra dòng mà bản mới đọc sai.
-- [ ] **1.4 `extract.py`** — đầu ra phải kèm trích dẫn + UUID sự kiện nguồn + span.
+- [x] **1.4 `extract.py`** — LLM trích, **code chốt**. **52 test xanh** (gồm 1 test chạy
+  thẳng trên corpus thật 229 file / 4,3 MB, không skip).
+  - **Đo corpus trước khi viết code** (229 file markdown trong `_*`, 4,3 MB):
+
+    | Cách viết số | Số hit |
+    |---|---|
+    | `%` | 18.040 |
+    | nghìn chấm (`72.200`) | 12.130 |
+    | dải giá `A–B` | 5.510 |
+    | `tỷ` | 3.167 |
+    | ngày `dd/mm/yy` | 2.126 |
+    | hậu tố `đ / đồng / VND` | 1.510 |
+    | hậu tố `k` (`94k`) | 441 |
+
+    Và: **chỉ 3/18 `run.json` có `final_report` khác rỗng** (9.351 / 10.404 / 14.739 ký tự);
+    15 file còn lại rỗng → bỏ qua, không đưa vào extractor như tài liệu trắng.
+  - **Ranh giới người/máy đặt ở đâu:** model được nói *call nằm ở đâu* (mã, ngày, hành động,
+    và **trích dẫn nguyên văn** cho MỌI con số nó khai). Model **không** được nói *con số là bao
+    nhiêu* — mọi giá được đọc lại từ chính đoạn trích bằng `parse_prices()`, khai mà không tìm
+    thấy trong trích dẫn của chính mình → **từ chối**, không sửa hộ.
+  - **Bẫy nghìn — chỗ khó nhất, và là lý do module này tồn tại.** Cùng một tài liệu viết
+    `72.200 đ`, `58,8k`, `25.000` **và** `vùng 64–65` / `stop dưới 60`. Đọc `64` thành 64 đồng
+    hay lặng lẽ nhân 1.000 đều làm hỏng sổ cái (target lệch 1.000 lần chấm ra "miss thảm hoạ"
+    trông y như miss thật). `resolve_scale()` **chỉ nhân khi phép chia chứng minh được**: so cả
+    hai cách đọc với `ref_price`; đúng một cách lọt dải `[0,2 ; 5,0]` thì lấy cách đó, cả hai
+    hoặc không cách nào lọt → **raise**. Không có `ref_price` để làm thước → cũng raise, chứ
+    không lưu 60 đồng.
+  - `ref_price` là thước đo của mọi giá khác nên là số **duy nhất không được suy ra**: viết trần
+    (`61,5`) thì chỉ được chấp nhận khi trong trích dẫn có một token neo đúng bằng 1.000 lần.
+  - **Dải giá vouch cho trung điểm của chính nó** — `22.000–27.500` đủ chứng cho target 24.750,
+    và dải gốc được ghi nguyên văn vào `notes` để còn kiểm lại được.
+  - `locator` (`L3-L3`) **do code tính bằng `str.find`**, không lấy offset model khai:
+    offset model đưa là một lời quả quyết, offset tìm được là một sự thật.
+  - Cổng đã cắm: thiếu `ticker`/`as_of`/`action` → từ chối; thiếu `target`/`confidence` → nhận,
+    `incomplete`; hành động ngoài từ vựng → raise (`BÁN / TRÁNH MUA ĐUỔI` buộc phải chọn một);
+    `as_of` sau mtime tài liệu → `future_dated`; target > 5× hoặc < 0,2× `ref_price` → lỗi đơn vị;
+    `confidence: 61%` khai thành `61` → chết ở cổng phân số của `records.py`.
+  - Số trong ngày tháng bị gắn nhãn `date`, `tỷ` → `billion`, `%` → `percent`: `2026` trong
+    `27/08/2026` **không được phép** làm chứng cho một mức chỉ số bịa.
+  - **Ba quyết định em tự chốt, có lý do:**
+    1. **Khoá episode cho nguồn ngoài transcript = thư mục chứa** (`_fpt_research`, hoặc run id
+       của swarm), còn `source_session_id` **để rỗng**. Nhét khoá thư mục vào trường session là
+       nói dối về ngữ nghĩa trường đó; mà để rỗng thì `episode_id_for()` gộp mọi call FPT mọi
+       thời điểm vào **một** episode — nên khoá phải đi đường riêng.
+    2. **`propose` là tham số tiêm vào, không nối provider.** Provider của repo còn chưa ngã ngũ
+       (hai file `.env` đá nhau, DeepSeek số dư $0 — xem mục Đính chính 1), và backfill phải
+       dựng lại được từ câu trả lời đã lưu. Ai gọi cũng được: subagent Claude, hay một reply
+       chép tay.
+    3. **`assign_revisions()`** đánh lại số revision trong từng episode + nối `supersedes`.
+       Vệt FPT 93.000 → 69.500 → 59.000 → 58.800 nằm rải nhiều file; không đánh số thì
+       `latest_revision()` không biết đâu là điểm chấm. Bản gốc **không bị sửa** (sổ cái
+       append-only) — hàm trả về record mới.
+  - Một tài liệu hỏng **không** làm gãy backfill: reply không phải JSON → một `Rejection`
+    mã `bad_json`, không raise. 10 mã từ chối là từ vựng đóng, đếm được như `ERROR_TAXONOMY`.
 - [ ] ~~`resolve.py`~~ — **hoãn sang Giai đoạn 2** (Codex đúng): resolver kéo theo lịch giao dịch,
   sự kiện doanh nghiệp, phiên bản dữ liệu, và dễ che lỗi dataset bằng một outcome đẹp mắt.
   Làm xong capture/backfill/dedupe/audit rồi mới chấm điểm.
