@@ -361,6 +361,37 @@ def _document(path: Path, kind: str, episode_key: str, text: str | None = None) 
     )
 
 
+def load_document(path: str | Path) -> SourceDocument:
+    """Load one document, reading its episode key off its own path.
+
+    The key is the first ``_``-prefixed directory above the file, because one
+    research folder is one episode. A file outside any such folder gets its
+    parent directory instead, which keeps it from silently joining somebody
+    else's episode.
+
+    Args:
+        path: File to load. ``run.json`` is unwrapped to its ``final_report``.
+
+    Returns:
+        The document, ready for :func:`build_prompt`.
+
+    Raises:
+        ExtractionError: The file is a ``run.json`` with no report in it.
+    """
+    source = Path(path)
+    episode_key = next(
+        (part for part in source.parts if part.startswith("_") and part != "_"),
+        source.parent.name,
+    )
+    if source.name == "run.json":
+        payload = json.loads(source.read_text(encoding="utf-8", errors="replace"))
+        report = str(payload.get("final_report") or "").strip()
+        if not report:
+            raise ExtractionError(f"{source} has an empty final_report")
+        return _document(source, "run_artifact", source.parent.name, text=report)
+    return _document(source, "markdown", episode_key)
+
+
 def iter_research_documents(root: str | Path) -> Iterator[SourceDocument]:
     """Yield markdown under the ``_*`` research folders, one episode per folder."""
     base = Path(root)

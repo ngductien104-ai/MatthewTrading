@@ -30,6 +30,7 @@ from src.learning.extract import (
     extract_document,
     iter_research_documents,
     iter_run_documents,
+    load_document,
     parse_prices,
     parse_proposal,
     resolve_scale,
@@ -573,3 +574,32 @@ def test_a_price_reported_as_text_is_refused_not_crashed(document):
     assert result.calls == []
     assert [item.code for item in result.rejections] == ["invalid_record"]
     assert "is not a number" in result.rejections[0].message
+
+
+# -- loading a document by path ------------------------------------------------
+
+
+def test_the_episode_key_comes_from_the_research_folder(tmp_path):
+    path = _write(tmp_path, "_fpt_research/sub/00.md", "Giá chốt 72.200 đ")
+    document = load_document(path)
+    assert document.episode_key == "_fpt_research"
+    assert document.kind == "markdown"
+
+
+def test_a_file_outside_a_research_folder_keeps_its_own_parent(tmp_path):
+    """It must not silently join somebody else's episode."""
+    path = _write(tmp_path, "notes/loose.md", "Giá chốt 72.200 đ")
+    assert load_document(path).episode_key == "notes"
+
+
+def test_a_run_artifact_is_unwrapped_to_its_report(tmp_path):
+    path = _write(tmp_path, "runs/swarm-b/run.json", json.dumps({"final_report": "MUA FPT"}))
+    document = load_document(path)
+    assert document.text == "MUA FPT"
+    assert (document.kind, document.episode_key) == ("run_artifact", "swarm-b")
+
+
+def test_an_empty_run_report_is_refused_rather_than_loaded(tmp_path):
+    path = _write(tmp_path, "runs/swarm-a/run.json", json.dumps({"final_report": ""}))
+    with pytest.raises(ExtractionError, match="empty final_report"):
+        load_document(path)

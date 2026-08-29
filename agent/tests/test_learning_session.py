@@ -348,3 +348,93 @@ def test_the_capture_never_looks_into_the_future(tmp_path, store):
     written = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
     known = datetime.fromisoformat(record.known_at.replace("Z", "+00:00"))
     assert known <= written
+
+
+# -- the backfill verbs -------------------------------------------------------
+
+_DOC_BODY = "# FPT\n\n**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**\n"
+
+
+def _research_doc(root: Path) -> Path:
+    path = root / "_fpt_research" / "00.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_DOC_BODY, encoding="utf-8")
+    return path
+
+
+def test_prompt_prints_the_contract_and_the_document(ledger_env, capsys):
+    doc = _research_doc(ledger_env)
+    assert cli.main(["prompt", "--doc", str(doc)]) == 0
+    printed = capsys.readouterr().out
+    assert "Every quote must appear character-for-character" in printed
+    assert "**Giá mục tiêu ~58.800 đ**" in printed
+
+
+def test_extract_stores_only_what_the_validator_verifies(ledger_env, capsys):
+    doc = _research_doc(ledger_env)
+    reply = ledger_env / "reply.json"
+    reply.write_text(
+        json.dumps(
+            {
+                "calls": [
+                    {
+                        "ticker": "FPT",
+                        "as_of": "2026-08-27",
+                        "action": "giảm tỷ trọng",
+                        "ref_price": 72200,
+                        "target": 58800,
+                        "quotes": ["**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**"],
+                    },
+                    {
+                        "ticker": "FPT",
+                        "as_of": "2026-08-27",
+                        "action": "mua",
+                        "target": 99999,
+                        "quotes": ["**Giá mục tiêu ~58.800 đ**"],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert cli.main(["extract", "--doc", str(doc), "--reply", str(reply)]) == 0
+    printed = capsys.readouterr().out
+    assert "1 call(s) [FPT]" in printed
+    assert "number_not_in_evidence" in printed
+    with LearningStore(cli.default_db_path()) as store:
+        stored = store.list_calls("FPT")
+        assert len(stored) == 1
+        assert stored[0].target == 58800.0
+
+
+def test_replaying_the_same_reply_adds_no_second_observation(ledger_env, capsys):
+    doc = _research_doc(ledger_env)
+    reply = ledger_env / "reply.json"
+    reply.write_text(
+        json.dumps(
+            {
+                "calls": [
+                    {
+                        "ticker": "FPT",
+                        "as_of": "2026-08-27",
+                        "action": "giảm tỷ trọng",
+                        "ref_price": 72200,
+                        "target": 58800,
+                        "quotes": ["**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    cli.main(["extract", "--doc", str(doc), "--reply", str(reply)])
+    cli.main(["extract", "--doc", str(doc), "--reply", str(reply)])
+    capsys.readouterr()
+    with LearningStore(cli.default_db_path()) as store:
+        assert store.counts()["calls"] == 1
+
+
+def test_a_missing_reply_file_fails_without_raising(ledger_env, capsys):
+    doc = _research_doc(ledger_env)
+    assert cli.main(["extract", "--doc", str(doc), "--reply", str(ledger_env / "nope.json")]) == 1
+    assert "failed" in capsys.readouterr().err
