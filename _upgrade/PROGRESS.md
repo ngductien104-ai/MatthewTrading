@@ -10,6 +10,39 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
+## 🔖 ĐIỂM DỪNG — 29/08/2026, chiều
+
+**Nhánh:** `upgrade/learning-loop`, **chưa push**, cây làm việc sạch (không có gì dở dang).
+
+**Đã xong hôm nay:** 1.1 `records.py` · 1.2 `transcript.py` · 1.3 `store.py`
+→ 5 commit: `0507337`, `b099a5d`, `3095f14`, `f3a4991` + commit docs này.
+**106 test learning xanh** (49 + 25 + 32).
+
+**Việc ĐẦU TIÊN khi mở lại — một món nợ, làm trước khi viết code mới:**
+
+```sh
+cd C:/Users/VVVZV/MatthewTrading/agent
+C:/Users/VVVZV/MatthewTrading/.venv/Scripts/python.exe -m pytest tests/ -q
+```
+
+Mốc phải khớp: **11 failed, 3247 passed, 1 skipped, 9 errors**
+(= baseline sau G0 là 3142 pass, cộng 106 test learning mới, trừ 1 vì cách đếm skip).
+Con số pass chính xác chưa xác minh — 1.1 đã đối chiếu full suite (3191 pass, fail/error
+không đổi), nhưng **1.2 và 1.3 mới chỉ qua cổng nhẹ**: 106 test learning xanh +
+`--collect-only` thu 3269 test không vỡ import. Full suite cho 1.2/1.3 **chưa chạy xong**
+(mất ~11 phút, anh tắt máy trước khi nó về). Nếu có fail nào **ngoài** danh sách 11 fail /
+9 error có sẵn ở mục "Mốc test baseline" thì đó là do 3 module mới, sửa trước khi đi tiếp.
+
+**Mục kế tiếp: 1.4 `extract.py`.** Đã có sẵn mọi thứ nó cần:
+- `parse_transcript()` cho ra sự kiện đã ghép tool + `observed_at` đơn điệu
+- `LearningStore.append_call()` đã cưỡng chế cổng bằng chứng và append-only
+- Việc còn lại của 1.4: LLM trích → **validator thuần code chốt** (thiếu `ticker`/`as_of`/
+  `action` → từ chối; thiếu `target`/`confidence` → nhận + cờ `incomplete` — logic này
+  `CallRecord` đã làm sẵn, `extract.py` chỉ cần gọi đúng). Đầu ra bắt buộc kèm
+  `Evidence` có `source_uuid` + `sha256` + đoạn trích, đúng thứ tự: bằng chứng trước, call sau.
+
+---
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```
@@ -186,15 +219,59 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
   - `deadline` tính theo **phiên giao dịch**, không phải `known_at + horizon_days`
     (rơi vào cuối tuần/nghỉ lễ). Chốt rõ giá tham chiếu: close / next open / giá lúc phát ngôn.
   - Cổng chống hindsight áp theo **provenance từng bằng chứng**, không chỉ timestamp record.
-- [ ] **1.2 `transcript.py`** — parser + golden fixtures từ transcript thật.
-  Bẫy đã kiểm chứng: **JSONL là DAG sự kiện, không phải log tuyến tính.** Tool chạy song song
-  phát ở dòng 18-19, kết quả về dòng 20-21 → ghép theo thứ tự dòng là gán nhầm bằng chứng.
-  Phải ghép `tool_use.id ↔ tool_result.tool_use_id`, dựng nhánh bằng `parentUuid`,
-  loại `thinking`/`attachment`/`file-history-*` khỏi văn bản, và chịu được
-  4 `tool_use` không có kết quả (bị ngắt).
-- [ ] **1.3 `store.py`** — idempotency theo hash sự kiện + test migration.
-  ⚠️ **Không** bê nguyên "evidence gate" của `goal/store.py:894` — đó là cổng *hoàn tất goal*,
-  ngữ nghĩa khác, và nó không chứng minh gì về append-only.
+- [x] **1.2 `transcript.py`** — parser + golden fixture. **25 test xanh**, gồm một test
+  chạy thẳng trên 20 transcript thật (không skip).
+  - **Đo lại toàn corpus trước khi viết một dòng code** (20 file, 39,5 MB):
+
+    | Bẫy | Số thật |
+    |---|---|
+    | `tool_result` **không** nằm ở dòng kế tiếp | **648 / 1.946** — ghép theo dòng gán nhầm **1/3** bằng chứng |
+    | `tool_use` không có kết quả (bị ngắt) | **4** (đúng ghi chú cũ) |
+    | Sự kiện sidechain | **0** — suy luận subagent không hề được ghi |
+    | Dòng JSON hỏng | 0 |
+    | `parentUuid` trỏ hụt | 0 · mỗi file đúng 1 gốc, 1 `sessionId` |
+
+  - **Phát hiện mới, kế hoạch chưa lường: timestamp CHẠY LÙI — 36 lần.** Phần lớn là
+    jitter dưới giây, nhưng có **3 lần lùi hẳn ~120 giây** (file `73b3e10f`). Hệ quả:
+    thứ tự dòng mới là sự thật, timestamp chỉ là tham khảo. Nên mỗi sự kiện mang **hai**
+    mốc: `timestamp` (nguyên trạng) và **`observed_at` = max luỹ tiến** theo thứ tự dòng.
+    **Tường chống hindsight phải dùng `observed_at`** — dùng `timestamp` thô thì riêng
+    jitter đồng hồ đã đủ tố oan một bằng chứng vốn đứng trước.
+  - Ghép tool **chỉ** bằng `tool_use.id ↔ tool_result.tool_use_id`. `misordered_tool_calls()`
+    và `unresolved_tool_calls()` phơi ra đúng các ca mà parser theo vị trí sẽ làm hỏng.
+  - Kiểu sự kiện lạ **không bị nuốt** — vào `Transcript.unknown_types` và test corpus thật
+    sẽ đỏ khi harness đổi định dạng. 13 kiểu bookkeeping liệt kê tường minh, không lọc ngầm.
+  - `thinking` bị loại khỏi `text` nhưng gắn cờ `has_thinking`: đó là nháp của model,
+    không phải điều đã nói ra; cho backfill trích dẫn nó là bịa lại luận điểm.
+  - ⚠️ **Fixture dựng tay, KHÔNG cắt từ transcript thật** — repo public, transcript có
+    dữ liệu nghiên cứu khách hàng. `agent/tests/fixtures/transcript_golden.jsonl` tái tạo
+    đủ 7 bẫy đã đo (song song, lệch thứ tự, lùi giờ, bị ngắt, thinking, kiểu lạ, đuôi cụt).
+    Test corpus thật kiểm **bất biến**, không kiểm con số cứng, để không mục theo thời gian.
+  - **Trần của backfill, phải nói thẳng:** 0 sidechain nghĩa là `ProcessRecord` dựng từ
+    transcript chỉ thấy góc nhìn của người điều phối, không thấy lập luận subagent.
+- [x] **1.3 `store.py`** — sổ cái SQLite append-only. **32 test xanh.**
+  - **Append-only cưỡng chế bằng TRIGGER SQL, không bằng quy ước.** Mỗi bảng có
+    `seq` tự tăng làm khoá; id của record chỉ là cột thường. Ghi lại = **thêm dòng**,
+    `seq` cao nhất thắng, bản cũ đọc được vĩnh viễn. `BEFORE UPDATE` / `BEFORE DELETE`
+    trên cả 5 bảng đều `RAISE(ABORT)`. Đây là thuốc chữa trực tiếp cho bệnh `Home.md`:
+    một caller sau này **không thể** vô tình tái lập lỗi ghi đè.
+    (Test seed đủ 5 bảng rồi mới thử UPDATE/DELETE — trigger cấp dòng không bắn trên
+    bảng rỗng, test bỏ qua chỗ này thì chứng minh được số không.)
+  - **Idempotency theo NỘI DUNG**: unique index `(record_id, content_hash)`.
+    Chạy lại backfill trên transcript không đổi → chèn 0 dòng, audit ghi
+    `duplicate_ignored`. Parser tốt lên làm đổi nội dung → thêm **phiên bản mới của cùng
+    một quan sát**, không đẻ quan sát thứ hai. Đây chính là lý do `call_id` không chứa
+    `parser_version`.
+  - **Cổng bằng chứng cưỡng chế lúc GHI**: call/outcome trích `evidence_id` mà sổ cái
+    chưa từng thấy → `LedgerError`; bằng chứng đã có thì kiểm tường hindsight ngay.
+    Ghi call trước rồi bằng chứng sau sẽ để tường không được kiểm, nên **ép thứ tự**
+    thay vì tin. Có `append_call_with_evidence()` làm đúng thứ tự đó.
+  - ⚠️ Đúng như cảnh báo: **không** bê `_validate_completion_audit` của `goal/store.py:894`.
+    Nó gác việc *hoàn tất goal*, ngữ nghĩa khác, và không chứng minh gì về append-only.
+    Chỉ mượn lại WAL + `RLock`/`_synchronized` + `PRAGMA user_version`.
+  - Migration: `PRAGMA user_version`, `SCHEMA_VERSION = 1`. DB cũ chưa đóng dấu → nâng
+    tại chỗ, **không đụng bảng lạ có sẵn**. DB đóng dấu **cao hơn** build hiện tại →
+    `LedgerError`, từ chối mở, thà không ghi còn hơn ghi ra dòng mà bản mới đọc sai.
 - [ ] **1.4 `extract.py`** — đầu ra phải kèm trích dẫn + UUID sự kiện nguồn + span.
 - [ ] ~~`resolve.py`~~ — **hoãn sang Giai đoạn 2** (Codex đúng): resolver kéo theo lịch giao dịch,
   sự kiện doanh nghiệp, phiên bản dữ liệu, và dễ che lỗi dataset bằng một outcome đẹp mắt.
