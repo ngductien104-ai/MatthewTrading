@@ -10,76 +10,71 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 29/08/2026, tối muộn (hết quota giữa backfill)
+## 🔖 ĐIỂM DỪNG — 29/08/2026, khuya (backfill vòng 2 xong)
 
-**Nhánh:** `upgrade/learning-loop`, **chưa push**, cây làm việc sạch.
-4 commit hôm nay: `63924cd` (1.4) · `408f280` (1.5) · `78facab` (gitattributes) · `e513689` (verb backfill).
+**Nhánh:** `upgrade/learning-loop`, **đã push tới `0c24536`**; sau đó còn 3 commit chưa push.
+**208 test learning xanh.** Cây làm việc sạch.
+**Full suite đã đối chiếu: `11 failed, 3350 passed, 1 skipped, 9 errors`** — fail/error
+không đổi một cái nào so với baseline. Hết nợ đối chiếu.
 
-**Đã xong:** 1.1 → 1.5 + hai verb backfill `prompt` / `extract`.
-**191 test learning xanh** (49 + 25 + 32 + 56 + 29).
+### Sổ cái thật `~/.vibe-trading/learning.db`
 
-### VIỆC ĐẦU TIÊN KHI MỞ LẠI — sửa từ vựng action, rồi chạy lại backfill
+`process_records=21` · **`calls=11`** · `evidence=46` · outcomes=0 · lessons=0
 
-Backfill đã chạy thử 12 tài liệu. **Chỉ 1/12 lọt: FPT.** Nguyên nhân **KHÔNG phải
-lỗi trích xuất** — là **lỗi hợp đồng của em**, và nó lộ ra đúng chỗ đáng lộ:
+| Mã | Ngày | Action | Giá tham chiếu | Mục tiêu | Upside | Conf |
+|---|---|---|---|---:|---:|---|
+| HAH | 15/06 | neutral | 54.500 | 57.400 | +5,3% | — |
+| BSR | 17/06 | wait | 26.350 | 24.000 | −8,9% | 0,75 |
+| PHP | 17/06 | wait | 38.700 | 37.000 | −4,4% | 0,78 |
+| SBT | 18/06 | wait | 21.300 | 19.500 | −8,5% | 0,80 |
+| PHR | 30/06 | accumulate | 62.000 | 72.000 | +16,1% | 0,61 |
+| VCB ACB MBB HDB | 21/07 | hold | — | — | — | — |
+| STB | 21/07 | avoid | — | — | — | — |
+| FPT | 27/08 | reduce | 72.200 | 58.800 | −18,6% | — |
 
-`extract.py` bảo model *"action, exactly as written in the document"*, nên model chép
-**cả câu**, trong khi `normalize_action()` là **từ vựng đóng** chỉ nhận cụm ngắn.
-Kết quả thật (đây là dữ liệu, không phải phỏng đoán):
+### Ba lỗi CỦA EM mà vòng backfill này moi ra (đã sửa hết)
 
-| Tài liệu | `action` model trả về | Kết quả |
-|---|---|---|
-| `_fpt_research/00_bao_cao_tong_hop.md` | `GIẢM TỶ TRỌNG` | ✅ `reduce`, 4 bằng chứng |
-| `_vre_committee/PM_DECISION.md` | *(nguyên một câu kết luận 17 chữ — cắt ở đây vì repo public)* | ❌ unknown_action |
-| `_bsr_research/report.md` | `WAIT (đứng ngoài chủ động)` | ❌ |
-| `_php_research/report.md` | `WAIT (cho), nghieng nhe tich luy co dieu kien...` | ❌ |
-| `_HAH_research/HAH_BaoCao.md` | `TRUNG LẬP / TÍCH LŨY` | ❌ |
-| `_sector_rotation_2026H2/00_TONGHOP...` | `nắm` ×4, `loại tuyệt đối` ×1 | ❌ |
-| `_phr_committee/PM_DECISION.md`, `_pet_committee/PM_DECISION.md` | (câu dài) | ❌ |
-| `_hpg_research/BAO_CAO_HPG_forum_bao.md` | — | 0 call, model tự thấy không có call |
-| `_social_alpha_lpb/04_alpha_synthesis.md` | 3 câu dài + 1 giá mập mờ | ❌ scale_ambiguous ×1 |
+1. **Từ vựng action thiếu chữ mà bàn giao dịch thật sự viết.** Grep corpus theo dấu
+   "Khuyến nghị/Kết luận" lòi ra `KHẢ QUAN`, `TĂNG TỶ TRỌNG`, `KÉM KHẢ QUAN`, `NẮM`,
+   `ĐỨNG NGOÀI`, `LOẠI`, `CHỐT LỜI` — đều là từ xếp hạng chuẩn, không phải diễn giải.
+   Đồng thời siết prompt: đòi **cụm ngắn**, nói thẳng "một câu sẽ bị từ chối".
+2. **Corpus trộn HAI quy ước thập phân trong cùng một file.** `Giá tham chiếu **54.8**`
+   nằm cách `chỉ ≤ 53,5` bốn dòng. Parser coi mọi dấu chấm là phân nhóm nghìn nên đọc
+   `54.8` thành **54**. Dạng chấm-thập-phân xuất hiện **5.909 lần / 32 thư mục** — là
+   quy ước, không phải lỗi đánh máy. Nay: chấm trước đúng 3 chữ số = phân nhóm; chấm
+   trước 1–2 chữ số = dấu thập phân.
+3. **`action` là trường DUY NHẤT model được khai mà không cần bằng chứng.** Giao một
+   memo hoán đổi viết bằng tiếng Anh, extractor khai action `MUA THEO ĐỢT` — và **tự
+   khai luôn** rằng nó *ánh xạ* cơ chế sang cụm gần nhất trong danh sách. Ánh xạ có thể
+   đúng, nhưng đó vẫn là một khẳng định về tài liệu không hề nói thế.
+   Nay `action` phải **có mặt trong chính trích dẫn của nó**, y như mọi con số.
+   → 24 fixture của em đỏ, tất cả vì cùng lý do đó; đã sửa fixture, **không nới cổng**.
 
-**Cách sửa — chọn MỘT, đừng làm cả hai:**
-- **(A, em nghiêng về cái này)** Sửa **prompt** trong `extract.py`: bắt model trả
-  `action` là **một cụm ngắn có trong tài liệu** (`GIẢM TỶ TRỌNG`, `TÍCH LŨY`, `nắm`…),
-  **và** thêm câu đó vào `quotes`. Từ vựng đóng giữ nguyên — đó là cổng chống đoán bừa,
-  đừng nới nó ra thành khớp-chuỗi-con.
-- **(B)** Thêm alias thật vào `ACTION_ALIASES`: `nam` → hold, `loai tuyet doi` → avoid,
-  `dung ngoai` → wait. **Chỉ** thêm cụm ngắn thật sự là từ vựng ngành; **không** thêm câu dài.
+Ngoài ra `_anchor_price` từng quá chặt (đòi token neo **đúng bằng** ref_price×1000) nên
+PHR `62,0` bị loại dù cùng call có trích `~72k`. Nay đo theo **trung vị** các giá neo
+trong trích dẫn, giới hạn trong dải giá cổ phiếu hợp lý để **số lượng CP lưu hành
+1.714.326.422 không bao giờ được làm thước**.
 
-Sau khi sửa, chạy lại **không tốn token model** — mọi reply đã lưu:
+### Còn từ chối, và vì sao đó là ĐÚNG
 
-```sh
-cd C:/Users/VVVZV/MatthewTrading/agent
-C:/Users/VVVZV/MatthewTrading/.venv/Scripts/python.exe -m src.learning.cli extract   --doc ../_vre_committee/PM_DECISION.md --reply ~/.vibe-trading/backfill_replies/vre_pm.json
-```
-
-**10 file reply đã lưu ở `~/.vibe-trading/backfill_replies/`** (NGOÀI git — repo public,
-reply chứa trích dẫn nghiên cứu). Ánh xạ tài liệu ↔ reply nằm ở bảng trên.
-
-### Trạng thái sổ cái thật (`~/.vibe-trading/learning.db`)
-
-`process_records=21` · `calls=1` (FPT) · `evidence=4` · `outcomes=0` · `lessons=0`
-21 phiên = **1.024.256.148 token, 92 giờ, 63 lần viết lại**.
-
-### Mốc test
-
-| Mốc | passed | failed | errors |
+| Tài liệu | Mã | Mã lỗi | Việc cần làm |
 |---|---|---|---|
-| baseline sau G0 | 3142 | 11 | 9 |
-| + 1.4 `extract.py` | 3300 | 11 | 9 |
-| + 1.5 `session.py`/`cli.py` (**đã đối chiếu**) | **3325** | 11 | 9 |
-| + 10 test verb backfill (**CHƯA đối chiếu full suite**) | *3335 (dự kiến)* | 11 | 9 |
+| `_switch_tpb_hdb/04_pm_decision.md` | TPB, HDB | `action_not_in_evidence` | Memo tiếng Anh, không có cụm tiếng Việt nào. Phải quyết: bổ sung từ vựng tiếng Anh vào `ACTION_ALIASES`, hay chấp nhận mất call này. |
+| `_vre_committee/PM_DECISION.md` | VRE | `action_not_in_evidence` | Trích dẫn thiếu chính dòng chứa action. **Hỏi lại là lấy được** — tài liệu có cụm hợp lệ. |
+| `_pet_committee/PM_DECISION.md` | PET | `scale_ambiguous` | Trích dẫn không có giá nào ghi đơn vị (chỉ EPS `2.700`). Hỏi lại, đòi trích dòng có đơn vị. |
+| `_social_alpha_lpb/04_alpha_synthesis.md` | LPB | 3×`unknown_action` + 1×`scale_ambiguous` | Tài liệu sentiment, action viết dạng câu. |
+| `_hpg_research/BAO_CAO_HPG_forum_bao.md` | — | (0 call) | Model tự thấy không có call nào — chấp nhận được. |
 
-**Món nợ:** chạy `pytest tests/ -q` từ `agent/`, phải ra **3335 pass**, fail/error không đổi.
-(85 test của hai file learning mới đã xanh riêng.)
+**12 file reply ở `~/.vibe-trading/backfill_replies/`** (ngoài git). Chạy lại không tốn token:
+`python -m src.learning.cli extract --doc ../<doc> --reply ~/.vibe-trading/backfill_replies/<x>.json`
 
-### Sau đó
+### Việc kế tiếp
 
-Còn 2 tài liệu chưa trích (agent bị 429 giết giữa chừng): `_switch_tpb_hdb/04_pm_decision.md`
-và `_sbt_committee/PM_DECISION.md`. MWG **không có `.md`** — chỉ HTML/PDF, nên call MWG 24/07
-trong tiêu chí nghiệm thu G1 phải lấy đường khác.
-Rồi mới sang **Giai đoạn 2, làm 2.2 TRƯỚC 2.1** (point-in-time trước, thống kê sau).
+1. Hỏi lại VRE + PET với prompt đã siết (2 call, rẻ) → sổ cái lên 13.
+2. Quyết TPB/HDB: thêm alias tiếng Anh hay bỏ.
+3. MWG 24/07 **không có `.md`** — chỉ HTML/PDF. Tiêu chí nghiệm thu G1 nhắc mã này nên
+   cần đường khác (parse HTML) hoặc chấp nhận thiếu.
+4. Rồi sang **Giai đoạn 2, làm 2.2 TRƯỚC 2.1**.
 
 ---
 
