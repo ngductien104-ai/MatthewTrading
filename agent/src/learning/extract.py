@@ -442,7 +442,11 @@ Return JSON only, shaped as {{"calls": [...]}}, where each call has:
 
   ticker      required, e.g. "FPT"
   as_of       required, ISO date of the call, "YYYY-MM-DD"
-  action      required, exactly as written in the document (Vietnamese is fine)
+  action      required, the SHORT recommendation phrase as the document writes it --
+              two or three words, e.g. "GIẢM TỶ TRỌNG", "TÍCH LŨY", "KHẢ QUAN",
+              "TRUNG LẬP", "nắm", "đứng ngoài". NEVER a sentence: when the document
+              states the call in a sentence, put the sentence in `quotes` and only its
+              recommendation phrase here. A sentence is refused.
   quotes      required, a list of verbatim excerpts from the document
   ref_price / target / bull / bear / stop   numbers, omit any that is not stated
   confidence  a fraction in [0, 1]; a stated 61% is 0.61
@@ -453,6 +457,8 @@ Rules that are checked in code, so breaking one only loses the call:
   - Every number you report must appear in one of your own quotes.
   - Never convert or round a price. Report what is written; the scale is resolved here.
   - If the document states two actions at once, pick the operative one and quote it.
+  - The action vocabulary is closed. An unlisted phrase is refused rather than guessed,
+    so report the phrase the document actually uses instead of paraphrasing it.
   - Omit a field you cannot quote. A missing target is recorded as incomplete;
     an invented one is a fabricated forecast.
 

@@ -428,3 +428,35 @@ def test_lesson_id_is_stable_across_accents_and_spacing():
     first = Lesson(domain="banle", statement="Không đuổi giá  trần")
     second = Lesson(domain="banle", statement="khong duoi gia tran")
     assert first.lesson_id == second.lesson_id
+
+
+# -- the vocabulary the corpus actually uses -----------------------------------
+
+
+@pytest.mark.parametrize(
+    "written, canonical",
+    [
+        ("KHẢ QUAN", "buy"),
+        ("TĂNG TỶ TRỌNG", "accumulate"),
+        ("nắm", "hold"),
+        ("đứng ngoài", "wait"),
+        ("loại tuyệt đối", "avoid"),
+        ("KÉM KHẢ QUAN", "reduce"),
+        ("chốt lời", "reduce"),
+    ],
+)
+def test_the_broker_rating_words_map_to_canonical_actions(written, canonical):
+    """These are standard Vietnamese rating words, measured in the corpus."""
+    assert normalize_action(written) == canonical
+
+
+def test_a_whole_sentence_is_refused_with_a_usable_hint():
+    """The first backfill failed exactly here: the model sent sentences.
+
+    The vocabulary stays closed -- matching a keyword inside a sentence would be
+    the guessing this gate exists to stop -- so the error has to say what to
+    send instead.
+    """
+    with pytest.raises(RecordValidationError, match="whole sentence") as caught:
+        normalize_action("CÓ, cổ phiếu này đáng đầu tư nhưng không phải ở giá hôm nay")
+    assert "recommendation phrase" in str(caught.value)

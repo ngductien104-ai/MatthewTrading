@@ -74,19 +74,27 @@ ACTION_ALIASES = {
     "tich luy": "accumulate",
     "mua theo dot": "accumulate",
     "gom": "accumulate",
+    "kha quan": "buy",
+    "tang ty trong": "accumulate",
     "nam giu": "hold",
+    "nam": "hold",
     "giu": "hold",
     "trung lap": "neutral",
     "giam ty trong": "reduce",
     "ha ty trong": "reduce",
+    "kem kha quan": "reduce",
+    "chot loi": "reduce",
     "ban": "sell",
     "ban het": "sell",
     "tranh": "avoid",
     "khong mua": "avoid",
     "khong duoi": "avoid",
+    "loai": "avoid",
+    "loai tuyet doi": "avoid",
     "cho": "wait",
     "quan sat": "wait",
     "theo doi": "wait",
+    "dung ngoai": "wait",
 }
 
 VERDICTS = ("hit", "miss", "open", "invalidated")
@@ -176,9 +184,14 @@ def normalize_action(value: str) -> str:
     if folded in ACTION_ALIASES:
         return ACTION_ALIASES[folded]
     allowed = ", ".join(ACTIONS)
+    hint = (
+        " This looks like a whole sentence: pass only its recommendation phrase and put "
+        "the sentence in the evidence instead."
+        if len(folded.split()) > 4
+        else " Add an entry to ACTION_ALIASES rather than guessing."
+    )
     raise RecordValidationError(
-        f"unknown action {value!r}. Canonical actions: {allowed}. "
-        "Add an entry to ACTION_ALIASES rather than guessing."
+        f"unknown action {value!r}. Canonical actions: {allowed}." + hint
     )
 
 
