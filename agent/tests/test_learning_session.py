@@ -352,7 +352,10 @@ def test_the_capture_never_looks_into_the_future(tmp_path, store):
 
 # -- the backfill verbs -------------------------------------------------------
 
-_DOC_BODY = "# FPT\n\n**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**\n"
+_DOC_BODY = (
+    "# FPT\n\n**Khuyến nghị: GIẢM TỶ TRỌNG**\n\n"
+    "**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**\n"
+)
 
 
 def _research_doc(root: Path) -> Path:
@@ -383,14 +386,17 @@ def test_extract_stores_only_what_the_validator_verifies(ledger_env, capsys):
                         "action": "giảm tỷ trọng",
                         "ref_price": 72200,
                         "target": 58800,
-                        "quotes": ["**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**"],
+                        "quotes": [
+                            "**Khuyến nghị: GIẢM TỶ TRỌNG**",
+                            "**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**",
+                        ],
                     },
                     {
                         "ticker": "FPT",
                         "as_of": "2026-08-27",
-                        "action": "mua",
+                        "action": "giảm tỷ trọng",
                         "target": 99999,
-                        "quotes": ["**Giá mục tiêu ~58.800 đ**"],
+                        "quotes": ["**Khuyến nghị: GIẢM TỶ TRỌNG**", "**Giá mục tiêu ~58.800 đ**"],
                     },
                 ]
             }
@@ -420,7 +426,10 @@ def test_replaying_the_same_reply_adds_no_second_observation(ledger_env, capsys)
                         "action": "giảm tỷ trọng",
                         "ref_price": 72200,
                         "target": 58800,
-                        "quotes": ["**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**"],
+                        "quotes": [
+                            "**Khuyến nghị: GIẢM TỶ TRỌNG**",
+                            "**Giá chốt:** 72.200 đ/cp · **Giá mục tiêu ~58.800 đ**",
+                        ],
                     }
                 ]
             }

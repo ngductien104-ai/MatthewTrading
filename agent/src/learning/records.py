@@ -146,6 +146,16 @@ def _fold(text: str) -> str:
     return " ".join(_strip_accents(str(text)).lower().split())
 
 
+def fold_text(text: str) -> str:
+    """Return ``text`` accent-stripped, lowercased and whitespace-collapsed.
+
+    Exposed because the extractor has to compare an action phrase against the
+    quotes it was supposedly read from, and both sides must be folded the same
+    way the action vocabulary is.
+    """
+    return _fold(text)
+
+
 def sha256_text(text: str) -> str:
     """Return the hex sha256 of ``text`` encoded as UTF-8."""
     return hashlib.sha256(str(text).encode("utf-8")).hexdigest()

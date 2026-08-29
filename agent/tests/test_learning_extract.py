@@ -45,6 +45,7 @@ FPT_HEADER = (
     "**KLCP lưu hành:** 1.714.326.422"
 )
 FPT_CALL = "**Giá mục tiêu ~58.800 đ (−18,6%)** · Bear 26.100 đ (−63,8%)"
+FPT_ACTION = "> Khuyến nghị: GIẢM TỶ TRỌNG"
 
 
 def _write(tmp_path, name: str, text: str, mtime: str = "2026-08-27T08:41:00Z"):
@@ -74,7 +75,7 @@ def _candidate(**overrides):
         "ref_price": 72200,
         "target": 58800,
         "bear": 26100,
-        "quotes": [FPT_HEADER, FPT_CALL],
+        "quotes": [FPT_HEADER, FPT_CALL, FPT_ACTION],
     }
     base.update(overrides)
     return base
@@ -181,9 +182,16 @@ def test_the_three_required_fields_are_required(document, field_name):
         validate_candidate(_candidate(**{field_name: ""}), document)
 
 
-def test_an_action_outside_the_vocabulary_is_refused_not_guessed(document):
+def test_an_action_outside_the_vocabulary_is_refused_not_guessed(tmp_path):
+    """Quoted, but still not a recommendation this ledger can score."""
+    from src.learning.extract import _document
+
+    body = "Giá chốt 72.200 đ. Khuyến nghị: CÂN NHẮC THÊM."
+    path = _write(tmp_path, "_x/doc.md", body)
+    doc = _document(path, "markdown", "_x")
+    candidate = _candidate(action="CÂN NHẮC THÊM", target=None, bear=None, quotes=[body])
     with pytest.raises(RecordValidationError, match="unknown action"):
-        validate_candidate(_candidate(action="CÂN NHẮC THÊM"), document)
+        validate_candidate(candidate, doc)
 
 
 def test_a_missing_target_is_incomplete_not_rejected(document):
@@ -195,7 +203,7 @@ def test_a_missing_target_is_incomplete_not_rejected(document):
 def test_a_target_five_times_the_reference_price_is_a_unit_error(tmp_path):
     from src.learning.extract import _document
 
-    body = "Giá chốt 72.200 đ · mục tiêu 580.000 đ"
+    body = "Khuyến nghị: GIẢM TỶ TRỌNG. Giá chốt 72.200 đ · mục tiêu 580.000 đ"
     path = _write(tmp_path, "_x/doc.md", body)
     doc = _document(path, "markdown", "_x")
     candidate = _candidate(target=580000, bear=None, quotes=[body])
@@ -236,7 +244,7 @@ def test_a_bare_target_is_rescaled_against_the_anchored_reference(tmp_path):
 def test_a_bare_reference_price_is_settled_only_by_an_anchored_quote(tmp_path):
     from src.learning.extract import _document
 
-    body = "Giá đóng cửa 61.500 đ, tương đương 61,5 nghìn."
+    body = "Khuyến nghị: giữ. Giá đóng cửa 61.500 đ, tương đương 61,5 nghìn."
     path = _write(tmp_path, "_phr/doc.md", body)
     doc = _document(path, "markdown", "_phr")
     candidate = {
@@ -253,7 +261,7 @@ def test_a_bare_reference_price_is_settled_only_by_an_anchored_quote(tmp_path):
 def test_an_unanchored_reference_price_is_refused(tmp_path):
     from src.learning.extract import _document
 
-    body = "Vùng gom 50,5–51,8; mục tiêu 60."
+    body = "Khuyến nghị: tích lũy. Vùng gom 50,5–51,8; mục tiêu 60."
     path = _write(tmp_path, "_pet/doc.md", body)
     doc = _document(path, "markdown", "_pet")
     candidate = {
@@ -271,7 +279,7 @@ def test_a_band_vouches_for_its_own_midpoint(tmp_path):
     """VRE: ``giá trị hợp lý 22.000-27.500`` supports a 25.000 midpoint."""
     from src.learning.extract import _document
 
-    body = "Giá 24.300 đ. Giá trị hợp lý 22.000–27.500."
+    body = "Khuyến nghị: trung lập. Giá 24.300 đ. Giá trị hợp lý 22.000–27.500."
     path = _write(tmp_path, "_vre/doc.md", body)
     doc = _document(path, "markdown", "_vre")
     candidate = {
@@ -293,7 +301,7 @@ def test_a_band_vouches_for_its_own_midpoint(tmp_path):
 def test_a_stated_percentage_backs_the_fraction(tmp_path):
     from src.learning.extract import _document
 
-    body = "Giá 61.500 đ. **Confidence: 61%** (vừa phải-tích cực)."
+    body = "Mua theo đợt. Giá 61.500 đ. **Confidence: 61%** (vừa phải-tích cực)."
     path = _write(tmp_path, "_phr/doc.md", body)
     doc = _document(path, "markdown", "_phr")
     candidate = {
@@ -311,7 +319,7 @@ def test_a_stated_percentage_backs_the_fraction(tmp_path):
 def test_confidence_written_as_a_percent_still_fails_the_unit_gate(tmp_path):
     from src.learning.extract import _document
 
-    body = "Giá 61.500 đ. **Confidence: 61%**."
+    body = "Mua theo đợt. Giá 61.500 đ. **Confidence: 61%**."
     path = _write(tmp_path, "_phr/doc.md", body)
     doc = _document(path, "markdown", "_phr")
     candidate = {
@@ -387,7 +395,7 @@ def test_the_fpt_walk_down_is_one_episode_of_four_revisions(tmp_path):
     targets = [93000, 69500, 59000, 58800]
     records = []
     for index, target in enumerate(targets):
-        body = f"Giá chốt 72.200 đ · Giá mục tiêu {target:,.0f} đ".replace(",", ".")
+        body = f"GIẢM TỶ TRỌNG. Giá chốt 72.200 đ · Giá mục tiêu {target:,.0f} đ".replace(",", ".")
         path = _write(
             tmp_path,
             f"_fpt_research/0{index}_round.md",
@@ -418,7 +426,7 @@ def test_assign_revisions_leaves_the_inputs_untouched(document):
 def test_two_tickers_are_two_episodes(tmp_path):
     from src.learning.extract import _document
 
-    body = "Giá chốt 72.200 đ · Giá mục tiêu 58.800 đ"
+    body = "GIẢM TỶ TRỌNG. Giá chốt 72.200 đ · Giá mục tiêu 58.800 đ"
     path = _write(tmp_path, "_mixed/doc.md", body)
     doc = _document(path, "markdown", "_mixed")
     records = [
@@ -439,7 +447,7 @@ def test_an_extraction_reaches_the_ledger_evidence_first(tmp_path, document):
         assert [item.appended for item in appended] == [True]
         stored = store.get_call(result.calls[0].call_id)
         assert stored.target == 58800.0
-        assert store.counts()["evidence"] == 2
+        assert store.counts()["evidence"] == 3
 
 
 def test_re_running_the_same_extraction_appends_nothing(tmp_path, document):
@@ -504,7 +512,7 @@ def test_extract_all_settles_revisions_across_documents(tmp_path):
 
     documents = []
     for index, target in enumerate((69500, 58800)):
-        body = f"Giá chốt 72.200 đ · Giá mục tiêu {target:,.0f} đ".replace(",", ".")
+        body = f"GIẢM TỶ TRỌNG. Giá chốt 72.200 đ · Giá mục tiêu {target:,.0f} đ".replace(",", ".")
         path = _write(tmp_path, f"_fpt_research/0{index}.md", body, mtime=f"2026-08-27T0{index}:00:00Z")
         documents.append(_document(path, "markdown", "_fpt_research"))
 
@@ -645,7 +653,7 @@ def test_a_bare_reference_price_is_settled_by_any_anchored_price_quoted(tmp_path
     """
     from src.learning.extract import _document
 
-    body = "Giá tham chiếu 62,0 (đóng cửa). BASE: RNAV thận trọng ~72k."
+    body = "Mua theo đợt. Giá tham chiếu 62,0 (đóng cửa). BASE: RNAV thận trọng ~72k."
     path = _write(tmp_path, "_phr/doc.md", body)
     doc = _document(path, "markdown", "_phr")
     candidate = {
@@ -665,7 +673,7 @@ def test_a_share_count_is_not_allowed_to_be_the_ruler(tmp_path):
     """Only numbers inside a plausible share-price band settle the scale."""
     from src.learning.extract import _document
 
-    body = "Giá tham chiếu 54.8. KLCP lưu hành 1.714.326.422."
+    body = "Chờ. Giá tham chiếu 54.8. KLCP lưu hành 1.714.326.422."
     path = _write(tmp_path, "_pet/doc.md", body)
     doc = _document(path, "markdown", "_pet")
     candidate = {
@@ -677,3 +685,14 @@ def test_a_share_count_is_not_allowed_to_be_the_ruler(tmp_path):
     }
     with pytest.raises(ExtractionError, match="no quote states any price"):
         validate_candidate(candidate, doc)
+
+
+def test_the_action_is_cited_like_every_other_claim(document):
+    """The action was the one field a model could assert without evidence.
+
+    A real extraction mapped an English memo's mechanism onto ``MUA THEO ĐỢT``,
+    a phrase that document never used. Numbers were already checked against
+    their quotes; the action is a claim about the document too.
+    """
+    with pytest.raises(ExtractionError, match="does not appear in the supplied quotes"):
+        validate_candidate(_candidate(action="TÍCH LŨY"), document)

@@ -51,6 +51,7 @@ from src.learning.records import (
     Evidence,
     RecordValidationError,
     episode_id_for,
+    fold_text,
     normalize_action,
     parse_date,
     sha256_text,
@@ -76,6 +77,7 @@ REJECTION_CODES = (
     "no_evidence",
     "quote_not_found",
     "number_not_in_evidence",
+    "action_not_in_evidence",
     "scale_ambiguous",
     "implausible_target",
     "future_dated",
@@ -474,6 +476,8 @@ Rules that are checked in code, so breaking one only loses the call:
   - If the document states two actions at once, pick the operative one and quote it.
   - The action vocabulary is closed. An unlisted phrase is refused rather than guessed,
     so report the phrase the document actually uses instead of paraphrasing it.
+  - The action must itself appear in one of your quotes, like every number does. A phrase
+    mapped onto a document that never used it is a guess, and is refused.
   - Omit a field you cannot quote. A missing target is recorded as incomplete;
     an invented one is a fabricated forecast.
 
@@ -647,7 +651,14 @@ def validate_candidate(
 
     evidences = [_build_evidence(quote, document) for quote in quotes]
     quoted = "\n".join(quotes)
-    action = normalize_action(str(candidate["action"]))
+    written_action = str(candidate["action"])
+    if fold_text(written_action) not in fold_text(quoted):
+        raise ExtractionError(
+            f"action {written_action!r} does not appear in the supplied quotes. "
+            "The action is a claim about what the document said, so it is cited like "
+            "every other claim; a phrase mapped onto the document is a guess."
+        )
+    action = normalize_action(written_action)
 
     as_of = parse_date(candidate["as_of"], "as_of")
     written_on = datetime.fromisoformat(document.observed_at.replace("Z", "+00:00")).date()
@@ -746,6 +757,7 @@ def _rejection_code(error: Exception) -> str:
         ("is required and was not stated", "missing_field"),
         ("no quotes supplied", "no_evidence"),
         ("quote not found", "quote_not_found"),
+        ("The action is a claim about what the document said", "action_not_in_evidence"),
         ("does not appear in the supplied quotes", "number_not_in_evidence"),
         ("is ambiguous against ref_price", "scale_ambiguous"),
         ("is written without a unit", "scale_ambiguous"),
