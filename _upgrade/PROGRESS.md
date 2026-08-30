@@ -103,8 +103,24 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
 
 ### Hàng đợi
 
-- [ ] **Q1 [K]** Hỏi lại VRE + PET với prompt đã siết → sổ cái **13 → 15 call**.
-      (Claude tự làm: cần model đọc tài liệu, provider DeepSeek đang $0 — xem Đính chính 1.)
+- [x] **Q1 [K]** Hỏi lại VRE + PET — **sổ cái 13 → 15 call.** Claude đóng vai extractor,
+      sửa **tối thiểu**: chỉ bổ sung trích dẫn còn thiếu, **không viết lại call**.
+      - **VRE** `action_not_in_evidence` là bắt **đúng**, không phải cổng quá chặt: bản cũ khai
+        action `KHÔNG MUA` mà 12 trích dẫn không có dòng nào chứa cụm đó. Thêm `PM_DECISION.md:437`
+        (*"Hành động hôm nay 31/07/2026 | KHÔNG MUA. 0,0% NAV."*) và `:330`. Vào sổ: `avoid`,
+        ref 24.300, target 26.200, 14 evidence.
+      - **PET** `scale_ambiguous`: bản cũ toàn số trần (`54.8`, `44–48`, `48,5`) nên
+        `resolve_scale` không chứng minh nổi `54.8` là 54.800 hay 54,8. Thêm `:33`
+        (*"17x TTM ≈ 44–45k"*) và `:22` (*"@53k"*) — hai dòng có giá **ghi đơn vị**.
+        Vào sổ: `wait`, ref **54.800**, và `notes` ghi lại chính suy luận đó:
+        `"ref_price 54.8 read as 54800 against quoted 53000"`. Target 44.000 / bull 64.000 /
+        bear 39.000 / stop 48.500, 12 evidence.
+      - ⚠️ **Một chỗ Claude tự quyết, anh phủ quyết được:** VRE ghi `avoid` theo đúng tiêu đề
+        *"Hành động hôm nay: KHÔNG MUA"*, giữ `target` 26.200 của kịch bản cơ sở. Kế hoạch thật
+        (mua ≤22.300, hạn 31/10/2026) nằm ở `notes`. Claude **không** đổi sang `wait` + mốc
+        22.300 cho giống ba call `wait` cũ, dù dạng đó dễ chấm điểm hơn — vì đổi thế là **viết
+        lại call**, không phải sửa bằng chứng. → `resolve.py` ở Giai đoạn 2 sẽ phải trả lời:
+        một call `avoid` thì chấm bằng gì.
 - [x] **Q2 [C]** Từ vựng action tiếng Anh trong `ACTION_ALIASES` — **xong, nhưng phải trả lại Codex một lượt.**
       - Alias thêm: `outperform`/`overweight`→buy · `accumulation`→accumulate ·
         `trim`/`underperform`/`underweight`→reduce.
