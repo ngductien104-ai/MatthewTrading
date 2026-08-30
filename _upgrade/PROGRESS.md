@@ -218,10 +218,45 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
         (cùng họ với việc `%TEMP%\pytest-of-VVVZV` và `C:\tmp` bị chặn trong sandbox). Git không
         commit thư mục rỗng nên nó **không thể lọt lên repo public**; chỉ làm bẩn `git status`.
         Cần một shell có quyền cao hơn để dọn.
-- [ ] **Q5 [C]** G2.2-a **hợp nhất hai client DataPro** — `agent/backtest/loaders/datapro_loader.py:126-194`
-      trùng `agent/vndata/price.py:99-169`. Viết lại loader trên `vndata.price.ohlcv`
-      → mở khoá 24 cột (thoả thuận, tự doanh, mua/bán chủ động). Interface `fetch()` 5 tham số
-      trả `{code: DataFrame}` (`loaders/base.py:497`) giữ nguyên.
+- [x] **Q5 [C]** G2.2-a hợp nhất hai client DataPro — **lượt đầu tiên Codex nộp mà không phải trả lại.**
+      - `DataLoader.fetch()` nay chạy trên `vndata.price.ohlcv`. Xoá client HTTP riêng cùng
+        `_normalize_symbol` / `_to_epoch` / `_fetch_frame` / `_EXTRA_FIELD_MAP`
+        (**−151 dòng, +50**). Chữ ký loader không đổi; mọi caller trong `backtest/` đều truyền
+        `fields`/`interval` bằng **keyword** nên không ai gãy vì `*` mới thêm.
+        `DATAPRO_URL` / `DATAPRO_API_KEY` giữ nguyên — `price.py` đọc đúng hai biến đó.
+      - **Đối chiếu trước/sau, Claude tự dựng harness riêng** (phục vụ `VRE_daily.csv` và
+        `VNINDEX_daily.csv` qua `requests.get` giả, `git stash` để chạy code cũ, cache loader
+        off mặc định nên không nhiễm):
+        ```
+                     rows   first_close   last_close   cols
+        VRE.VN  cũ   1388      30.566        24.3      open high low close volume pre_close
+        VRE.VN  mới  1388      30.566        24.3      (y hệt)
+        VNINDEX cũ   1388     1120.47      1744.66     (y hệt)
+        VNINDEX mới  1388     1120.47      1744.66     (y hệt)
+        ```
+        Giống từng con số, cả cổ phiếu lẫn chỉ số. `24.3` nghìn đồng khớp đúng giá tham chiếu
+        VRE trong sổ cái — **không lệch thang 1000×**.
+      - **Đơn vị nay ĐI KÈM dữ liệu thay vì phải đoán** (`DataFrame.attrs` sống qua cả bước
+        chọn cột, Claude đã kiểm):
+        ```
+        VRE.VN     instrument=equity  price_unit=thousand VND  value_unit=thousand VND
+        VNINDEX.VN instrument=index   price_unit=index level   value_unit=million VND
+        ```
+      - `fields` mở được **cả 24 cột** của `price.COLUMN_MAP` (`prop_*` tự doanh,
+        `put_through_*` thoả thuận, `active_buy/sell_*` chủ động, `foreign_*`, `adj_rate`…),
+        bốn alias cũ vẫn chạy, **tập cột mặc định không đổi**.
+      - Fallback nay **ồn ào**: frame `degraded=True` → loader `raise SourceUnavailable` kèm
+        lý do. Lỗi request sau `/ping` cũng không còn bị nuốt thành kết quả rỗng — đúng hướng
+        đã chọn ở G0.1 (benchmark hỏng thì raise).
+      - **Số đo:** 7 test mới; targeted `loader|backtest|vndata|datapro` **206 passed**
+        (5 fail là nhóm duckdb cache có sẵn trong baseline); full suite `11 failed,
+        **3384 passed**, 1 skipped, 9 errors` — khớp baseline, passed +7.
+      - ⚠️ **Quyết định có chủ ý, cần biết:** loader **không** gọi `to_vnd()` tự động — giá cổ
+        phiếu vẫn là **nghìn đồng** như loader cũ. Bật lên là mọi backtest cũ đổi 1000× lặng lẽ.
+        Hệ quả: backtest nói `24.3` trong khi sổ cái nói `24300`. Hợp nhất về **một** đơn vị là
+        việc riêng, phải chạy lại và đối chiếu toàn bộ kết quả cũ.
+      - ⚠️ Nhỏ, có sẵn từ trước chứ không phải mới: `fields` chứa tên cột **sai chính tả thì bị
+        bỏ im lặng**. Backtest có thể chạy thiếu đúng tín hiệu nó tưởng đã yêu cầu.
 - [ ] **Q6 [C]** G2.2-b **PIT VN30** — `codes[]` đang là danh sách cứng → survivorship bias.
       Sinh `codes` lúc build config từ `vndata.reference.symbols_by_group("VN30")`, và **ghi rõ
       vào run card** khi chỉ có membership hiện tại chứ không phải membership tại thời điểm đó.
