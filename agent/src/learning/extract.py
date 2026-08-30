@@ -43,6 +43,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Sequence
 
@@ -379,6 +380,91 @@ def resolve_scale(value: float, anchor: float | None, field_name: str) -> tuple[
 # -- source documents ---------------------------------------------------------
 
 
+class _StableHTMLTextParser(HTMLParser):
+    """Render the small structural subset needed by research reports.
+
+    The implementation intentionally uses only Python's standard-library HTML
+    tokenizer.  Headings remain headings, list items remain distinct lines and
+    table cells/rows get explicit separators.  Images (including large inline
+    data URLs), CSS and scripts do not become evidence text.
+    """
+
+    _SKIPPED = {"head", "script", "style", "svg"}
+    _HEADINGS = {f"h{level}": "#" * level + " " for level in range(1, 7)}
+    _LINE_BLOCKS = {"address", "blockquote", "caption", "dd", "dt", "figcaption", "p"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+        self._skip_depth = 0
+        self._pending_space = False
+
+    def _break(self) -> None:
+        if self._parts and self._parts[-1] != "\n":
+            self._parts.append("\n")
+        self._pending_space = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.casefold()
+        if self._skip_depth:
+            if tag in self._SKIPPED:
+                self._skip_depth += 1
+            return
+        if tag in self._SKIPPED:
+            self._skip_depth = 1
+        elif tag in self._HEADINGS:
+            self._break()
+            self._parts.append(self._HEADINGS[tag])
+        elif tag == "li":
+            self._break()
+            self._parts.append("- ")
+        elif tag == "tr":
+            self._break()
+        elif tag in {"td", "th"}:
+            if self._parts and self._parts[-1] != "\n":
+                self._parts.append(" | ")
+        elif tag == "br" or tag in self._LINE_BLOCKS:
+            self._break()
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.casefold()
+        if self._skip_depth:
+            if tag in self._SKIPPED:
+                self._skip_depth -= 1
+            return
+        if tag in self._HEADINGS or tag in self._LINE_BLOCKS or tag in {"li", "tr"}:
+            self._break()
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth:
+            return
+        value = " ".join(data.split())
+        if not value:
+            self._pending_space = self._pending_space or bool(data)
+            return
+        has_boundary_space = self._pending_space or data[:1].isspace()
+        if (
+            has_boundary_space
+            and self._parts
+            and not self._parts[-1].endswith(("\n", " "))
+        ):
+            self._parts.append(" ")
+        self._parts.append(value)
+        self._pending_space = data[-1:].isspace()
+
+    def text(self) -> str:
+        lines = (line.strip() for line in "".join(self._parts).splitlines())
+        return "\n".join(line for line in lines if line)
+
+
+def html_to_text(source: str) -> str:
+    """Convert HTML to the stable evidence text format ``learning-html-text/1``."""
+    parser = _StableHTMLTextParser()
+    parser.feed(source)
+    parser.close()
+    return parser.text()
+
+
 def _mtime_utc(path: Path) -> str:
     stamp = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).replace(microsecond=0)
     return stamp.isoformat().replace("+00:00", "Z")
@@ -425,15 +511,32 @@ def load_document(path: str | Path) -> SourceDocument:
         if not report:
             raise ExtractionError(f"{source} has an empty final_report")
         return _document(source, "run_artifact", source.parent.name, text=report)
+    if source.suffix.casefold() in {".html", ".htm"}:
+        markup = source.read_text(encoding="utf-8", errors="replace")
+        return _document(source, "research_report", episode_key, text=html_to_text(markup))
     return _document(source, "markdown", episode_key)
 
 
 def iter_research_documents(root: str | Path) -> Iterator[SourceDocument]:
-    """Yield markdown under the ``_*`` research folders, one episode per folder."""
+    """Yield research documents under ``_*`` folders without duplicates.
+
+    Markdown is authoritative whenever a folder has any. HTML is a folder-level
+    fallback only when no Markdown exists, as in ``_mwg_research``; presentation
+    copies such as TPB/HDB's therefore cannot create a second version of the
+    same decision. PDF is always excluded because reports such as MWG's PDF are
+    generated from the HTML and are the less stable derived representation.
+    """
     base = Path(root)
     for folder in sorted(p for p in base.iterdir() if p.is_dir() and p.name.startswith("_")):
-        for path in sorted(folder.rglob("*.md")):
-            yield _document(path, "markdown", folder.name)
+        markdown = sorted(folder.rglob("*.md"))
+        if markdown:
+            for path in markdown:
+                yield _document(path, "markdown", folder.name)
+            continue
+        html = sorted(path for pattern in ("*.html", "*.htm") for path in folder.rglob(pattern))
+        for path in html:
+            markup = path.read_text(encoding="utf-8", errors="replace")
+            yield _document(path, "research_report", folder.name, text=html_to_text(markup))
 
 
 def iter_vault_documents(vault: str | Path) -> Iterator[SourceDocument]:

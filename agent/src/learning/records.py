@@ -114,6 +114,7 @@ EXTRACTION_STATUSES = ("complete", "incomplete", "needs_review")
 EVIDENCE_KINDS = (
     "transcript_event",
     "markdown",
+    "research_report",
     "price_series",
     "run_artifact",
     "external",

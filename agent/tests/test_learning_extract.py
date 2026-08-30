@@ -29,6 +29,7 @@ from src.learning.extract import (
     build_prompt,
     extract_all,
     extract_document,
+    html_to_text,
     iter_research_documents,
     iter_run_documents,
     load_document,
@@ -488,6 +489,43 @@ def test_research_documents_are_grouped_by_folder(tmp_path):
     ]
 
 
+def test_html_is_only_a_fallback_when_a_research_folder_has_no_markdown(tmp_path):
+    _write(tmp_path, "_mwg_research/report.html", "<h1>MWG</h1>")
+    _write(tmp_path, "_switch_tpb_hdb/decision.md", "TPB / HDB")
+    _write(tmp_path, "_switch_tpb_hdb/client-report.html", "<h1>TPB → HDB</h1>")
+    documents = list(iter_research_documents(tmp_path))
+    assert [Path(item.path).name for item in documents] == [
+        "report.html",
+        "decision.md",
+    ]
+    assert [item.kind for item in documents] == ["research_report", "markdown"]
+
+
+def test_html_research_is_stable_and_keeps_headings_and_table_rows(tmp_path):
+    path = _write(
+        tmp_path,
+        "_mwg_research/report.html",
+        """<html><head><style>td { color: red }</style></head><body>
+        <h2>Kế hoạch giải ngân</h2><table>
+        <tr><th>Đợt</th><th>Vùng giá</th><th>Hành động</th></tr>
+        <tr><td>1 — Thăm dò</td><td>66.000–68.500</td><td>TÍCH LŨY</td></tr>
+        </table><img src="data:image/png;base64,noise"></body></html>""",
+    )
+    first = load_document(path)
+    second = load_document(path)
+    assert first.text == second.text
+    assert first.sha256 == second.sha256
+    assert first.kind == "research_report"
+    assert "## Kế hoạch giải ngân" in first.text
+    assert "1 — Thăm dò | 66.000–68.500 | TÍCH LŨY" in first.text
+    assert "color: red" not in first.text
+    assert "base64" not in first.text
+
+
+def test_inline_tags_do_not_insert_a_space_inside_a_number():
+    assert html_to_text("<p>Giá <span>69</span><span>.000</span>đ</p>") == "Giá 69.000đ"
+
+
 def test_runs_without_a_final_report_are_skipped(tmp_path):
     """Fifteen of the eighteen runs on disk hold an empty string."""
     runs = tmp_path / "runs"
@@ -573,6 +611,36 @@ def test_real_research_documents_satisfy_the_parser_invariants():
                 assert "triệu" not in number.raw
     assert documents > 50, f"expected the research corpus, found {documents} documents"
     assert {"price", "percent", "billion", "date"} <= kinds
+
+
+@pytest.mark.skipif(not _HAS_CORPUS, reason="MWG research HTML not on this machine")
+def test_real_mwg_html_is_deterministic_and_a_table_quote_can_be_located():
+    from src.learning.extract import _build_evidence
+
+    path = _REPO_ROOT / "_mwg_research" / "BaoCao_MWG_2026-07-24.html"
+    if not path.exists():
+        pytest.skip("MWG research HTML not on this machine")
+    first = load_document(path)
+    second = load_document(path)
+    quote = (
+        "1 — Thăm dò | 66.000–68.500 | 20–25% | Khối lượng cạn / nến rút chân; "
+        "KHÔNG mua khi rơi tự do."
+    )
+    assert first.text == second.text
+    assert first.sha256 == second.sha256
+    evidence = _build_evidence(quote, first)
+    assert evidence.excerpt == quote
+    assert evidence.locator.startswith("L")
+
+
+@pytest.mark.skipif(not _HAS_CORPUS, reason="research corpus not on this machine")
+def test_real_tree_uses_mwg_html_but_not_the_tpb_hdb_presentation():
+    documents = list(iter_research_documents(_REPO_ROOT))
+    paths = {Path(document.path).resolve() for document in documents}
+    mwg = (_REPO_ROOT / "_mwg_research" / "BaoCao_MWG_2026-07-24.html").resolve()
+    duplicate = (_REPO_ROOT / "_switch_tpb_hdb" / "TPB_HDB_Switch_report.html").resolve()
+    assert mwg in paths
+    assert duplicate not in paths
 
 
 def test_a_price_reported_as_text_is_refused_not_crashed(document):

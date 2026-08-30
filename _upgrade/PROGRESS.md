@@ -136,8 +136,37 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
         để tick. Với mọi thay đổi động vào một **cổng**, Claude phải tự dựng ca đối kháng
         chạy trên chính hàm Codex viết, và hỏi *code cũ có từ chối ca này không*. Nới cổng
         luôn lộ ra dưới dạng "cũ nói không, mới nói có".
-- [ ] **Q3 [C]** Đường vào cho tài liệu **không** phải `.md` (MWG 24/07 chỉ có HTML/PDF).
-      Tiêu chí nghiệm thu G1 có nhắc MWG nên không bỏ qua được.
+- [x] **Q3 [C]** Đường vào cho tài liệu **không** phải `.md` — **xong, và cũng phải trả lại một lượt.**
+      - `html_to_text` viết trên `html.parser` của thư viện chuẩn, **không phụ thuộc gói ngoài**
+        nên tính tất định do chính repo giữ. Giữ heading, `- ` cho list, ` | ` cho ô bảng;
+        bỏ CSS/script/SVG/ảnh base64. PDF **cố ý loại** (bản dẫn xuất từ HTML, kém ổn định hơn).
+      - Converter tốt ngay từ lượt 1: HTML MWG 256.571 ký tự → **5.069 ký tự / 37 dòng**.
+        Claude tự strip tag thô ra 5.067 để đối chứng — nó **không nuốt nội dung**, 256KB kia
+        là CSS + SVG + ảnh nhúng. Bản chuyển đọc được nguyên vẹn khuyến nghị
+        *"MUA ĐƯỢC — TÍCH LŨY THEO ĐỢT"*, *"Giá tham chiếu ~ 69.000đ"*, fair value
+        85.000–94.000đ, và cả ba đợt giải ngân 66–68,5 / 62,5–65 / 58–61,5.
+      - ⚠️ **Lượt 1 mở `*.html` cho TOÀN BỘ thư mục `_*` → sinh call TRÙNG.** Claude đếm thật:
+        **17 thư mục có HTML, 15 trong đó CŨNG có `.md`**; chỉ `_mwg_research` và
+        `_sentiment_report` là md=0. Chạy converter lên `_switch_tpb_hdb/TPB_HDB_Switch_report.html`
+        ra *"HOÁN ĐỔI TPB → HDB · KHUYẾN NGHỊ: HOÁN ĐỔI MỘT PHẦN | CHỜ Q2/2026 · HDB 25.800đ ·
+        TPB 16.300đ"* — **đúng quyết định đã có trong `04_pm_decision.md`**, bản trình bày cho
+        khách. Backfill sẽ rút TPB + HDB ngày 29/06 **hai lần**, hai action khác nhau, hai giá
+        tham chiếu khác nhau. Trên sổ cái 13 call thì hai call ma là 15% nhiễu.
+      - Lượt 2: **markdown là nguồn có thẩm quyền; HTML chỉ là dự phòng cấp thư mục khi
+        thư mục không có `.md` nào.** Claude chạy `iter_research_documents(".")` để kiểm:
+        **206 tài liệu, đúng 2 HTML** — `_mwg_research` và `_sentiment_report`. Bản khách
+        TPB/HDB bị loại.
+      - Ba điểm nhỏ sửa cùng lượt: bỏ hằng `HTML_TEXT_CONVERTER` (khai ra mà không ghi vào
+        đâu — grep cả repo chỉ thấy dòng khai báo; một phiên bản không được lưu là chú thích
+        chứ không phải cơ chế); nhãn `external` → **`research_report`** mới (báo cáo do chính
+        bàn mình sinh ra, không phải nguồn ngoài); và `handle_data` từng chèn dấu cách giữa
+        hai khối data liền nhau nên `<span>69</span><span>.000</span>` ra `69 .000` — nay
+        `69.000đ` nguyên vẹn, `TÍCH LŨY` vẫn giữ dấu cách thật, ô bảng vẫn ` | `.
+      - **Số đo:** learning suite **228 → 233 xanh**; full suite `11 failed, 3375 passed,
+        1 skipped, 9 errors` — fail/error khớp baseline từng cái. Chuyển hai lần ra chuỗi
+        y hệt. Prompt sinh được, exit 0, **không gọi model, không tốn token**.
+      - Còn lại cho lượt sau: MWG mới **có đường vào**, chưa có call. Cần một reply (Claude
+        đóng vai model) để `_mwg_research` vào sổ.
 - [ ] **Q4 [C]** G2.2-c **lịch nghỉ lễ VN cho T+2** — `agent/backtest/engines/vn_equity.py:135`
       đang dùng `np.busday_count`, bỏ qua Tết (tới 9 phiên) → thoát lệnh lạc quan quanh lễ.
       Gợi ý: lấy **phiên giao dịch quan sát được** từ `vndata` làm lịch thật, đừng hard-code
