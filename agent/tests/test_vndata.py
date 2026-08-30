@@ -265,6 +265,98 @@ class TestSymbolHandling:
         assert price._ticker(code) == expected
 
 
+class TestPriceContract:
+    def _fallback(self, monkeypatch, frame, symbol="VNINDEX.VN"):
+        class Equity:
+            def ohlcv(self, **kwargs):
+                return frame
+
+        class Market:
+            def equity(self, symbol):
+                return Equity()
+
+        monkeypatch.setitem(__import__("sys").modules, "vnstock_data", type(
+            "FakeVnstockData", (), {"Market": Market}
+        ))
+        return price._fallback_ohlcv(symbol, "2024-01-02", "2024-01-08")
+
+    def test_index_fallback_does_not_claim_thousand_vnd(self, monkeypatch):
+        frame = pd.DataFrame({
+            "time": pd.to_datetime(["2024-01-02", "2024-01-03"]),
+            "open": [1120.0, 1121.0], "high": [1122.0, 1123.0],
+            "low": [1119.0, 1120.0], "close": [1121.0, 1122.0],
+            "volume": [1.0, 2.0],
+        })
+        out = self._fallback(monkeypatch, frame)
+        assert out.attrs["source"] == "vnstock_data"
+        assert out.attrs["degraded"] is True
+        assert out.attrs["price_unit"] != "thousand VND"
+        assert "unverified" in out.attrs["price_unit"]
+
+    def test_empty_fallback_keeps_true_provenance(self, monkeypatch):
+        out = self._fallback(monkeypatch, pd.DataFrame())
+        assert out.empty
+        assert out.attrs["source"] == "vnstock_data"
+        assert out.attrs["degraded"] is True
+
+    @pytest.mark.parametrize(
+        "mutate,match",
+        [
+            (lambda df: df.drop(columns="volume"), "missing required columns"),
+            (lambda df: df.assign(close=["not-a-number", "2"]), "finite numeric"),
+            (lambda df: df.assign(time=pd.to_datetime(["2024-01-02", "2024-01-02"])), "duplicates"),
+        ],
+    )
+    def test_broken_schema_is_loud(self, monkeypatch, mutate, match):
+        frame = pd.DataFrame({
+            "time": pd.to_datetime(["2024-01-02", "2024-01-03"]),
+            "open": [1.0, 2.0], "high": [1.0, 2.0], "low": [1.0, 2.0],
+            "close": [1.0, 2.0], "volume": [1.0, 2.0],
+        })
+        broken = mutate(frame)
+        with pytest.raises(ValueError, match=match):
+            self._fallback(monkeypatch, broken)
+
+    def test_non_finite_error_identifies_symbol_dates_and_count(self, monkeypatch):
+        frame = pd.DataFrame({
+            "time": pd.to_datetime(["2024-01-02", "2024-01-03"]),
+            "open": [1.0, 2.0], "high": [1.0, 2.0], "low": [1.0, 2.0],
+            "close": [1.0, float("nan")], "volume": [1.0, 2.0],
+        })
+        with pytest.raises(ValueError) as exc_info:
+            self._fallback(monkeypatch, frame, symbol="VRE.VN")
+        message = str(exc_info.value)
+        assert "VRE.VN" in message
+        assert "close" in message
+        assert "2024-01-03" in message
+        assert "1 row" in message
+
+    def test_internal_missing_weekday_is_audited_not_called_a_holiday(self, monkeypatch):
+        frame = pd.DataFrame({
+            "time": pd.to_datetime(["2024-01-02", "2024-01-04", "2024-01-05"]),
+            "open": [1.0] * 3, "high": [1.0] * 3, "low": [1.0] * 3,
+            "close": [1.0] * 3, "volume": [1.0] * 3,
+        })
+        audit = self._fallback(monkeypatch, frame).attrs["session_audit"]
+        assert audit["internal_absent_weekday_candidates"] == ["2024-01-03"]
+
+    def test_broken_datapro_schema_is_loud(self, monkeypatch):
+        class Response:
+            status_code = 200
+            text = (
+                "TRADING_TIME,OPEN_PX,HIGH_PX,LOW_PX,CLOSE_PX\n"
+                "1704153600,1,2,0.5,1.5\n"
+            )
+
+            def raise_for_status(self):
+                return None
+
+        monkeypatch.setattr(price, "datapro_available", lambda: True)
+        monkeypatch.setattr(price.requests, "get", lambda *args, **kwargs: Response())
+        with pytest.raises(ValueError, match="missing required columns.*volume"):
+            price.ohlcv("VRE.VN", "2024-01-02", "2024-01-02")
+
+
 class TestTaFrame:
     def test_reshape_produces_the_columns_indicator_expects(self):
         bars = pd.DataFrame(

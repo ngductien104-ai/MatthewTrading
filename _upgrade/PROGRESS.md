@@ -300,12 +300,62 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
         kết quả của bất kỳ backtest đang chạy nào. Muốn hưởng thì phải sửa config.
       - ⚠️ **Membership vẫn KHÔNG phải point-in-time.** Cảnh báo là bản vá cho sự trung thực,
         không phải bản vá cho bias. Muốn chữa thật thì cần lịch sử tái cơ cấu VN30 — chưa có nguồn.
-- [ ] **Q7 [C]** G2.2-d **siết hợp đồng dữ liệu `vndata`** — `price.py:139` đánh dấu `degraded`
-      khi fallback là đúng, nhưng `price.py:316` **suy đoán đơn vị giá theo giả định** khi fallback.
-      Thêm schema validation, kiểm độ tươi, chính sách điều chỉnh giá, audit phiên thiếu,
-      đối chiếu DataPro ↔ vnstock_data.
+- [x] **Q7 [C]** G2.2-d siết hợp đồng dữ liệu `vndata` — **xong 4/5 mục; mục 5 tách ra, xem Q9.**
+      - **Hai lỗi Claude đọc ra trong `price.py` trước khi giao việc, nay đã sửa:**
+        1. `_fallback_ohlcv` **gán cứng** `price_unit = "thousand VND"` mà không gọi
+           `classify_instrument`. Đường DataPro chính thì phân biệt đủ ba loại. Hệ quả: DataPro
+           chết, ai xin VNINDEX qua fallback, frame **dán nhãn "nghìn VND" cho một chuỗi điểm
+           chỉ số**. Đúng câu `CLAUDE.md` gọi là *"suy đoán đơn vị giá theo giả định khi fallback"*.
+        2. `_empty_frame()` luôn khai `source="datapro"`, `degraded=False` — **nhưng nó được gọi
+           từ trong `_fallback_ohlcv`** khi vnstock_data trả rỗng. Một frame do nguồn dự phòng
+           phục vụ lại tự khai đến từ DataPro và không suy giảm. Lỗi này **mới có hậu quả thật
+           từ Q5**: loader nay tin `attrs["degraded"]` để quyết định raise.
+        Nay đơn vị và xuất xứ được **suy ra ở mọi đường trả về, kể cả đường rỗng**.
+      - **Đơn vị của `vnstock_data` KHÔNG khẳng định nữa.** Sandbox chặn socket tới
+        `vnstocks.com` (`WinError 10013`) nên không đo được → ghi
+        `price_unit = "unverified — vnstock_data native unit not verified"` thay vì đoán theo
+        độ lớn con số. Giả định `"thousand VND"` cũ là một khẳng định chưa ai kiểm; nay nó tự
+        tố cáo mình. (License local `silver`, `vnstock_data` 3.2.8.)
+      - **Schema validation**: đủ `open/high/low/close/volume`, số hữu hạn, index là
+        `DatetimeIndex` tên `trade_date`, tăng dần, không trùng. Hỏng thì raise.
+      - **`attrs["session_audit"]`**: khoảng ngày yêu cầu, số bar, độ phủ, và danh sách ngày
+        làm việc vắng mặt — gọi là **candidate**, không tự nhận là phiên thiếu, vì chỉ lịch sàn
+        mới phân biệt được nghỉ lễ với mất dữ liệu. Claude đo trên VRE 5,5 năm: **1.388 bar,
+        66 ngày vắng, toàn bộ nằm giữa chuỗi** — đúng bằng số ngày lễ VN giai đoạn đó, tức
+        chính cái lịch Q4 vừa dạy engine phải tôn trọng.
+      - **Một lượt trả lại, vì chẩn đoán chứ không vì logic.** Thông điệp lỗi ban đầu là
+        `... must contain only finite numeric values: ['close']` — không nói mã nào, ngày nào.
+        Sau Q5 loader **không còn bắt exception theo từng mã**, nên một `NaN` trong một mã dừng
+        nguyên backtest 30 mã, và người vận hành chỉ nhận đúng dòng đó. **Một cổng chặn đúng mà
+        không chỉ được chỗ hỏng thì người ta sẽ tắt cổng.** Claude tiêm 3 `NaN` vào CSV thật để kiểm:
+        ```
+        OHLCV frame for VRE.VN required columns must contain only finite numeric values;
+        close: 3 rows non-finite, first dates=['2023-01-03', '2023-01-04', '2024-02-16']
+        ```
+        Có mã, có cột, có tổng số dòng, có ngày. **Hành vi raise giữ nguyên — không nới cổng.**
+      - **Số đo:** Q7 trực tiếp **53 passed**; targeted **214 passed** (5 fail nhóm DuckDB
+        loader-cache có sẵn); full suite `11 failed, **3397 passed**, 1 skipped, 9 errors` —
+        khớp baseline, passed +8. **Đối chiếu Q5 không đổi một số nào**: VRE.VN 1388 dòng
+        `30.566 → 24.3`; VNINDEX.VN 1388 dòng `1120.47 → 1744.66`.
+      - ⚠️ **Câu hỏi thiết kế còn treo, cần anh quyết:** schema hỏng ở **một** mã nay giết **cả**
+        lần chạy. Đúng hướng "hỏng thì ồn ào" của G0.1/Q5/Q6, nhưng khác về mức độ: một `NaN`
+        giữa 1.388 bar là lỗi **chất lượng dữ liệu**, không phải lỗi **xuất xứ**. Giữ nguyên,
+        hay cho phép bỏ qua theo mã và ghi vào run card? Đã ghi thẳng hậu quả vào docstring
+        `ohlcv` để người dùng biết trước khi dựa vào nó.
+      - ⚠️ **`session_audit` hiện là metadata THỤ ĐỘNG** — đính vào `attrs` nhưng chưa ai đọc.
+        Cố ý không xây heuristic cảnh báo tự động ở lượt này.
 - [ ] **Q8 [C]** G2.2-e nâng `_DISCLOSURE_LAG_DAYS` lên `vndata` để resolver và backtest dùng
       **chung một** định nghĩa look-ahead.
+- [ ] **Q9 [C]** *(tách ra từ Q7 mục 5)* Chính sách điều chỉnh giá + đối chiếu hai nguồn.
+      Codex từ chối làm nửa vời và nói rõ cần gì — **đúng, giữ nguyên quyết định đó**:
+      - **Chính sách điều chỉnh giá cổ tức/chia tách.** DataPro có cột `ADJ_RATE` nhưng suy diễn
+        chính sách từ một cột chưa được kiểm chứng là bịa. Cần dữ liệu corporate action có thẩm
+        quyền để đối chiếu.
+      - **Đối chiếu DataPro ↔ vnstock_data.** Cần **cả hai** nguồn sống cùng lúc: DataPro desktop
+        chạy (hiện `datapro_available=False`) và mạng tới `vnstocks.com` (sandbox chặn,
+        `WinError 10013`). Đây cũng là phép đo duy nhất trả lời được câu hỏi đơn vị thật của
+        `vnstock_data` mà Q7 phải để ngỏ.
+      → **Điều kiện tiên quyết:** chạy trên máy có DataPro mở và mạng thông, không phải trong sandbox.
 
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 

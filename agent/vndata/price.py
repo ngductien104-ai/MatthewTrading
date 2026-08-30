@@ -44,6 +44,7 @@ import io
 import os
 from typing import Iterable
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -85,6 +86,7 @@ PRICE_COLUMNS = ("open", "high", "low", "close", "ref_price")
 VALUE_COLUMNS = tuple(v for v in COLUMN_MAP.values() if v.endswith("value"))
 
 _DEFAULT_URL = "http://localhost:6789"
+_REQUIRED_OHLCV = ("open", "high", "low", "close", "volume")
 
 
 def _base_url() -> str:
@@ -147,6 +149,10 @@ def ohlcv(
     Raises:
         SourceUnavailable: DataPro is unreachable and *allow_fallback* is
             False, or the fallback also failed.
+        ValueError: A malformed schema for any one symbol fails the whole
+            loader request; the backtest loader deliberately does not swallow
+            this error. ``session_audit`` is passive metadata attached to
+            ``DataFrame.attrs`` and currently has no automatic consumer.
     """
     if not datapro_available():
         if not allow_fallback:
@@ -166,11 +172,15 @@ def ohlcv(
 
     text = resp.text.strip()
     if not text or "\n" not in text:
-        return _empty_frame()
+        return _empty_frame(
+            source="datapro", degraded=False, start=start, end=end,
+        )
 
     raw = pd.read_csv(io.StringIO(text))
     if raw.empty or "TRADING_TIME" not in raw.columns:
-        return _empty_frame()
+        return _empty_frame(
+            source="datapro", degraded=False, start=start, end=end,
+        )
 
     raw["trade_date"] = pd.to_datetime(raw["TRADING_TIME"], unit="s")
     df = raw.rename(columns=COLUMN_MAP).set_index("trade_date").sort_index()
@@ -181,6 +191,7 @@ def ohlcv(
     # Classify before honouring ``columns``: the signal lives in listed_shares
     # and open_interest, which a caller asking only for close/volume drops.
     instrument = classify_instrument(df)
+    _validate_and_audit(df, symbol=symbol, start=start, end=end)
 
     if columns is not None:
         wanted = [c for c in columns if c in df.columns]
@@ -287,11 +298,101 @@ def proprietary_flow(symbol: str, start: str, end: str) -> pd.DataFrame:
     return out
 
 
-def _empty_frame() -> pd.DataFrame:
+def _empty_frame(
+    *, source: str, degraded: bool, start: str, end: str,
+    degraded_reason: str | None = None,
+) -> pd.DataFrame:
     df = pd.DataFrame(columns=list(COLUMN_MAP.values()))
-    df.attrs["source"] = "datapro"
-    df.attrs["degraded"] = False
+    df.index = pd.DatetimeIndex([], name="trade_date")
+    df.attrs["source"] = source
+    df.attrs["degraded"] = degraded
+    if degraded_reason:
+        df.attrs["degraded_reason"] = degraded_reason
+    df.attrs["instrument"] = "unverified"
+    df.attrs["price_unit"] = "unverified — empty frame has no unit evidence"
+    df.attrs["value_unit"] = "unverified — empty frame has no unit evidence"
+    _attach_session_audit(df, start=start, end=end)
     return df
+
+
+def _validate_and_audit(
+    df: pd.DataFrame, *, symbol: str, start: str, end: str,
+) -> pd.DataFrame:
+    """Enforce the returned-bar schema without changing any observed value."""
+    missing = [column for column in _REQUIRED_OHLCV if column not in df.columns]
+    if missing:
+        raise ValueError(f"OHLCV frame for {symbol} missing required columns: {missing}")
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError(
+            f"OHLCV frame for {symbol} index must be a DatetimeIndex named trade_date"
+        )
+    if df.index.name != "trade_date":
+        raise ValueError(f"OHLCV frame for {symbol} index must be named trade_date")
+    if df.index.has_duplicates:
+        duplicates = df.index[df.index.duplicated(keep=False)]
+        dates = list(dict.fromkeys(day.date().isoformat() for day in duplicates[:5]))
+        raise ValueError(
+            f"OHLCV frame for {symbol} trade_date index contains duplicates "
+            f"at {dates}"
+        )
+    if not df.index.is_monotonic_increasing:
+        raise ValueError(f"OHLCV frame for {symbol} trade_date index must be increasing")
+
+    violations: list[str] = []
+    for column in _REQUIRED_OHLCV:
+        series = df[column]
+        if not pd.api.types.is_numeric_dtype(series.dtype):
+            bad_mask = pd.Series(True, index=df.index)
+            reason = f"non-numeric dtype {series.dtype}"
+        else:
+            values = series.to_numpy(dtype=float, na_value=np.nan)
+            bad_mask = pd.Series(~np.isfinite(values), index=df.index)
+            reason = "non-finite"
+        count = int(bad_mask.sum())
+        if not count:
+            continue
+        dates = [day.date().isoformat() for day in df.index[bad_mask][:5]]
+        violations.append(
+            f"{column}: {count} row{'s' if count != 1 else ''} {reason}, "
+            f"first dates={dates}"
+        )
+    if violations:
+        raise ValueError(
+            f"OHLCV frame for {symbol} required columns must contain only finite numeric "
+            "values; "
+            + "; ".join(violations)
+        )
+
+    _attach_session_audit(df, start=start, end=end)
+    return df
+
+
+def _attach_session_audit(df: pd.DataFrame, *, start: str, end: str) -> None:
+    """Record coverage and possible missing weekdays without inventing holidays."""
+    requested_start = pd.Timestamp(start).normalize()
+    requested_end = pd.Timestamp(end).normalize()
+    observed = pd.DatetimeIndex(df.index).normalize()
+    expected_weekdays = pd.date_range(requested_start, requested_end, freq="B")
+    absent = expected_weekdays.difference(observed)
+    if len(observed):
+        internal = absent[(absent > observed.min()) & (absent < observed.max())]
+        coverage_start = observed.min().date().isoformat()
+        coverage_end = observed.max().date().isoformat()
+    else:
+        internal = pd.DatetimeIndex([])
+        coverage_start = None
+        coverage_end = None
+    df.attrs["session_audit"] = {
+        "requested_start": requested_start.date().isoformat(),
+        "requested_end": requested_end.date().isoformat(),
+        "observed_bars": len(df),
+        "coverage_start": coverage_start,
+        "coverage_end": coverage_end,
+        # These are candidates, not asserted missing sessions: only an exchange
+        # calendar or a reference market series can distinguish a holiday.
+        "absent_weekday_candidates": [day.date().isoformat() for day in absent],
+        "internal_absent_weekday_candidates": [day.date().isoformat() for day in internal],
+    }
 
 
 def _fallback_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
@@ -311,7 +412,15 @@ def _fallback_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
         ) from exc
 
     if df is None or df.empty:
-        return _empty_frame()
+        return _empty_frame(
+            source="vnstock_data",
+            degraded=True,
+            start=start,
+            end=end,
+            degraded_reason=(
+                "DataPro desktop unreachable; vnstock_data returned no bars."
+            ),
+        )
 
     df = df.rename(columns={"time": "trade_date"}).set_index("trade_date").sort_index()
     df.attrs["source"] = "vnstock_data"
@@ -320,6 +429,10 @@ def _fallback_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
         "DataPro desktop unreachable; no reference price, foreign/proprietary "
         "flow, put-through or active buy-sell columns in this frame."
     )
-    df.attrs["price_unit"] = "thousand VND"
-    df.attrs["value_unit"] = "n/a"
-    return df
+    instrument = df.attrs.get("instrument")
+    df.attrs["instrument"] = (
+        instrument if instrument in {"equity", "index", "futures"} else "unverified"
+    )
+    df.attrs["price_unit"] = "unverified — vnstock_data native unit not verified"
+    df.attrs["value_unit"] = "unverified — vnstock_data native unit not verified"
+    return _validate_and_audit(df, symbol=symbol, start=start, end=end)
