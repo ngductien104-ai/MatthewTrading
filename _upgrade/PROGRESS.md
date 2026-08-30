@@ -180,10 +180,44 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
         y hệt. Prompt sinh được, exit 0, **không gọi model, không tốn token**.
       - Còn lại cho lượt sau: MWG mới **có đường vào**, chưa có call. Cần một reply (Claude
         đóng vai model) để `_mwg_research` vào sổ.
-- [ ] **Q4 [C]** G2.2-c **lịch nghỉ lễ VN cho T+2** — `agent/backtest/engines/vn_equity.py:135`
-      đang dùng `np.busday_count`, bỏ qua Tết (tới 9 phiên) → thoát lệnh lạc quan quanh lễ.
-      Gợi ý: lấy **phiên giao dịch quan sát được** từ `vndata` làm lịch thật, đừng hard-code
-      danh sách ngày lễ sẽ mục theo năm.
+- [x] **Q4 [C]** G2.2-c lịch nghỉ lễ VN cho T+2 — **xong, một lượt trả lại (chỉ để dọn, không phải sửa lỗi logic).**
+      - Bỏ `np.busday_count`. `_sessions_held` nay nhận `pos.entry_bar_idx` và `self._bar_idx`,
+        tức **đếm bar trong chuỗi phiên đã căn chỉnh**. Không bảng ngày lễ, không hard-code,
+        tự đúng cho mọi năm kể cả năm chưa xảy ra. Thêm một điểm: `base.py:648` vốn đã tính
+        `holding_bars` đúng bằng công thức đó — nay T+2 khớp với chính thước engine dùng chỗ khác.
+      - **Sai lệch thật, Claude tự đọc `VNINDEX_daily.csv` của DataPro để kiểm** (file dùng
+        epoch timestamp nên phải parse, không grep được):
+        ```
+        ... 2024-02-05, 02-06, 02-07 | 2024-02-15, 02-16, 02-19 ...
+        np.busday_count(07/02 → 15/02) = 6 phiên
+        số bar THẬT giữa hai ngày đó   = 1
+        ```
+        Sàn nghỉ Tết 7 ngày. Mua phiên 07/02 thì **ngay hôm sàn mở lại**, code cũ đã coi là
+        qua T+2 và cho bán. Đây là look-ahead: backtest thoát sớm hơn đời thực đúng vào chỗ
+        rủi ro nhất.
+      - **Chứng minh hành vi, không phải chứng minh chữ ký hàm.** Lượt 1 Codex nộp test kiểu
+        `assert _sessions_held(4, 5) == 1` — nó chỉ phát biểu lại `5-4=1`; ai quay về đếm ngày
+        trong tuần thì test đỏ vì **đổi chữ ký**, không phải vì đổi hành vi. Lượt 2 viết lại cho
+        chạy qua `_execute_bars` trên đúng sáu phiên Tết thật. Claude `git stash` bản vá rồi chạy
+        test mới trên code cũ:
+        ```
+        code CŨ: exit_time = 2024-02-15, holding_bars = 1   ← đỏ
+        code MỚI: exit_time = 2024-02-16, holding_bars = 2   ← xanh
+        ```
+        Test ca thường (19/02 → 21/02) xanh trên **cả hai** — hành vi không đổi ngoài chỗ cần đổi.
+      - Xoá `_bar_date` trong `vn_equity.py`: chính thay đổi này làm nó mất caller cuối cùng.
+        `china_a.py` có bản sao riêng nên không ai bị ảnh hưởng.
+      - **Số đo:** backtest + learning + vn_equity: **261 xanh**. Full suite `11 failed,
+        3377 passed, 1 skipped, 9 errors` — khớp baseline, passed +2.
+      - ⚠️ **Codex báo `20 failed` rồi TỰ PHÂN LOẠI 9 fail thừa là "lỗi môi trường".** Chạy lại
+        ngoài sandbox: đúng baseline. Nó **đoán trúng nhưng không có cách nào biết**. Đã yêu cầu:
+        gặp fail vượt baseline mà không giải thích được thì nói "không xác minh được trong
+        sandbox", đừng tự dán nhãn. Lượt sau nó làm đúng như vậy.
+      - ⚠️ **`_upgrade/q4_pytest_tmp/` không xoá được** — thư mục RỖNG do pytest tạo, nhưng cả
+        Codex lẫn Claude đều bị `Access is denied`, tới mức `icacls` **đọc ACL cũng bị chặn**
+        (cùng họ với việc `%TEMP%\pytest-of-VVVZV` và `C:\tmp` bị chặn trong sandbox). Git không
+        commit thư mục rỗng nên nó **không thể lọt lên repo public**; chỉ làm bẩn `git status`.
+        Cần một shell có quyền cao hơn để dọn.
 - [ ] **Q5 [C]** G2.2-a **hợp nhất hai client DataPro** — `agent/backtest/loaders/datapro_loader.py:126-194`
       trùng `agent/vndata/price.py:99-169`. Viết lại loader trên `vndata.price.ohlcv`
       → mở khoá 24 cột (thoả thuận, tự doanh, mua/bán chủ động). Interface `fetch()` 5 tham số

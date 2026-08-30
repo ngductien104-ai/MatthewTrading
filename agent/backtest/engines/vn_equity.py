@@ -17,7 +17,6 @@ official reference price, which the DataPro loader always attaches.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 from backtest.engines.base import BaseEngine
@@ -68,8 +67,8 @@ class VNEquityEngine(BaseEngine):
         if direction == 0:
             pos = self.positions.get(symbol)
             if pos is not None:
-                held_sessions = _sessions_held(pos.entry_time, bar)
-                if held_sessions is not None and held_sessions < 2:
+                held_sessions = _sessions_held(pos.entry_bar_idx, self._bar_idx)
+                if held_sessions < 2:
                     return False
 
         # 3. Daily price limits (vs. reference price)
@@ -116,36 +115,15 @@ class VNEquityEngine(BaseEngine):
 # ── module-level helpers ──
 
 
-def _bar_date(bar: pd.Series):
-    """Extract the trade date from a bar (column or index name)."""
-    for col in ("trade_date", "date"):
-        if col in bar.index:
-            try:
-                return pd.Timestamp(bar[col]).date()
-            except Exception:
-                pass
-    if hasattr(bar, "name"):
-        try:
-            return pd.Timestamp(bar.name).date()
-        except Exception:
-            pass
-    return None
+def _sessions_held(entry_bar_idx: int, current_bar_idx: int) -> int:
+    """Observed trading sessions between entry and the current bar.
 
-
-def _sessions_held(entry_time, bar: pd.Series):
-    """Business-day sessions between entry and the current bar.
-
-    Approximates VN trading sessions with weekdays (public holidays ignored).
-    Returns ``None`` when either date cannot be resolved.
+    ``BaseEngine._execute_bars`` advances its bar index only for timestamps in
+    the aligned market data.  The difference therefore follows the exchange's
+    observed calendar automatically: weekends, public holidays and future
+    calendar changes never need to be guessed or hard-coded here.
     """
-    bar_date = _bar_date(bar)
-    if bar_date is None or entry_time is None:
-        return None
-    try:
-        entry_date = pd.Timestamp(entry_time).date()
-    except Exception:
-        return None
-    return int(np.busday_count(entry_date, bar_date))
+    return max(int(current_bar_idx) - int(entry_bar_idx), 0)
 
 
 def _calc_pct_change(bar: pd.Series):
