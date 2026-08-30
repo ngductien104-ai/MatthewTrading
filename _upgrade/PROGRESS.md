@@ -94,6 +94,17 @@ trong trích dẫn, giới hạn trong dải giá cổ phiếu hợp lý để *
 6. Không bịa số, không nới cổng để test xanh (bài học vòng backfill 2: 24 fixture đỏ thì
    sửa fixture, không hạ chuẩn).
 
+7. **Test xanh + báo cáo của Codex KHÔNG đủ để tick.** Với mọi thay đổi động vào một **cổng**
+   hay một **đường vào dữ liệu**, Claude phải tự dựng ca đối kháng chạy trên chính hàm Codex
+   viết, rồi hỏi *"code cũ có từ chối / có trả khác ca này không"*. Nới cổng luôn lộ ra dưới
+   dạng "cũ nói không, mới nói có". Ba mục đầu (Q2, Q3, Q4) đều bị trả lại nhờ bước này.
+8. **KHÔNG chạy pytest với `--basetemp` trỏ vào trong repo**, đặc biệt là `_upgrade/`.
+   Máy này chặn ACL nên thư mục pytest tạo ra **không ai xoá được** — cả Codex, cả Claude, cả
+   `takeown`/`icacls`/`robocopy`. Đã có **5 thư mục rỗng kẹt vĩnh viễn** trong `_upgrade/`
+   (`q4_pytest_tmp`, `q5_pytest_tmp`, `q6_pytest_tmp{,_targeted,_targeted2}`). Chúng rỗng nên
+   git không commit được, chỉ làm bẩn `git status` — nhưng đừng đẻ thêm. Dùng `--basetemp` trỏ
+   ra **ngoài repo**.
+
 **Claude sau mỗi mục:** đối chiếu full suite với baseline (`11 failed / 9 errors` cho sẵn),
 tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
 
@@ -257,9 +268,38 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
         việc riêng, phải chạy lại và đối chiếu toàn bộ kết quả cũ.
       - ⚠️ Nhỏ, có sẵn từ trước chứ không phải mới: `fields` chứa tên cột **sai chính tả thì bị
         bỏ im lặng**. Backtest có thể chạy thiếu đúng tín hiệu nó tưởng đã yêu cầu.
-- [ ] **Q6 [C]** G2.2-b **PIT VN30** — `codes[]` đang là danh sách cứng → survivorship bias.
-      Sinh `codes` lúc build config từ `vndata.reference.symbols_by_group("VN30")`, và **ghi rõ
-      vào run card** khi chỉ có membership hiện tại chứ không phải membership tại thời điểm đó.
+- [x] **Q6 [C]** G2.2-b PIT VN30 — **xong, không phải trả lại; Codex nói thật về giới hạn.**
+      - `_materialize_named_universe` trong `runner.py`: config ghi `"universe": "VN30"` mà
+        **không** có `codes` thì sinh `codes` từ `vndata.reference.symbols_by_group("VN30")`.
+        Config đã liệt kê `codes` tay thì **giữ nguyên tuyệt đối**, không cảnh báo thừa.
+        Cảnh báo đi qua tham số `warnings` sẵn có của `run_card.py` — không đẻ cơ chế mới.
+      - **Nửa quan trọng hơn: nói thật.** Gọi `symbols_by_group` **không** chữa survivorship
+        bias — hàm đó trả membership **hiện tại**, không phải membership tại từng ngày tái cơ
+        cấu. Codex đã tìm và **không thấy** nguồn PIT nào trong `vndata` hay trong repo, và nói
+        thẳng thay vì bịa. Nên run card mang nguyên văn:
+        > `SURVIVORSHIP BIAS WARNING: VN30 codes use current membership as of 2026-08-30, not`
+        > `point-in-time membership for the backtest period; constituents removed before this`
+        > `date are absent.`
+      - **Claude kiểm độc lập** (mock nguồn membership, không chạm mạng):
+        ```
+        codes sinh ra   : ['VCB.VN','FPT.VN','HPG.VN']  ← dedupe + lọc chuỗi rỗng
+        codes tường minh: giữ nguyên, KHÔNG cảnh báo
+        nguồn rỗng      → raise "returned no symbols"
+        sai tên cột     → raise "returned no 'symbol' column"
+        offline         → raise "Could not resolve VN30 membership..."
+        universe lạ     → raise "Unsupported named backtest universe 'VN100'"
+        cảnh báo tới run_card.json: True   |  tới run_card.md: True
+        ```
+        Bốn kiểu hỏng đều **ồn ào**, không lùi im lặng về danh sách cứng — cùng nguyên tắc G0.1 và Q5.
+      - Schema cho phép (`extra="allow"`) nên `universe` và `_run_card_warnings` không làm
+        gãy validate.
+      - **Số đo:** `test_run_card.py` **12 passed**; targeted `backtest|run_card|vndata`
+        **75 passed**; full suite `11 failed, **3389 passed**, 1 skipped, 9 errors` — khớp
+        baseline, passed +5.
+      - ⚠️ **Chưa có config nào trong repo dùng `universe: VN30`** — mục này mở đường, chưa đổi
+        kết quả của bất kỳ backtest đang chạy nào. Muốn hưởng thì phải sửa config.
+      - ⚠️ **Membership vẫn KHÔNG phải point-in-time.** Cảnh báo là bản vá cho sự trung thực,
+        không phải bản vá cho bias. Muốn chữa thật thì cần lịch sử tái cơ cấu VN30 — chưa có nguồn.
 - [ ] **Q7 [C]** G2.2-d **siết hợp đồng dữ liệu `vndata`** — `price.py:139` đánh dấu `degraded`
       khi fallback là đúng, nhưng `price.py:316` **suy đoán đơn vị giá theo giả định** khi fallback.
       Thêm schema validation, kiểm độ tươi, chính sách điều chỉnh giá, audit phiên thiếu,

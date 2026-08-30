@@ -13,6 +13,7 @@ import inspect
 import json
 import logging
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -48,6 +49,61 @@ logger = logging.getLogger(__name__)
 
 _VALID_INTERVALS = {"1m", "5m", "15m", "30m", "1H", "4H", "1D"}
 _VALID_ENGINES = {"daily", "options"}
+
+
+class UniverseResolutionError(RuntimeError):
+    """Raised when a named backtest universe cannot be materialized."""
+
+
+def _materialize_named_universe(config: dict, *, as_of: date | None = None) -> dict:
+    """Populate ``codes`` from a named universe without overriding explicit codes.
+
+    The vnstock_data reference endpoint exposes current membership only.  The
+    exact materialized symbols and this limitation are therefore carried into
+    the run card rather than represented as point-in-time constituents.
+    """
+    if "codes" in config:
+        return config
+
+    universe = str(config.get("universe", "")).strip().upper()
+    if not universe:
+        return config
+    if universe != "VN30":
+        raise UniverseResolutionError(
+            f"Unsupported named backtest universe {universe!r}; supported: VN30"
+        )
+
+    try:
+        from vndata.reference import symbols_by_group
+
+        members = symbols_by_group(universe)
+    except Exception as exc:
+        raise UniverseResolutionError(
+            f"Could not resolve {universe} membership from vndata.reference: {exc}"
+        ) from exc
+
+    if not isinstance(members, pd.DataFrame) or "symbol" not in members.columns:
+        raise UniverseResolutionError(
+            f"{universe} membership source returned no 'symbol' column"
+        )
+
+    symbols = [
+        str(value).strip().upper()
+        for value in members["symbol"].tolist()
+        if not pd.isna(value) and str(value).strip()
+    ]
+    symbols = list(dict.fromkeys(symbols))
+    if not symbols:
+        raise UniverseResolutionError(f"{universe} membership source returned no symbols")
+
+    membership_date = as_of or date.today()
+    config["codes"] = [f"{symbol}.VN" if not symbol.endswith(".VN") else symbol for symbol in symbols]
+    config.setdefault("_run_card_warnings", []).append(
+        f"SURVIVORSHIP BIAS WARNING: {universe} codes use current membership as of "
+        f"{membership_date.isoformat()}, not point-in-time membership for the backtest period; "
+        "constituents removed before this date are absent."
+    )
+    return config
 
 
 class BacktestConfigSchema(BaseModel):
@@ -404,6 +460,12 @@ def main(run_dir: Path) -> None:
         sys.exit(1)
 
     raw_config = json.loads(config_path.read_text(encoding="utf-8"))
+
+    try:
+        raw_config = _materialize_named_universe(raw_config)
+    except UniverseResolutionError as exc:
+        print(json.dumps({"error": f"Invalid config: {exc}"}))
+        sys.exit(1)
 
     # Validate config schema
     try:

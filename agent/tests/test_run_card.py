@@ -4,12 +4,80 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from backtest.run_card import write_run_card
+from backtest.runner import (
+    BacktestConfigSchema,
+    UniverseResolutionError,
+    _materialize_named_universe,
+)
 from src.core.runner import Runner
+
+
+def test_vn30_universe_materializes_codes_and_records_as_of_warning(monkeypatch, tmp_path: Path) -> None:
+    members = pd.DataFrame({"symbol": ["VCB", "FPT", "HPG"]})
+    monkeypatch.setattr("vndata.reference.symbols_by_group", lambda group: members)
+
+    config = _materialize_named_universe(
+        {"universe": "VN30", "start_date": "2021-01-01", "end_date": "2025-12-31"},
+        as_of=date(2026, 8, 30),
+    )
+    card = write_run_card(
+        tmp_path,
+        config,
+        {},
+        warnings=config["_run_card_warnings"],
+    )
+
+    expected_warning = (
+        "SURVIVORSHIP BIAS WARNING: VN30 codes use current membership as of 2026-08-30, "
+        "not point-in-time membership for the backtest period; constituents removed before "
+        "this date are absent."
+    )
+    assert config["codes"] == ["VCB.VN", "FPT.VN", "HPG.VN"]
+    BacktestConfigSchema(**config)
+    assert card["backtest"]["codes"] == config["codes"]
+    assert card["warnings"] == [expected_warning]
+    assert expected_warning in (tmp_path / "run_card.md").read_text(encoding="utf-8")
+
+
+def test_explicit_codes_are_preserved_without_membership_warning(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "vndata.reference.symbols_by_group",
+        lambda group: pytest.fail("explicit codes must not query named universe membership"),
+    )
+    config = {"universe": "VN30", "codes": ["VRE", "VCB.VN"]}
+
+    resolved = _materialize_named_universe(config, as_of=date(2026, 8, 30))
+
+    assert resolved["codes"] == ["VRE", "VCB.VN"]
+    assert "_run_card_warnings" not in resolved
+
+
+@pytest.mark.parametrize(
+    "result",
+    [pd.DataFrame({"symbol": []}), pd.DataFrame({"ticker": ["VCB"]})],
+)
+def test_vn30_membership_empty_or_wrong_schema_fails_loudly(monkeypatch, result) -> None:
+    monkeypatch.setattr("vndata.reference.symbols_by_group", lambda group: result)
+
+    with pytest.raises(UniverseResolutionError, match="VN30 membership source"):
+        _materialize_named_universe({"universe": "VN30"}, as_of=date(2026, 8, 30))
+
+
+def test_vn30_membership_source_failure_fails_loudly(monkeypatch) -> None:
+    def broken(group):
+        raise RuntimeError("membership service unavailable")
+
+    monkeypatch.setattr("vndata.reference.symbols_by_group", broken)
+
+    with pytest.raises(UniverseResolutionError, match="membership service unavailable"):
+        _materialize_named_universe({"universe": "VN30"}, as_of=date(2026, 8, 30))
 
 
 def test_config_hash_is_deterministic_independent_of_key_order(tmp_path: Path) -> None:
