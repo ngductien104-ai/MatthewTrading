@@ -10,7 +10,58 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 29/08/2026, khuya (backfill vòng 2 xong)
+## 🔖 ĐIỂM DỪNG — 30/08/2026 (Claude điều phối, Codex thực thi — hết hàng đợi Q1–Q8)
+
+**Nhánh:** `upgrade/learning-loop`. **9 commit mới, CHƯA PUSH** (`96409bc` → `f36345b`).
+Cây làm việc sạch. **Full suite `11 failed, 3399 passed, 1 skipped, 9 errors`** — fail/error
+khớp baseline từng cái; passed đi từ **3350 → 3399** (+49) qua 8 mục.
+
+**Sổ cái `~/.vibe-trading/learning.db`: `calls=15`** (11 → 13 nhờ Q2 mở khoá memo TPB/HDB,
+13 → 15 nhờ Q1 hỏi lại VRE + PET). `outcomes=0`, `lessons=0` — chưa có gì để chấm cho tới
+khi làm `resolve.py`.
+
+**Giai đoạn 2.2 xong phần làm được trong sandbox.** Còn **Q9** (chính sách điều chỉnh giá +
+đối chiếu DataPro ↔ vnstock_data) **bị chặn bởi môi trường**, không phải bởi thiếu người làm.
+
+### Việc kế tiếp
+1. **Push 9 commit** — repo PUBLIC, liếc `_upgrade/PROGRESS.md` một lượt trước (đã cắt khuyến
+   nghị sống ở `63bbfbd` theo tiền lệ `0c24536`).
+2. **Q9** — cần máy có **DataPro desktop mở** và **mạng tới `vnstocks.com`**. Đây cũng là phép
+   đo duy nhất trả lời được đơn vị thật của `vnstock_data` mà Q7 phải để ngỏ.
+3. **MWG vào sổ** — Q3 mở đường vào HTML nhưng `_mwg_research` chưa có call nào. Cần một reply
+   do Claude đóng vai model (không tốn token provider).
+4. **Câu hỏi treo cần anh quyết** (chi tiết ở Q7): schema hỏng ở **một** mã nay giết **cả** lần
+   chạy. Giữ nguyên, hay bỏ qua theo mã rồi ghi vào run card như Q6 làm với survivorship bias?
+5. Rồi sang **2.1** (walk-forward, CPCV, DSR, PBO) — nay đã đứng trên nền dữ liệu sạch hơn,
+   đúng thứ tự kế hoạch đã đảo.
+
+### Ba việc môi trường, không phải việc code
+- **5 thư mục pytest rỗng KẸT VĨNH VIỄN** trong `_upgrade/` (`q4_pytest_tmp`, `q5_pytest_tmp`,
+  `q6_pytest_tmp{,_targeted,_targeted2}`). ACL chặn tới mức `icacls` **đọc** cũng bị từ chối;
+  `takeown`, `robocopy /MIR` đều thất bại. Git không commit thư mục rỗng nên **không lọt lên
+  repo public**, chỉ làm `git status` in warning. Cần shell quyền cao hơn. Luật 8 đã chặn việc đẻ thêm.
+- **`/codex:transfer` HỎNG** ở codex-cli 0.150.1: báo "import completed" nhưng không ghi thread
+  nào, cả khi truyền `--source` đúng đường dẫn. Bàn giao ngữ cảnh đi bằng chính file này.
+- **Provider LLM vẫn chết** (DeepSeek $0 — xem Đính chính 1). Mọi việc trên đây làm được là vì
+  không mục nào cần gọi model: reply backfill có sẵn trên đĩa, còn Claude tự đóng vai extractor.
+
+### Điều đáng giá nhất rút ra từ vòng này
+
+**Ba mục đầu (Q2, Q3, Q4) đều bị trả lại, và cả ba lần Codex đã nộp với test xanh cùng báo cáo
+tự tin.** Không lần nào test của nó bắt được lỗi — vì test do chính nó viết, cho ca chính nó
+nghĩ tới. Thứ bắt được là **chạy bản vá lên dữ liệu thật của repo rồi hỏi "code cũ có xử lý ca
+này khác không"**:
+- Q2: cổng action nhận `"Ban lãnh đạo"` thành lệnh `sell` — code cũ từ chối 5/6 ca đó.
+- Q3: mở HTML cho cả 17 thư mục → ghi quyết định TPB/HDB **hai lần**, hai action mâu thuẫn.
+- Q4: test chỉ phát biểu lại `5-4=1`, đỏ vì đổi chữ ký hàm chứ không vì đổi hành vi.
+
+Sau khi câu hỏi đó vào brief, **Q5–Q8 chỉ còn một lượt trả lại duy nhất, và là vì chẩn đoán
+chứ không vì logic**. Đây là luật 7 và 8 của luồng — giữ chúng.
+
+---
+
+## 🔖 ĐIỂM DỪNG trước đó — 29/08/2026, khuya (backfill vòng 2 xong)
+
 
 **Nhánh:** `upgrade/learning-loop`, **đã push tới `0c24536`**; sau đó còn 3 commit chưa push.
 **208 test learning xanh.** Cây làm việc sạch.
