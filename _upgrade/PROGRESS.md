@@ -106,18 +106,16 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
 - [x] **Q1 [K]** Hỏi lại VRE + PET — **sổ cái 13 → 15 call.** Claude đóng vai extractor,
       sửa **tối thiểu**: chỉ bổ sung trích dẫn còn thiếu, **không viết lại call**.
       - **VRE** `action_not_in_evidence` là bắt **đúng**, không phải cổng quá chặt: bản cũ khai
-        action `KHÔNG MUA` mà 12 trích dẫn không có dòng nào chứa cụm đó. Thêm `PM_DECISION.md:437`
-        (*"Hành động hôm nay 31/07/2026 | KHÔNG MUA. 0,0% NAV."*) và `:330`. Vào sổ: `avoid`,
-        ref 24.300, target 26.200, 14 evidence.
+        action `KHÔNG MUA` mà 12 trích dẫn không có dòng nào chứa cụm đó. Thêm `PM_DECISION.md:437` (dòng
+        "Hành động hôm nay") và `:330`. Vào sổ: `avoid`, ref 24.300, target 26.200, 14 evidence.
       - **PET** `scale_ambiguous`: bản cũ toàn số trần (`54.8`, `44–48`, `48,5`) nên
-        `resolve_scale` không chứng minh nổi `54.8` là 54.800 hay 54,8. Thêm `:33`
-        (*"17x TTM ≈ 44–45k"*) và `:22` (*"@53k"*) — hai dòng có giá **ghi đơn vị**.
+        `resolve_scale` không chứng minh nổi `54.8` là 54.800 hay 54,8. Thêm `:33` và `:22` — hai dòng
+        có giá **ghi đơn vị** (`…k`), thứ mà bản cũ không có.
         Vào sổ: `wait`, ref **54.800**, và `notes` ghi lại chính suy luận đó:
         `"ref_price 54.8 read as 54800 against quoted 53000"`. Target 44.000 / bull 64.000 /
         bear 39.000 / stop 48.500, 12 evidence.
       - ⚠️ **Một chỗ Claude tự quyết, anh phủ quyết được:** VRE ghi `avoid` theo đúng tiêu đề
-        *"Hành động hôm nay: KHÔNG MUA"*, giữ `target` 26.200 của kịch bản cơ sở. Kế hoạch thật
-        (mua ≤22.300, hạn 31/10/2026) nằm ở `notes`. Claude **không** đổi sang `wait` + mốc
+        *"Hành động hôm nay: KHÔNG MUA"*, giữ `target` 26.200 của kịch bản cơ sở. Kế hoạch thật (giá vào tối đa + hạn hiệu lực) nằm ở `notes`. Claude **không** đổi sang `wait` + mốc
         22.300 cho giống ba call `wait` cũ, dù dạng đó dễ chấm điểm hơn — vì đổi thế là **viết
         lại call**, không phải sửa bằng chứng. → `resolve.py` ở Giai đoạn 2 sẽ phải trả lời:
         một call `avoid` thì chấm bằng gì.
@@ -158,15 +156,14 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
         bỏ CSS/script/SVG/ảnh base64. PDF **cố ý loại** (bản dẫn xuất từ HTML, kém ổn định hơn).
       - Converter tốt ngay từ lượt 1: HTML MWG 256.571 ký tự → **5.069 ký tự / 37 dòng**.
         Claude tự strip tag thô ra 5.067 để đối chứng — nó **không nuốt nội dung**, 256KB kia
-        là CSS + SVG + ảnh nhúng. Bản chuyển đọc được nguyên vẹn khuyến nghị
-        *"MUA ĐƯỢC — TÍCH LŨY THEO ĐỢT"*, *"Giá tham chiếu ~ 69.000đ"*, fair value
-        85.000–94.000đ, và cả ba đợt giải ngân 66–68,5 / 62,5–65 / 58–61,5.
+        là CSS + SVG + ảnh nhúng. Bản chuyển đọc được nguyên vẹn dòng
+        khuyến nghị, dòng giá tham chiếu, bảng kịch bản định giá và bảng ba đợt giải ngân
+        *(nội dung khuyến nghị cắt ở đây vì repo public — xem tiền lệ `0c24536`)*.
       - ⚠️ **Lượt 1 mở `*.html` cho TOÀN BỘ thư mục `_*` → sinh call TRÙNG.** Claude đếm thật:
         **17 thư mục có HTML, 15 trong đó CŨNG có `.md`**; chỉ `_mwg_research` và
         `_sentiment_report` là md=0. Chạy converter lên `_switch_tpb_hdb/TPB_HDB_Switch_report.html`
-        ra *"HOÁN ĐỔI TPB → HDB · KHUYẾN NGHỊ: HOÁN ĐỔI MỘT PHẦN | CHỜ Q2/2026 · HDB 25.800đ ·
-        TPB 16.300đ"* — **đúng quyết định đã có trong `04_pm_decision.md`**, bản trình bày cho
-        khách. Backfill sẽ rút TPB + HDB ngày 29/06 **hai lần**, hai action khác nhau, hai giá
+        ra đúng dòng khuyến nghị + hai giá tham chiếu của **chính quyết định đã có trong
+        `04_pm_decision.md`** *(nội dung cắt, repo public)* — đó là bản trình bày cho khách. Backfill sẽ rút TPB + HDB ngày 29/06 **hai lần**, hai action khác nhau, hai giá
         tham chiếu khác nhau. Trên sổ cái 13 call thì hai call ma là 15% nhiễu.
       - Lượt 2: **markdown là nguồn có thẩm quyền; HTML chỉ là dự phòng cấp thư mục khi
         thư mục không có `.md` nào.** Claude chạy `iter_research_documents(".")` để kiểm:
