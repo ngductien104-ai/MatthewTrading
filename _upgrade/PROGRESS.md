@@ -344,8 +344,32 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
         `ohlcv` để người dùng biết trước khi dựa vào nó.
       - ⚠️ **`session_audit` hiện là metadata THỤ ĐỘNG** — đính vào `attrs` nhưng chưa ai đọc.
         Cố ý không xây heuristic cảnh báo tự động ở lượt này.
-- [ ] **Q8 [C]** G2.2-e nâng `_DISCLOSURE_LAG_DAYS` lên `vndata` để resolver và backtest dùng
-      **chung một** định nghĩa look-ahead.
+- [x] **Q8 [C]** G2.2-e nâng `_DISCLOSURE_LAG_DAYS` lên `vndata` — **xong, không phải trả lại.**
+      - Vấn đề đã **hiện hình chứ không còn là nguy cơ**: hai định nghĩa song song **đã lệch nhau**.
+        `vnstock_data_fundamentals.py:79` có `{"year": 90, "quarter": 45}`; `vnstock_fundamentals.py:46`
+        chỉ có số phẳng `90`, không có kỳ quý. Cả hai trả lời cùng một câu hỏi — *số liệu của một
+        kỳ trở nên nhìn thấy được vào lúc nào* — và trả lời sai câu đó là **look-ahead**.
+        `resolve.py` sắp tới sẽ cần đúng định nghĩa này, tức sắp có **bản sao thứ ba**.
+      - Nay một nguồn duy nhất ở `agent/vndata/fundamental.py:43`, bọc `MappingProxyType` nên
+        **không ghi đè được** (Claude thử gán → `TypeError`). Hai loader import về dùng.
+      - **Docstring nói đúng thứ cần nói**, kể cả phần tự hạn chế: đây là *"conservative synthetic
+        dates for feeds without an actual filing timestamp, not claims that every issuer filed on
+        exactly that date"*. `90` là cửa sổ công bố BCTC năm kiểm toán; `45` là deadline BCTC quý
+        hợp nhất 30 ngày cộng đệm an toàn 15 ngày.
+      - **Giá trị GIỮ NGUYÊN** — đây là refactor về *nơi định nghĩa*, không phải dịp đổi số.
+        Codex nói rõ nó chưa có căn cứ kết luận hai con số sai, và đề nghị tách việc đối chiếu
+        với quy định công bố thông tin hiện hành thành mục riêng. Đồng ý.
+      - **Claude kiểm trước/sau bằng `git stash`**, suy ngày công bố cho ba kỳ cụ thể:
+        ```
+                                   TRƯỚC        SAU
+        sponsor quarter 2024-Q1    2024-05-15   2024-05-15
+        sponsor year    2024       2025-03-31   2025-03-31
+        free    year    2024       2025-03-31   2025-03-31
+        ```
+        Giống hệt. `vnstock_fundamentals.py` **không** mọc thêm nhánh quý dù nguồn chung có sẵn.
+      - **Số đo:** `test_disclosure_lag.py` **2 passed**; targeted **224 passed** (5 fail nhóm
+        DuckDB loader-cache có sẵn); full suite `11 failed, **3399 passed**, 1 skipped, 9 errors`
+        — khớp baseline, passed +2. Grep toàn repo: **không còn hằng số song song nào.**
 - [ ] **Q9 [C]** *(tách ra từ Q7 mục 5)* Chính sách điều chỉnh giá + đối chiếu hai nguồn.
       Codex từ chối làm nửa vời và nói rõ cần gì — **đúng, giữ nguyên quyết định đó**:
       - **Chính sách điều chỉnh giá cổ tức/chia tách.** DataPro có cột `ADJ_RATE` nhưng suy diễn

@@ -22,10 +22,25 @@ than reported as-is — see :func:`derived`:
 
 from __future__ import annotations
 
+from types import MappingProxyType
+from typing import Mapping
+
 import pandas as pd
 
 from vndata.errors import SourceUnavailable
 from vndata.normalize import normalize_ratio, normalize_statement, pivot
+
+#: Conservative visibility lag for financial statements, measured in calendar
+#: days from the end of the reporting period.  A statement must not be exposed
+#: to a resolver or backtest before ``period_end + DISCLOSURE_LAG_DAYS[kind]``;
+#: doing so would let it use figures the market could not yet have known.
+#:
+#: The existing policy values are 90 days for annual reports (the audited
+#: annual-report publication window) and 45 days for quarterly reports (the
+#: 30-day consolidated-report deadline plus a 15-day safety buffer).  These are
+#: conservative synthetic dates for feeds without an actual filing timestamp,
+#: not claims that every issuer filed on exactly that date.
+DISCLOSURE_LAG_DAYS: Mapping[str, int] = MappingProxyType({"year": 90, "quarter": 45})
 
 #: Statement name -> the Unified UI method that serves it.
 STATEMENTS = ("income_statement", "balance_sheet", "cash_flow")

@@ -29,7 +29,8 @@ Three further gains over the free tier:
 Point-in-time model
 -------------------
 The feed still carries no filing date, so one is synthesised: a period only
-becomes visible ``_DISCLOSURE_LAG_DAYS[period_kind]`` after period end, and
+becomes visible after the shared
+``vndata.fundamental.DISCLOSURE_LAG_DAYS[period_kind]`` lag from period end, and
 ``merge_asof`` then attaches it only to bars on/after that date — no lookahead.
 Annual uses 90 days (audited annual reports are due within 90); quarterly uses
 45, which clears the 30-day consolidated-filing deadline with a buffer.
@@ -74,9 +75,7 @@ from backtest.loaders.tushare_fundamentals import (
     TableSchema,
     UnknownTableError,
 )
-
-# Days after period end before a report is treated as public.
-_DISCLOSURE_LAG_DAYS = {"year": 90, "quarter": 45}
+from vndata import fundamental as vndata_fundamental
 
 # Logical table name -> Unified UI ``Fundamental.equity`` method.
 _TABLE_METHODS = {
@@ -316,10 +315,10 @@ class VNStockDataFundamentalProvider:
         if quarter:
             end_month = int(quarter) * 3
             period_end = pd.Timestamp(year=int(year), month=end_month, day=1) + pd.offsets.MonthEnd(0)
-            lag = _DISCLOSURE_LAG_DAYS["quarter"]
+            lag = vndata_fundamental.DISCLOSURE_LAG_DAYS["quarter"]
         else:
             period_end = pd.Timestamp(f"{year}-12-31")
-            lag = _DISCLOSURE_LAG_DAYS["year"]
+            lag = vndata_fundamental.DISCLOSURE_LAG_DAYS["year"]
         return period_end + pd.Timedelta(days=lag)
 
     @staticmethod

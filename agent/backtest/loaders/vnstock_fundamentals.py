@@ -9,8 +9,9 @@ columns to a VN price frame.
 Point-in-time model
 -------------------
 vnstock does **not** return a filing/announcement date, so we synthesise one: a
-period's figures only become visible ``DISCLOSURE_LAG_DAYS`` after the period
-end (Vietnam-listed firms must publish audited annual reports within 90 days).
+period's figures only become visible after the shared
+``vndata.fundamental.DISCLOSURE_LAG_DAYS["year"]`` lag from period end
+(Vietnam-listed firms must publish audited annual reports within 90 days).
 Each row's ``ann_date`` = period_end + lag, and ``merge_asof`` then attaches a
 period only to bars on/after that date — no lookahead.
 
@@ -40,10 +41,7 @@ from backtest.loaders.tushare_fundamentals import (
     TableSchema,
     UnknownTableError,
 )
-
-# Days after period end before a report is treated as public (audited annual
-# reports are due within 90 days for VN-listed companies).
-DISCLOSURE_LAG_DAYS = 90
+from vndata import fundamental as vndata_fundamental
 
 # Logical table name -> vnstock Finance method.
 _TABLE_METHODS = {
@@ -179,7 +177,9 @@ class VNStockFundamentalProvider:
                 seen_years.add(year_str)
                 if requested_periods and year_str not in requested_periods:
                     continue
-                ann_date = pd.Timestamp(f"{year_str}-12-31") + pd.Timedelta(days=DISCLOSURE_LAG_DAYS)
+                ann_date = pd.Timestamp(f"{year_str}-12-31") + pd.Timedelta(
+                    days=vndata_fundamental.DISCLOSURE_LAG_DAYS["year"]
+                )
                 if as_of_ts is not None and ann_date > as_of_ts:
                     continue  # not yet disclosed as-of the backtest cut-off
                 row: dict = {
