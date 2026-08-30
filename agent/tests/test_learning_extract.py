@@ -24,6 +24,7 @@ from src.learning.extract import (
     ExtractionError,
     Rejection,
     SourceDocument,
+    _action_is_quoted,
     assign_revisions,
     build_prompt,
     extract_all,
@@ -687,12 +688,75 @@ def test_a_share_count_is_not_allowed_to_be_the_ruler(tmp_path):
         validate_candidate(candidate, doc)
 
 
-def test_the_action_is_cited_like_every_other_claim(document):
+@pytest.mark.parametrize("unstated_action", ["TÍCH LŨY", "accumulation"])
+def test_the_action_is_cited_like_every_other_claim(document, unstated_action):
     """The action was the one field a model could assert without evidence.
 
     A real extraction mapped an English memo's mechanism onto ``MUA THEO ĐỢT``,
     a phrase that document never used. Numbers were already checked against
     their quotes; the action is a claim about the document too.
     """
-    with pytest.raises(ExtractionError, match="does not appear in the supplied quotes"):
-        validate_candidate(_candidate(action="TÍCH LŨY"), document)
+    reply = json.dumps({"calls": [_candidate(action=unstated_action)]})
+    result = extract_document(document, lambda _prompt: reply)
+
+    assert result.calls == []
+    assert [item.code for item in result.rejections] == ["action_not_in_evidence"]
+
+
+@pytest.mark.parametrize(
+    ("written_action", "quote"),
+    [
+        ("buy", "Hành động ngày 31/07/2026: KHÔNG ĐẶT MỘT LỆNH MUA NÀO."),
+        ("MUA", "Hành động ngày 31/07/2026: KHÔNG ĐẶT MỘT LỆNH MUA NÀO."),
+        ("SELL", "Ban lãnh đạo VRE khẳng định kế hoạch không đổi."),
+        ("HOLD", "Lợi nhuận trong năm 2026 dự kiến tăng."),
+        ("accumulate", "Danh mục bao gồm bốn mã ngân hàng."),
+        ("wait", "Báo cáo cho thấy biên lợi nhuận cải thiện."),
+    ],
+)
+def test_accent_collisions_and_negations_are_not_action_evidence(written_action, quote):
+    assert _action_is_quoted(written_action, quote) is False
+
+
+@pytest.mark.parametrize(
+    ("written_action", "quote"),
+    [
+        ("SELL", "Khuyến nghị: BÁN TPB."),
+        ("HOLD", "Khuyến nghị: NẮM GIỮ."),
+        ("buy", "Rating: OUTPERFORM."),
+    ],
+)
+def test_affirmative_registered_wording_is_action_evidence(written_action, quote):
+    assert _action_is_quoted(written_action, quote) is True
+
+
+@pytest.mark.parametrize(
+    ("written_action", "quote", "canonical"),
+    [
+        ("MUA THEO ĐỢT", "HDB accumulation is price-disciplined.", "accumulate"),
+        ("GIẢM TỶ TRỌNG", "Trim TPB into strength.", "reduce"),
+        ("OUTPERFORM", "Rating: OUTPERFORM.", "buy"),
+        ("UNDERPERFORM", "Rating: UNDERPERFORM.", "reduce"),
+    ],
+)
+def test_a_registered_english_action_in_the_quote_is_evidence(
+    tmp_path, written_action, quote, canonical
+):
+    from src.learning.extract import _document
+
+    body = f"{quote} Giá tham chiếu 25.800 đồng."
+    path = _write(tmp_path, "_english_actions/decision.md", body)
+    doc = _document(path, "markdown", "_english_actions")
+
+    record, _ = validate_candidate(
+        _candidate(
+            action=written_action,
+            ref_price=25800,
+            target=None,
+            bear=None,
+            quotes=[body],
+        ),
+        doc,
+    )
+
+    assert record.action == canonical

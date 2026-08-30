@@ -78,6 +78,84 @@ trong trích dẫn, giới hạn trong dải giá cổ phiếu hợp lý để *
 
 ---
 
+## 🤝 Luồng Claude ↔ Codex — mở 30/08/2026
+
+**Vai:** Claude điều phối (đọc/ghi file này, review diff, chạy test, commit).
+**Codex thực thi** (`codex exec` qua `codex-companion.mjs task --write`, sandbox workspace-write).
+
+**Luật của luồng — Codex đọc trước khi gõ dòng nào:**
+1. Mỗi mục hàng đợi có **chủ**: `[C]` = Codex viết code · `[K]` = Claude (cần phán đoán trên
+   tài liệu, không giao được).
+2. **Làm xong MỘT mục thì dừng.** Không tự nhảy sang mục kế, không gộp hai mục vào một diff.
+3. **Codex KHÔNG commit, KHÔNG `git add`, KHÔNG push.** Để cây làm việc bẩn cho Claude review.
+4. Chỉ đụng file thuộc phạm vi mục đang làm. Thấy lỗi ngoài phạm vi thì **ghi ra**, đừng sửa.
+5. Test bằng `C:\Users\VVVZV\MatthewTrading\.venv\Scripts\python.exe -m pytest` (venv này
+   có pytest). Mỗi mục phải kèm test **fail được trên code cũ** — không thì chưa xong.
+6. Không bịa số, không nới cổng để test xanh (bài học vòng backfill 2: 24 fixture đỏ thì
+   sửa fixture, không hạ chuẩn).
+
+**Claude sau mỗi mục:** đối chiếu full suite với baseline (`11 failed / 9 errors` cho sẵn),
+tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
+
+> ⚠️ `/codex:transfer` (bản codex-cli 0.150.1) **hỏng** trên máy này: báo "import completed"
+> nhưng không ghi thread nào, cả khi truyền `--source` đúng đường dẫn. Bàn giao ngữ cảnh vì
+> vậy đi bằng **chính file này** — Codex được lệnh đọc `_upgrade/PROGRESS.md` mở đầu mỗi lượt.
+
+### Hàng đợi
+
+- [ ] **Q1 [K]** Hỏi lại VRE + PET với prompt đã siết → sổ cái **13 → 15 call**.
+      (Claude tự làm: cần model đọc tài liệu, provider DeepSeek đang $0 — xem Đính chính 1.)
+- [x] **Q2 [C]** Từ vựng action tiếng Anh trong `ACTION_ALIASES` — **xong, nhưng phải trả lại Codex một lượt.**
+      - Alias thêm: `outperform`/`overweight`→buy · `accumulation`→accumulate ·
+        `trim`/`underperform`/`underweight`→reduce.
+      - **Lượt 1 của Codex làm CỔNG THỦNG, và nó tự báo cáo là "giữ nguyên".** Hàm
+        `_action_is_quoted` tra ngược alias rồi tìm bản **đã bỏ dấu** trong trích dẫn.
+        Bỏ dấu làm `bán`→`ban` đụng *"Ban lãnh đạo"*, `nắm`→`nam` đụng *"trong năm 2026"*,
+        `gồm`→`gom` đụng *"bao gồm"*, `chờ`→`cho` đụng *"cho thấy"*. Claude dựng 6 ca đối
+        kháng chạy thẳng trên hàm đó: **6/6 nhận sai**, trong khi code CŨ từ chối đúng 5/6.
+        Một tài liệu viết *"KHÔNG ĐẶT MỘT LỆNH MUA NÀO"* chứng nhận được call `buy`.
+      - Lượt 2 sửa đúng hai vế: **alias giữ nguyên dấu** (fold chỉ còn dùng để TRA action
+        model viết ra, không dùng để soi trích dẫn), và **kiểm phủ định theo mệnh đề** —
+        cụm khớp mà mệnh đề trước nó có `không`/`chưa`/`đừng`/`no`/`not` thì không tính là
+        bằng chứng. `không mua` vẫn chứng nhận `avoid`; chữ `mua` bên trong thì không
+        chứng nhận `buy`.
+      - **Số đo:** 25 ca đối kháng Claude tự dựng (11 ca Codex chưa từng thấy) — **24 đúng**.
+        Learning suite **208 → 228 xanh**. Full suite `11 failed, 3370 passed, 1 skipped,
+        9 errors` — fail/error khớp baseline từng cái, passed +20.
+      - Memo `_switch_tpb_hdb/04_pm_decision.md`: **2 rejection → 2 call** (TPB `reduce`,
+        HDB `accumulate`, 18 evidence). **Sổ cái: 11 → 13 call.** Chạy `extract` ba lần
+        không đẻ bản trùng — idempotency theo nội dung đứng vững.
+      - ⚠️ **Hai điều còn nợ, ghi để không quên:**
+        1. `trim` vẫn khớp được trong câu tiếng Việt chêm tiếng Anh (*"Nhà máy đã trim lại
+           công suất"* → `reduce`). Giữ vì memo thật dùng `trim` 4 lần, nhưng đây là alias
+           yếu nhất trong bảng — nó là động từ thường, không phải từ xếp hạng như `OUTPERFORM`.
+        2. Memo đó thực chất viết `switch` **16 lần** — và `switch` KHÔNG có trong `ACTIONS`.
+           Ghi thành TPB `reduce` + HDB `accumulate` là một **phân rã**, không phải nguyên
+           văn. Nếu sau này muốn đo "call hoán đổi" như một loại riêng thì phải quay lại đây.
+      - **Luật mới cho luồng, rút từ chính vụ này:** test xanh + báo cáo của Codex KHÔNG đủ
+        để tick. Với mọi thay đổi động vào một **cổng**, Claude phải tự dựng ca đối kháng
+        chạy trên chính hàm Codex viết, và hỏi *code cũ có từ chối ca này không*. Nới cổng
+        luôn lộ ra dưới dạng "cũ nói không, mới nói có".
+- [ ] **Q3 [C]** Đường vào cho tài liệu **không** phải `.md` (MWG 24/07 chỉ có HTML/PDF).
+      Tiêu chí nghiệm thu G1 có nhắc MWG nên không bỏ qua được.
+- [ ] **Q4 [C]** G2.2-c **lịch nghỉ lễ VN cho T+2** — `agent/backtest/engines/vn_equity.py:135`
+      đang dùng `np.busday_count`, bỏ qua Tết (tới 9 phiên) → thoát lệnh lạc quan quanh lễ.
+      Gợi ý: lấy **phiên giao dịch quan sát được** từ `vndata` làm lịch thật, đừng hard-code
+      danh sách ngày lễ sẽ mục theo năm.
+- [ ] **Q5 [C]** G2.2-a **hợp nhất hai client DataPro** — `agent/backtest/loaders/datapro_loader.py:126-194`
+      trùng `agent/vndata/price.py:99-169`. Viết lại loader trên `vndata.price.ohlcv`
+      → mở khoá 24 cột (thoả thuận, tự doanh, mua/bán chủ động). Interface `fetch()` 5 tham số
+      trả `{code: DataFrame}` (`loaders/base.py:497`) giữ nguyên.
+- [ ] **Q6 [C]** G2.2-b **PIT VN30** — `codes[]` đang là danh sách cứng → survivorship bias.
+      Sinh `codes` lúc build config từ `vndata.reference.symbols_by_group("VN30")`, và **ghi rõ
+      vào run card** khi chỉ có membership hiện tại chứ không phải membership tại thời điểm đó.
+- [ ] **Q7 [C]** G2.2-d **siết hợp đồng dữ liệu `vndata`** — `price.py:139` đánh dấu `degraded`
+      khi fallback là đúng, nhưng `price.py:316` **suy đoán đơn vị giá theo giả định** khi fallback.
+      Thêm schema validation, kiểm độ tươi, chính sách điều chỉnh giá, audit phiên thiếu,
+      đối chiếu DataPro ↔ vnstock_data.
+- [ ] **Q8 [C]** G2.2-e nâng `_DISCLOSURE_LAG_DAYS` lên `vndata` để resolver và backtest dùng
+      **chung một** định nghĩa look-ahead.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```

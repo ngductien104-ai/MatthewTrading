@@ -47,6 +47,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Sequence
 
 from src.learning.records import (
+    ACTION_ALIASES,
+    ACTIONS,
     CallRecord,
     Evidence,
     RecordValidationError,
@@ -122,6 +124,23 @@ _RANGE_RE = re.compile(
 
 class ExtractionError(RecordValidationError):
     """A candidate failed a gate and must not become a record."""
+
+
+def _action_is_quoted(written_action: str, quoted: str) -> bool:
+    """Return whether affirmative registered wording occurs in the evidence."""
+    action = normalize_action(written_action)
+    evidence_text = " ".join(str(quoted).casefold().split())
+    wordings = [name for name in ACTIONS if name == action]
+    wordings.extend(name for name, canonical in ACTION_ALIASES.items() if canonical == action)
+    for wording in wordings:
+        evidence_wording = " ".join(wording.casefold().split())
+        pattern = rf"(?<!\w){re.escape(evidence_wording)}(?!\w)"
+        for match in re.finditer(pattern, evidence_text):
+            clause = re.split(r"[,.!?;:\n]", evidence_text[: match.start()])[-1]
+            if re.search(r"\b(?:không|chưa|đừng|no|not)\b", clause):
+                continue
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -652,7 +671,7 @@ def validate_candidate(
     evidences = [_build_evidence(quote, document) for quote in quotes]
     quoted = "\n".join(quotes)
     written_action = str(candidate["action"])
-    if fold_text(written_action) not in fold_text(quoted):
+    if not _action_is_quoted(written_action, quoted):
         raise ExtractionError(
             f"action {written_action!r} does not appear in the supplied quotes. "
             "The action is a claim about what the document said, so it is cited like "

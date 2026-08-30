@@ -161,6 +161,12 @@ def test_known_at_cannot_precede_as_of():
         ("BÁN", "sell"),
         ("không đuổi", "avoid"),
         ("hold", "hold"),
+        ("ACCUMULATION", "accumulate"),
+        ("OUTPERFORM", "buy"),
+        ("OVERWEIGHT", "buy"),
+        ("TRIM", "reduce"),
+        ("UNDERPERFORM", "reduce"),
+        ("UNDERWEIGHT", "reduce"),
     ],
 )
 def test_vietnamese_actions_normalize(stated, canonical):

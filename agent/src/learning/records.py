@@ -64,37 +64,45 @@ ACTIONS = (
     "wait",
 )
 
-#: Vietnamese wording actually used in three months of committee notes, mapped
-#: onto the canonical vocabulary. Keys are accent-stripped and lowercased.
+#: Wording actually used in committee notes, mapped onto the canonical
+#: vocabulary. Keys retain their accents so evidence matching cannot confuse
+#: ``bán`` with ``ban``; :func:`normalize_action` folds them only when reading
+#: the model's proposed action.
 ACTION_ALIASES = {
+    "accumulation": "accumulate",
+    "outperform": "buy",
+    "overweight": "buy",
+    "trim": "reduce",
+    "underperform": "reduce",
+    "underweight": "reduce",
     "mua": "buy",
-    "mua duoc": "buy",
-    "mua co dieu kien": "buy",
-    "mua vao": "buy",
-    "tich luy": "accumulate",
-    "mua theo dot": "accumulate",
+    "mua được": "buy",
+    "mua có điều kiện": "buy",
+    "mua vào": "buy",
+    "tích lũy": "accumulate",
+    "mua theo đợt": "accumulate",
     "gom": "accumulate",
-    "kha quan": "buy",
-    "tang ty trong": "accumulate",
-    "nam giu": "hold",
-    "nam": "hold",
-    "giu": "hold",
-    "trung lap": "neutral",
-    "giam ty trong": "reduce",
-    "ha ty trong": "reduce",
-    "kem kha quan": "reduce",
-    "chot loi": "reduce",
-    "ban": "sell",
-    "ban het": "sell",
-    "tranh": "avoid",
-    "khong mua": "avoid",
-    "khong duoi": "avoid",
-    "loai": "avoid",
-    "loai tuyet doi": "avoid",
-    "cho": "wait",
-    "quan sat": "wait",
-    "theo doi": "wait",
-    "dung ngoai": "wait",
+    "khả quan": "buy",
+    "tăng tỷ trọng": "accumulate",
+    "nắm giữ": "hold",
+    "nắm": "hold",
+    "giữ": "hold",
+    "trung lập": "neutral",
+    "giảm tỷ trọng": "reduce",
+    "hạ tỷ trọng": "reduce",
+    "kém khả quan": "reduce",
+    "chốt lời": "reduce",
+    "bán": "sell",
+    "bán hết": "sell",
+    "tránh": "avoid",
+    "không mua": "avoid",
+    "không đuổi": "avoid",
+    "loại": "avoid",
+    "loại tuyệt đối": "avoid",
+    "chờ": "wait",
+    "quan sát": "wait",
+    "theo dõi": "wait",
+    "đứng ngoài": "wait",
 }
 
 VERDICTS = ("hit", "miss", "open", "invalidated")
@@ -191,8 +199,9 @@ def normalize_action(value: str) -> str:
         raise RecordValidationError("action is required")
     if folded in ACTIONS:
         return folded
-    if folded in ACTION_ALIASES:
-        return ACTION_ALIASES[folded]
+    for wording, canonical in ACTION_ALIASES.items():
+        if _fold(wording) == folded:
+            return canonical
     allowed = ", ".join(ACTIONS)
     hint = (
         " This looks like a whole sentence: pass only its recommendation phrase and put "
