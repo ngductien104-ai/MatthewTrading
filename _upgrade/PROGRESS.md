@@ -638,6 +638,40 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_validation.py` **60 passed** (+14); full suite `11 failed, **3461 passed**,
         1 skipped, 9 errors` — khớp baseline, passed +14.
 
+- [x] **R5 [C]** PBO — Probability of Backtest Overfitting (CSCV, Bailey–Borwein–López de Prado–Zhu 2015).
+      - **Câu hỏi khác hẳn DSR.** DSR hỏi *con số của người thắng có sống sót sau cuộc tìm kiếm
+        không*. PBO hỏi thẳng về **chính quy trình chọn**: khi ta chọn biến thể tốt nhất trong mẫu,
+        **bao nhiêu phần trăm số lần nó rơi xuống nửa dưới ngoài mẫu?** Nếu là một nửa thì quy tắc
+        chọn **không mang thông tin gì** và cả bài tập là khớp nhiễu — bất kể backtest của người
+        thắng đẹp tới đâu.
+      - Cắt mẫu thành S khối, lấy **mọi cách** chia thành hai nửa **bằng nhau**, ghi thứ hạng ngoài
+        mẫu của kẻ thắng trong mẫu. Hai nửa bằng nhau và mỗi khối xuất hiện ở mỗi nửa số lần như
+        nhau — nên **không có bất đối xứng in/out nào để khai thác**, đó là chữ "symmetric".
+      - **Một phát hiện phải ghi vào docstring, không được để người đọc tự vấp.** Đo trên nhiễu
+        thuần (không biến thể nào có lợi thế), 24 lần thực hiện độc lập, 1.500 phiên × 20 biến thể:
+        ```
+        n_blocks=8   mean PBO 0,5696   sd 0,2164   range [0,171 ; 0,914]
+        n_blocks=10  mean PBO 0,5714   sd 0,1909   range [0,159 ; 0,901]
+        n_blocks=12  mean PBO 0,5850   sd 0,1864   range [0,185 ; 0,911]
+        ```
+        Trung bình đúng lý thuyết ≈0,5, nhưng **sd ≈ 0,19–0,22**. Lần chạy đầu của em ra **0,3693**
+        và em suýt đọc đó là "tốt hơn ngẫu nhiên" — **sai**, nó nằm gọn trong phân phối null.
+        **Một con số PBO đơn lẻ ồn hơn hai chữ số thập phân của nó rất nhiều**; chỉ tin khi nó xa
+        hẳn 0,5, và luôn đọc kèm `performance_degradation`.
+      - **Chạy trên lưới SMA thật của VNINDEX** (17 biến thể, 2.159 phiên):
+        ```
+        n_blocks=10 : PBO 0,0119   median logit +2,8332   degradation +0,0082   (252 split)
+        n_blocks=16 : PBO 0,0039   median logit +2,8332   degradation +0,0075   (12.870 split)
+        ```
+      - **Đọc R4 và R5 cùng nhau, vì chúng nói hai điều khác nhau và cả hai đều đúng:** PBO ~0,01
+        nói **lựa chọn là thật** (lookback ngắn thắng bền vững suốt mẫu này, không phải may);
+        DSR 0,84 với ngưỡng vô-giá-trị 1,15 nói **độ lớn bị thổi**. Một chiến lược có thể vừa được
+        chọn đúng vừa được báo cáo quá to.
+      - Sharpe tính lại từ tổng theo khối chứ không cắt ma trận — đó là thứ giữ cho
+        `C(16,8) = 12.870` split chạy trong vài giây thay vì vài phút. Chi phí ghi rõ trong docstring.
+      - **Số đo:** `test_validation.py` **68 passed** (+8); full suite `11 failed, **3469 passed**,
+        1 skipped, 9 errors` — khớp baseline, passed +8.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```

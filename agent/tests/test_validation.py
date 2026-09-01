@@ -28,6 +28,7 @@ from backtest.validation import (
     deflated_sharpe_ratio,
     expected_max_sharpe,
     probabilistic_sharpe_ratio,
+    probability_of_backtest_overfitting,
 )
 
 
@@ -525,3 +526,61 @@ class TestDeflatedSharpe:
         assert out["expected_max_sharpe"] == pytest.approx(
             expected_max_sharpe([0.4, 0.9, 1.3, 1.1]), abs=1e-6
         )
+
+
+class TestProbabilityOfBacktestOverfitting:
+    """How often the in-sample winner lands in the bottom half out of sample."""
+
+    def test_a_variant_with_a_real_edge_is_not_a_selection_artefact(self) -> None:
+        rng = np.random.default_rng(0)
+        base = rng.normal(0.0, 0.01, (1500, 1))
+        columns = [base + rng.normal(0.0015 if i == 0 else 0.0, 0.004, (1500, 1))
+                   for i in range(12)]
+        out = probability_of_backtest_overfitting(np.hstack(columns), n_blocks=10)
+        assert out["pbo"] < 0.1
+        assert out["performance_degradation"] < 0.05
+
+    def test_pure_noise_averages_to_the_coin_flip(self) -> None:
+        """Expected value under the null is 0.5 — averaged, not per run."""
+        values = [
+            probability_of_backtest_overfitting(
+                np.random.default_rng(seed).normal(0, 0.01, (1200, 20)), n_blocks=8
+            )["pbo"]
+            for seed in range(12)
+        ]
+        assert 0.35 < float(np.mean(values)) < 0.75
+
+    def test_a_single_run_under_the_null_is_far_too_noisy_to_read(self) -> None:
+        """Measured sd is ~0.19, so one number near 0.4 proves nothing."""
+        values = [
+            probability_of_backtest_overfitting(
+                np.random.default_rng(seed).normal(0, 0.01, (1200, 20)), n_blocks=8
+            )["pbo"]
+            for seed in range(12)
+        ]
+        assert float(np.std(values)) > 0.05
+        assert max(values) - min(values) > 0.2
+
+    def test_split_count_is_the_symmetric_combination_count(self) -> None:
+        rng = np.random.default_rng(1)
+        out = probability_of_backtest_overfitting(rng.normal(0, 0.01, (400, 5)), n_blocks=8)
+        assert out["splits"] == math.comb(8, 4)
+        assert out["n_variants"] == 5
+
+    def test_a_dataframe_of_variants_is_accepted(self) -> None:
+        rng = np.random.default_rng(2)
+        frame = pd.DataFrame(rng.normal(0, 0.01, (400, 4)), columns=list("abcd"))
+        out = probability_of_backtest_overfitting(frame, n_blocks=8)
+        assert out["n_variants"] == 4
+
+    def test_one_variant_was_never_selected(self) -> None:
+        with pytest.raises(ValueError, match="measures a choice between variants"):
+            probability_of_backtest_overfitting(np.zeros((400, 1)), n_blocks=8)
+
+    def test_the_halves_have_to_be_equal(self) -> None:
+        with pytest.raises(ValueError, match="even and at least 4"):
+            probability_of_backtest_overfitting(np.zeros((400, 3)), n_blocks=9)
+
+    def test_too_few_bars_to_cut(self) -> None:
+        with pytest.raises(ValueError, match="at least 16 bars"):
+            probability_of_backtest_overfitting(np.zeros((10, 3)), n_blocks=8)
