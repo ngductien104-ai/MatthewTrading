@@ -421,16 +421,56 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_disclosure_lag.py` **2 passed**; targeted **224 passed** (5 fail nhóm
         DuckDB loader-cache có sẵn); full suite `11 failed, **3399 passed**, 1 skipped, 9 errors`
         — khớp baseline, passed +2. Grep toàn repo: **không còn hằng số song song nào.**
-- [ ] **Q9 [C]** *(tách ra từ Q7 mục 5)* Chính sách điều chỉnh giá + đối chiếu hai nguồn.
-      Codex từ chối làm nửa vời và nói rõ cần gì — **đúng, giữ nguyên quyết định đó**:
-      - **Chính sách điều chỉnh giá cổ tức/chia tách.** DataPro có cột `ADJ_RATE` nhưng suy diễn
-        chính sách từ một cột chưa được kiểm chứng là bịa. Cần dữ liệu corporate action có thẩm
-        quyền để đối chiếu.
-      - **Đối chiếu DataPro ↔ vnstock_data.** Cần **cả hai** nguồn sống cùng lúc: DataPro desktop
-        chạy (hiện `datapro_available=False`) và mạng tới `vnstocks.com` (sandbox chặn,
-        `WinError 10013`). Đây cũng là phép đo duy nhất trả lời được câu hỏi đơn vị thật của
-        `vnstock_data` mà Q7 phải để ngỏ.
-      → **Điều kiện tiên quyết:** chạy trên máy có DataPro mở và mạng thông, không phải trong sandbox.
+- [x] **Q9 [C]** *(tách ra từ Q7 mục 5)* Chính sách điều chỉnh giá + đối chiếu hai nguồn —
+      **xong, vì điều kiện tiên quyết đã tự đến.** Đầu phiên 01/09 `datapro_available()` còn
+      `False`, vài phút sau lên `True` (app đang khởi động), và mạng tới `vnstocks.com:443`
+      đã thông. **Hai nguồn sống cùng lúc — đúng phép đo hôm 30/08 phải hoãn.**
+
+      - **Đơn vị `vnstock_data`: HẾT "unverified".** Đối chiếu 15 mã × 65 phiên, cả hai nguồn
+        gọi cùng lúc: `close` DataPro / `close` vnstock_data = **1,000000 ở CẢ 15 mã**. Không có
+        bẫy 1000×, fallback **không cần rescale**. Chỉ số (VNINDEX) và phái sinh (VN30F1M) cũng
+        về 1,000000. Phần lệch còn lại là **làm tròn của vendor**: DataPro giữ 3 chữ số thập phân
+        của nghìn VND (`61.744`), vnstock_data làm tròn 2 (`61.74`) → **tối đa 5 VND**.
+      - **Chính sách điều chỉnh giá: đo được, không suy diễn.** `*_PX` của DataPro là **giá đã
+        điều chỉnh lùi**, và `ADJ_RATE` là hệ số luỹ kế từ phiên đó tới hiện tại — giảm bậc tại
+        mỗi ngày GDKHQ, về đúng `1.000000` sau sự kiện gần nhất (VCB: 1,516970 → 1,013924 →
+        1,007393 → 1,000000; SSI 6 bậc; MSN 1 bậc vì không có sự kiện quyền).
+        **Chiều là NHÂN:** `giá thô = close × adj_rate`.
+      - **Cách chứng minh — lưới bước giá HOSE làm phép phản chứng.** Bước giá do luật định
+        (10 VND dưới 10.000; 50 VND tới 49.950; 100 VND từ 50.000), nên giả thuyết sai sẽ **rải
+        đều** trên bước giá còn giả thuyết đúng thì không. Trên **9.908 phiên × 15 mã**:
+
+        | Giả thuyết | khoảng cách tới bước giá (median) | p95 | max | ≤3 VND |
+        |---|---:|---:|---:|---:|
+        | `close × adj_rate` | **0,233 VND** | 0,63 | 1,01 | **100,00%** |
+        | `close / adj_rate` | 8,615 | 38,90 | 49,93 | 32,05% |
+        | `close` nguyên trạng | 12,000 | 42,00 | 50,00 | 27,57% |
+
+        Hai giả thuyết sai cho median 8,6 và 12,0 — đúng bằng ~tick/4, tức nhiễu đều. Phần dư
+        0,233 VND của giả thuyết thắng là **sai số làm tròn**, không phải sai thang: DataPro lưu
+        1 VND còn bước giá là 50–100 VND. Kiểm ngược qua `traded_price()`: 9.908/9.908 phiên về
+        đúng lưới, max 1,01 VND; **MSN về đúng 0,000** — mã duy nhất không có sự kiện quyền.
+      - **`price.traded_price(df)` mới.** Chỉ dùng nơi lưới giao dịch thật sự có ý nghĩa: lệnh
+        giới hạn, bước giá, biên độ. Suất sinh lời và chỉ báo **vẫn đúng trên chuỗi đã điều chỉnh
+        và nên ở lại đó**. Không có `adj_rate` thì **raise**, không đoán — cả khi frame đến từ
+        fallback lẫn khi `columns=` đã lọc mất cột.
+      - **Ba khiếm khuyết của đường suy giảm do chính phép đối chiếu lôi ra, đã sửa:**
+        1. **DataPro chết là MỌI yêu cầu chỉ số đều raise.** vnstock_data gắn thêm một dòng ảnh
+           chụp trong phiên cho **phiên mới nhất** — cùng `close`, khác `open`/`volume` — nên
+           cổng "index không trùng" của Q7 giết cả yêu cầu. Kiểm: VNINDEX và VN30 đều trùng ở
+           `2026-08-28`, còn mọi khoảng lịch sử đã đóng thì **sạch 0 dòng trùng**. Nay gộp lại,
+           **giữ dòng có volume lớn hơn** (ảnh chụp đầy đủ hơn), ghi vào
+           `attrs["vendor_duplicate_sessions"]`. Trùng mà **lệch `close`** thì **không** phải
+           hiện tượng này → rơi xuống cổng cũ và raise như trước.
+        2. **`to_vnd` dán nhãn sai âm thầm.** `classify_instrument` trên frame vnstock_data trả
+           **`"index"`** (không có `listed_shares`/`open_interest` → cả hai = 0), còn với
+           `instrument="unverified"` thì `to_vnd` rơi vào nhánh **futures**, tức một cổ phiếu
+           qua fallback ra nhãn *"index points"*. Nay `to_vnd` **raise** khi chưa phân loại được.
+        3. **Nhãn đơn vị nói sai chỗ.** Cái chưa biết **không phải thang đo** (đã đo, bằng
+           DataPro) mà là **loại công cụ** — vnstock_data không trả `listed_shares` lẫn
+           `open_interest`, đúng hai tín hiệu `classify_instrument` đọc. Nhãn mới nói đúng điều đó.
+      - **Số đo:** `test_vndata.py` **59 passed** (+13); targeted **82 passed**; full suite
+        `11 failed, **3412 passed**, 1 skipped, 9 errors` — khớp baseline, passed +13.
 
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 

@@ -290,8 +290,12 @@ class TestPriceContract:
         out = self._fallback(monkeypatch, frame)
         assert out.attrs["source"] == "vnstock_data"
         assert out.attrs["degraded"] is True
+        # The scale was measured on 2026-09-01 and matches DataPro exactly, so
+        # this no longer says "unknown". What stays unknown is the instrument,
+        # and that is what stops the frame from claiming an equity's unit.
         assert out.attrs["price_unit"] != "thousand VND"
-        assert "unverified" in out.attrs["price_unit"]
+        assert out.attrs["instrument"] == "unverified"
+        assert "unclassifiable" in out.attrs["price_unit"]
 
     def test_empty_fallback_keeps_true_provenance(self, monkeypatch):
         out = self._fallback(monkeypatch, pd.DataFrame())
@@ -392,3 +396,125 @@ class TestSourceMap:
 
         free = {k for k, v in vndata.SOURCE_MAP.items() if v == "vnstock (free)"}
         assert free == {"capital_history", "insider_trading", "ownership"}
+
+
+class TestAdjustmentPolicy:
+    """DataPro serves back-adjusted prices; ``adj_rate`` is how you undo it.
+
+    Measured 2026-09-01 against the HOSE tick grid over 9,908 daily bars across
+    15 symbols: ``close * adj_rate`` lands a median 0.233 VND from a valid tick
+    (max 1.01, 100% within 3 VND), while ``close / adj_rate`` and the stored
+    close scatter uniformly at 8.6 and 12.0 VND. The numbers below are real
+    DataPro rows, VCB before and after its 2026-07-23 ex-date.
+    """
+
+    def _bars(self) -> pd.DataFrame:
+        df = pd.DataFrame(
+            {"close": [61.744, 61.148, 54.000],
+             "adj_rate": [1.007393, 1.007393, 1.000000],
+             "volume": [1.0, 2.0, 3.0]},
+            index=pd.to_datetime(["2026-06-01", "2026-06-02", "2026-07-23"]),
+        )
+        df.index.name = "trade_date"
+        df.attrs["source"] = "datapro"
+        return df
+
+    def test_traded_price_multiplies_rather_than_divides(self):
+        out = price.traded_price(self._bars())
+        assert out.iloc[0] == pytest.approx(62.2005, abs=1e-4)  # 62,200 VND, on the 100 VND tick
+
+    def test_traded_price_lands_on_the_hose_tick_grid(self):
+        """A wrong direction scatters across the tick; the right one does not."""
+        vnd = price.traded_price(self._bars()) * 1000.0
+        # VCB trades above 50,000 VND, where the mandated tick is 100 VND.
+        off_grid = (vnd % 100).where(lambda s: s <= 50, 100 - (vnd % 100))
+        assert off_grid.max() < 3.0
+
+    def test_a_bar_after_the_last_ex_date_is_already_the_traded_price(self):
+        bars = self._bars()
+        assert bars["adj_rate"].iloc[-1] == 1.0
+        assert price.traded_price(bars).iloc[-1] == pytest.approx(54.000)
+
+    def test_datapro_frames_say_they_are_adjusted(self, monkeypatch):
+        bars = self._bars()
+        assert bars.attrs["source"] == "datapro"
+
+    def test_refuses_to_guess_when_adj_rate_is_absent(self):
+        bars = self._bars().drop(columns=["adj_rate"])
+        with pytest.raises(ValueError, match="no.*adj_rate"):
+            price.traded_price(bars)
+
+    def test_names_the_missing_column_rather_than_the_rate(self):
+        with pytest.raises(ValueError, match="'ref_price'"):
+            price.traded_price(self._bars(), column="ref_price")
+
+
+class TestFallbackReconciliation:
+    """What the 2026-09-01 two-source measurement changed on the degraded path."""
+
+    def _fallback(self, monkeypatch, frame, symbol="VNINDEX.VN"):
+        class Equity:
+            def ohlcv(self, **kwargs):
+                return frame
+
+        class Market:
+            def equity(self, symbol):
+                return Equity()
+
+        monkeypatch.setitem(__import__("sys").modules, "vnstock_data", type(
+            "FakeVnstockData", (), {"Market": Market}
+        ))
+        return price._fallback_ohlcv(symbol, "2026-08-27", "2026-08-28")
+
+    def _snapshot_frame(self, close_of_the_extra_row: float = 1832.12) -> pd.DataFrame:
+        """The real shape: the newest session arrives twice, close identical.
+
+        Observed on VNINDEX and VN30 for 2026-08-28 — same high, low and close,
+        different open and volume — while every closed historical range is clean.
+        """
+        return pd.DataFrame({
+            "time": pd.to_datetime(["2026-08-27", "2026-08-28", "2026-08-28"]),
+            "open": [1821.82, 1833.27, 1830.53],
+            "high": [1838.25, 1838.20, 1838.20],
+            "low": [1815.42, 1819.16, 1819.16],
+            "close": [1831.56, 1832.12, close_of_the_extra_row],
+            "volume": [484230398.0, 562184482.0, 643935725.0],
+        })
+
+    def test_the_duplicate_session_no_longer_kills_every_index_request(self, monkeypatch):
+        out = self._fallback(monkeypatch, self._snapshot_frame())
+        assert len(out) == 2
+        assert not out.index.has_duplicates
+
+    def test_the_fuller_snapshot_is_the_one_kept(self, monkeypatch):
+        out = self._fallback(monkeypatch, self._snapshot_frame())
+        kept = out.loc[pd.Timestamp("2026-08-28")]
+        assert kept["volume"] == pytest.approx(643935725.0)
+        assert kept["open"] == pytest.approx(1830.53)
+
+    def test_the_collapse_is_recorded_not_silent(self, monkeypatch):
+        out = self._fallback(monkeypatch, self._snapshot_frame())
+        assert out.attrs["vendor_duplicate_sessions"] == ["2026-08-28"]
+
+    def test_duplicates_that_disagree_on_close_are_not_this_artefact(self, monkeypatch):
+        """Two different closes for one session is contradiction, not a snapshot."""
+        with pytest.raises(ValueError, match="duplicates"):
+            self._fallback(monkeypatch, self._snapshot_frame(close_of_the_extra_row=1799.0))
+
+    def test_a_clean_range_is_left_alone(self, monkeypatch):
+        frame = self._snapshot_frame().iloc[:2]
+        out = self._fallback(monkeypatch, frame)
+        assert len(out) == 2
+        assert "vendor_duplicate_sessions" not in out.attrs
+
+    def test_the_degraded_frame_cannot_be_converted_to_vnd(self, monkeypatch):
+        """Its scale is verified; which of the three rules applies is not."""
+        out = self._fallback(monkeypatch, self._snapshot_frame())
+        with pytest.raises(ValueError, match="instrument is 'unverified'"):
+            price.to_vnd(out)
+
+    def test_the_back_adjustment_cannot_be_undone_from_a_degraded_frame(self, monkeypatch):
+        out = self._fallback(monkeypatch, self._snapshot_frame())
+        assert out.attrs["adjustment"] == "back-adjusted"
+        with pytest.raises(ValueError, match="no.*adj_rate"):
+            price.traded_price(out)

@@ -36,6 +36,51 @@ meaningless, so :func:`to_vnd` leaves index price columns alone.
 
 :func:`to_vnd` applies the right conversion per instrument, and
 ``df.attrs["instrument"]`` records which rule was used.
+
+Prices are back-adjusted, and ``adj_rate`` is how you undo it
+-------------------------------------------------------------
+DataPro's ``*_PX`` columns are **adjusted for corporate actions**, not the
+prices that were quoted on the day. ``ADJ_RATE`` is the cumulative factor from
+that bar forward to the present: it steps down at each ex-date and reaches
+exactly ``1.000000`` after the most recent one. The traded price is recovered
+by multiplying, not dividing:
+
+    traded price = close x adj_rate      (:func:`traded_price`)
+
+Measured 2026-09-01 against the HOSE tick grid (10 VND below 10,000; 50 VND to
+49,950; 100 VND at and above 50,000) over 9,908 daily bars across 15 symbols.
+The grid is a falsification test: a wrong hypothesis scatters uniformly across
+the tick, a right one lands on it.
+
+=========================  ==============  =======  =======  ==========
+Hypothesis                 median distance p95      max      within 3 VND
+=========================  ==============  =======  =======  ==========
+``close * adj_rate``       **0.233 VND**   0.63     1.01     **100.00%**
+``close / adj_rate``       8.615 VND       38.90    49.93    32.05%
+``close`` as stored        12.000 VND      42.00    50.00    27.57%
+=========================  ==============  =======  =======  ==========
+
+The residual under the winning hypothesis is float rounding, not scale: DataPro
+stores three decimals of thousand VND, i.e. 1 VND, and the tick is 50-100 VND.
+
+This matters for backtests that model a limit order, a tick-size constraint or
+a price band: those live on the traded grid, and an adjusted price is not on it.
+Returns and indicators are correct on the adjusted series and should stay there.
+
+The sponsored fallback agrees with DataPro
+------------------------------------------
+Measured 2026-09-01 with both sources live, 15 symbols x 65 sessions: the ratio
+of DataPro close to ``vnstock_data`` close is **1.000000** for every symbol, so
+there is no 1,000x trap between them and the fallback needs no rescaling. The
+two disagree only by the vendor's rounding -- ``vnstock_data`` publishes two
+decimals of thousand VND against DataPro's three -- which caps the gap at
+**5 VND**. Index and futures levels reconcile at 1.000000 as well.
+
+What the fallback cannot do is *classify*: ``vnstock_data`` returns no
+``listed_shares`` or ``open_interest``, the two structural signals
+:func:`classify_instrument` reads. So a degraded frame carries a verified scale
+and an unverified instrument, and :func:`to_vnd` refuses to convert it rather
+than guessing which rule applies.
 """
 
 from __future__ import annotations
@@ -199,6 +244,14 @@ def ohlcv(
     df.attrs["source"] = "datapro"
     df.attrs["degraded"] = False
     df.attrs["instrument"] = instrument
+    # Prices are back-adjusted; adj_rate is the cumulative factor from each bar
+    # to the present. See the module docstring for the measurement.
+    df.attrs["adjustment"] = "back-adjusted"
+    df.attrs["traded_price_rule"] = (
+        "traded price = close * adj_rate"
+        if "adj_rate" in df.columns
+        else "unrecoverable — adj_rate was dropped by the columns= filter"
+    )
     if instrument == "equity":
         df.attrs["price_unit"] = "thousand VND"
         df.attrs["value_unit"] = "thousand VND"
@@ -226,6 +279,41 @@ def classify_instrument(df: pd.DataFrame) -> str:
     return "futures" if (pd.notna(oi) and oi > 0) else "index"
 
 
+def traded_price(df: pd.DataFrame, column: str = "close") -> pd.Series:
+    """Return the price actually quoted on the day, undoing the back-adjustment.
+
+    DataPro serves ``*_PX`` adjusted for corporate actions. ``adj_rate`` is the
+    cumulative factor from each bar forward to the present, so the traded price
+    is ``column * adj_rate`` -- verified against the HOSE tick grid over 9,908
+    bars, see the module docstring.
+
+    Use this only where the traded grid matters: tick-size rounding, limit
+    prices, the daily band. Returns and indicators belong on the adjusted
+    series.
+
+    Args:
+        df: A frame from :func:`ohlcv` that still carries ``adj_rate``.
+        column: Which price column to unadjust.
+
+    Returns:
+        Series in the same unit as *column*, indexed by ``trade_date``.
+
+    Raises:
+        ValueError: *df* has no ``adj_rate`` -- either it came from the
+            sponsored fallback, which does not publish one, or a ``columns=``
+            filter dropped it. Guessing the factor would be inventing a price.
+    """
+    if column not in df.columns:
+        raise ValueError(f"frame has no {column!r} column to unadjust")
+    if "adj_rate" not in df.columns:
+        raise ValueError(
+            f"cannot recover the traded price of {column!r}: this frame carries no "
+            f"adj_rate (source={df.attrs.get('source')!r}). The sponsored fallback "
+            "does not publish one, and a columns= filter can drop it."
+        )
+    return df[column] * df["adj_rate"]
+
+
 def to_vnd(df: pd.DataFrame) -> pd.DataFrame:
     """Return *df* with prices and turnover converted to plain VND.
 
@@ -240,11 +328,25 @@ def to_vnd(df: pd.DataFrame) -> pd.DataFrame:
 
     Idempotent: a frame already carrying ``price_unit == "VND"`` is returned
     unchanged.
+
+    Raises:
+        ValueError: the frame's instrument is unclassified. That is the normal
+            state of a degraded frame from the sponsored fallback, which ships
+            neither ``listed_shares`` nor ``open_interest``. Its scale matches
+            DataPro's, but which of the three rules to apply is exactly what
+            cannot be established, and picking one would be a guess.
     """
     if df.attrs.get("price_unit") == "VND":
         return df
 
     instrument = df.attrs.get("instrument") or classify_instrument(df)
+    if instrument not in {"equity", "index", "futures"}:
+        raise ValueError(
+            f"cannot convert to VND: instrument is {instrument!r}, so no scaling rule "
+            f"applies (source={df.attrs.get('source')!r}). The sponsored fallback "
+            "returns neither listed_shares nor open_interest, so it cannot be "
+            "classified; pass the frame through DataPro or convert it yourself."
+        )
     out = df.copy()
     out.attrs.update(df.attrs)
     out.attrs["instrument"] = instrument
@@ -423,16 +525,66 @@ def _fallback_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
         )
 
     df = df.rename(columns={"time": "trade_date"}).set_index("trade_date").sort_index()
+    df, collapsed = _collapse_vendor_snapshot_rows(df, symbol=symbol)
     df.attrs["source"] = "vnstock_data"
     df.attrs["degraded"] = True
     df.attrs["degraded_reason"] = (
         "DataPro desktop unreachable; no reference price, foreign/proprietary "
         "flow, put-through or active buy-sell columns in this frame."
     )
+    # vnstock_data returns neither listed_shares nor open_interest, the two
+    # structural signals classify_instrument reads, so this path cannot say
+    # which instrument it is holding. to_vnd refuses to convert on that.
     instrument = df.attrs.get("instrument")
     df.attrs["instrument"] = (
         instrument if instrument in {"equity", "index", "futures"} else "unverified"
     )
-    df.attrs["price_unit"] = "unverified — vnstock_data native unit not verified"
-    df.attrs["value_unit"] = "unverified — vnstock_data native unit not verified"
+    # The scale, unlike the instrument, IS verified: measured 2026-09-01 with
+    # both sources live, DataPro close / vnstock_data close = 1.000000 across
+    # 15 symbols x 65 sessions. See the module docstring.
+    df.attrs["price_unit"] = (
+        "same scale as DataPro (verified 2026-09-01); instrument unclassifiable here"
+    )
+    df.attrs["value_unit"] = df.attrs["price_unit"]
+    # This feed is adjusted like DataPro's but ships no adj_rate, so the
+    # back-adjustment cannot be undone from a degraded frame.
+    df.attrs["adjustment"] = "back-adjusted"
+    df.attrs["traded_price_rule"] = "unrecoverable — vnstock_data publishes no adj_rate"
+    if collapsed:
+        df.attrs["vendor_duplicate_sessions"] = collapsed
     return _validate_and_audit(df, symbol=symbol, start=start, end=end)
+
+
+def _collapse_vendor_snapshot_rows(
+    df: pd.DataFrame, *, symbol: str,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Collapse the extra in-session row ``vnstock_data`` emits for today.
+
+    On the newest session the sponsored feed returns the settled daily bar and
+    an in-session snapshot of it under the same timestamp: same high, low and
+    close, different open and volume. Historical ranges are clean. Left alone
+    this duplicate fails the schema gate, which would take every index request
+    down with it whenever DataPro is unreachable.
+
+    Only rows that agree on ``close`` are collapsed, keeping the higher-volume
+    one as the more complete snapshot. Duplicates that *disagree* on close are
+    not this artefact, so they fall through to the gate and raise.
+    """
+    if not df.index.has_duplicates:
+        return df, []
+    dupes = df.index[df.index.duplicated(keep=False)].unique()
+    keep_positions: set[int] = set()
+    collapsed: list[str] = []
+    for day in dupes:
+        block = df.loc[[day]]
+        if block["close"].nunique(dropna=False) != 1:
+            continue  # not the snapshot artefact — let the schema gate speak
+        winner = block["volume"].to_numpy().argmax()
+        positions = np.flatnonzero(df.index == day)
+        keep_positions.update(int(p) for p in positions if p != positions[winner])
+        collapsed.append(pd.Timestamp(day).date().isoformat())
+    if not keep_positions:
+        return df, []
+    mask = np.ones(len(df), dtype=bool)
+    mask[sorted(keep_positions)] = False
+    return df[mask], collapsed
