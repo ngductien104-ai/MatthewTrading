@@ -29,6 +29,8 @@ from backtest.validation import (
     expected_max_sharpe,
     probabilistic_sharpe_ratio,
     probability_of_backtest_overfitting,
+    _auto_block_size,
+    _block_resample,
 )
 
 
@@ -584,3 +586,79 @@ class TestProbabilityOfBacktestOverfitting:
     def test_too_few_bars_to_cut(self) -> None:
         with pytest.raises(ValueError, match="at least 16 bars"):
             probability_of_backtest_overfitting(np.zeros((10, 3)), n_blocks=8)
+
+
+class TestBlockBootstrap:
+    """Resampling one return at a time assumes an independence returns lack."""
+
+    def _equity(self, returns: np.ndarray) -> pd.Series:
+        idx = pd.bdate_range("2020-01-01", periods=len(returns) + 1)
+        return pd.Series(
+            np.concatenate(([1.0], np.cumprod(1 + returns))) * 1_000_000, index=idx
+        )
+
+    def _autocorrelated(self, n: int = 1500, rho: float = 0.9, seed: int = 5) -> np.ndarray:
+        rng = np.random.default_rng(seed)
+        noise = rng.normal(0.0005, 0.01, n)
+        out = np.empty(n)
+        out[0] = noise[0]
+        for i in range(1, n):
+            out[i] = rho * out[i - 1] + math.sqrt(1 - rho ** 2) * noise[i]
+        return out
+
+    def test_dependence_widens_the_interval_the_iid_bootstrap_missed(self) -> None:
+        eq = self._equity(self._autocorrelated())
+        iid = bootstrap_sharpe_ci(eq, n_bootstrap=400, block_size=1, seed=1)
+        block = bootstrap_sharpe_ci(eq, n_bootstrap=400, seed=1)
+        iid_width = iid["ci_upper"] - iid["ci_lower"]
+        block_width = block["ci_upper"] - block["ci_lower"]
+        assert block_width > iid_width * 1.5
+
+    def test_independent_returns_leave_the_interval_roughly_alone(self) -> None:
+        """The correction should cost nothing when there is no dependence."""
+        rng = np.random.default_rng(9)
+        eq = self._equity(rng.normal(0.0005, 0.01, 1500))
+        iid = bootstrap_sharpe_ci(eq, n_bootstrap=400, block_size=1, seed=1)
+        block = bootstrap_sharpe_ci(eq, n_bootstrap=400, seed=1)
+        iid_width = iid["ci_upper"] - iid["ci_lower"]
+        block_width = block["ci_upper"] - block["ci_lower"]
+        assert 0.8 < block_width / iid_width < 1.3
+
+    def test_the_block_size_used_is_reported(self) -> None:
+        eq = self._equity(np.random.default_rng(1).normal(0.0005, 0.01, 1000))
+        assert bootstrap_sharpe_ci(eq, n_bootstrap=50)["block_size"] == _auto_block_size(1000)
+
+    def test_the_default_block_is_the_cube_root_and_never_one(self) -> None:
+        assert _auto_block_size(1000) == 10
+        assert _auto_block_size(8) == 2  # a block of one would be the iid bootstrap again
+
+    def test_blocks_wrap_so_the_ends_are_not_undersampled(self) -> None:
+        """Without wrapping, the first and last bars appear in fewer blocks."""
+        returns = np.arange(10, dtype=float)
+        rng = np.random.default_rng(0)
+        counts = np.zeros(10)
+        for _ in range(4000):
+            for value in _block_resample(returns, 4, rng):
+                counts[int(value)] += 1
+        assert counts.min() / counts.max() > 0.9
+
+    def test_a_resample_is_the_same_length_as_the_sample(self) -> None:
+        returns = np.arange(23, dtype=float)
+        out = _block_resample(returns, 5, np.random.default_rng(0))
+        assert out.size == 23
+
+    def test_the_same_seed_gives_the_same_interval(self) -> None:
+        eq = self._equity(self._autocorrelated(n=400))
+        a = bootstrap_sharpe_ci(eq, n_bootstrap=100, seed=3)
+        b = bootstrap_sharpe_ci(eq, n_bootstrap=100, seed=3)
+        assert a == b
+
+    def test_a_block_of_zero_is_not_a_block(self) -> None:
+        eq = self._equity(np.random.default_rng(1).normal(0.0005, 0.01, 100))
+        with pytest.raises(ValueError, match="at least 1"):
+            bootstrap_sharpe_ci(eq, block_size=0)
+
+    def test_a_block_longer_than_the_sample_is_refused(self) -> None:
+        eq = self._equity(np.random.default_rng(1).normal(0.0005, 0.01, 100))
+        with pytest.raises(ValueError, match="exceeds the 100 available returns"):
+            bootstrap_sharpe_ci(eq, block_size=500)

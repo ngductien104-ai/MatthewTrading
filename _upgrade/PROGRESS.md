@@ -672,6 +672,34 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_validation.py` **68 passed** (+8); full suite `11 failed, **3469 passed**,
         1 skipped, 9 errors` — khớp baseline, passed +8.
 
+- [x] **R6 [C]** Block bootstrap thay bootstrap iid trong `bootstrap_sharpe_ci`.
+      - **Lấy mẫu từng lợi suất một là giả định độc lập mà lợi suất chiến lược không có.** Quy tắc
+        xu hướng giữ vị thế nhiều ngày, nên thắng-thua đến **thành chuỗi**. Xáo chúng rời ra là
+        **phá đúng cái phụ thuộc khiến Sharpe không chắc chắn**, và khoảng tin cậy hẹp lại —
+        tự tin vì sai lý do. Lấy mẫu theo **khối liên tục** giữ nguyên phụ thuộc cục bộ.
+      - Khối **quấn vòng** (circular block bootstrap): không quấn thì các phiên đầu và cuối chuỗi
+        bị lấy mẫu ít hơn một cách có hệ thống. Có test đếm tần suất, đòi min/max > 0,9.
+      - **Đo trên VNINDEX 2018–2026, và em ghi cả con số KHÔNG thuận lợi:**
+        ```
+        chiến lược                     tự tương quan   CI iid    CI block   tỷ lệ
+        SMA10 lợi suất ngày               +0,0637      1,3959     1,4529    1,04x
+        SMA50 lợi suất ngày               +0,0712      1,4239     1,5217    1,07x
+        SMA200 lợi suất ngày              +0,0433      1,3775     1,4132    1,03x
+        lợi suất chồng lấn 5 ngày         +0,8313      1,3670     3,0711    2,25x
+        lợi suất chồng lấn 21 ngày        +0,9586      1,3908     4,6980    3,38x
+        ```
+        **Trên chính các chiến lược SMA ngày ở đây, chênh lệch chỉ 3–7%** — sửa cái này không cứu
+        được kết luận nào đã có. Nhưng ở nơi tự tương quan cao (lợi suất chồng lấn, thứ mọi phân
+        tích đa kỳ đều tạo ra) thì **bootstrap iid báo CI hẹp giả 3,38 lần**. Cơ chế có thật; dữ
+        liệu hiện tại chỉ tình cờ ít bị.
+      - Kích thước khối mặc định `round(n^(1/3))`, tối thiểu **2** — khối bằng 1 chính là bootstrap
+        iid, thứ đang bị thay. `block_size=1` vẫn truyền được, và đáng chạy **chỉ để xem nó hẹp
+        hơn bao nhiêu**. Kích thước thật sự dùng được trả ra trong payload.
+      - Có test khẳng định: dữ liệu **độc lập thật** thì hiệu chỉnh này **không đổi gì** (tỷ lệ
+        0,8–1,3) — một hiệu chỉnh làm rộng CI ở mọi nơi là một hiệu chỉnh sai.
+      - **Số đo:** `test_validation.py` **77 passed** (+9); full suite `11 failed, **3478 passed**,
+        1 skipped, 9 errors` — khớp baseline, passed +9.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```

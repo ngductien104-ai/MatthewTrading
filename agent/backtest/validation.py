@@ -2,7 +2,7 @@
 
 Three independent tools:
   - Monte Carlo permutation test: is the strategy significantly better than random?
-  - Bootstrap Sharpe CI: how stable is the risk-adjusted return?
+  - Block bootstrap Sharpe CI: how stable is the risk-adjusted return?
   - Equity consistency report: is the in-sample curve steady across time windows?
 
 None of the three is an out-of-sample test. They all read one equity curve that
@@ -102,14 +102,47 @@ def _path_metrics(pnls: np.ndarray, initial_capital: float) -> Dict[str, float]:
 # ─── Bootstrap Sharpe CI ───
 
 
+def _auto_block_size(n: int) -> int:
+    """Return a default block length for the moving-block bootstrap.
+
+    The usual rule of thumb, ``n ** (1/3)``, rounded and clamped to at least
+    two -- a block of one is the iid bootstrap, which is the thing being
+    replaced.
+    """
+    return max(2, int(round(n ** (1.0 / 3.0))))
+
+
+def _block_resample(returns: np.ndarray, block_size: int, rng: np.random.Generator) -> np.ndarray:
+    """Resample *returns* in contiguous wrapped blocks of *block_size*.
+
+    Blocks wrap around the end of the series (the circular block bootstrap), so
+    every observation is equally likely to be drawn. Without wrapping, the first
+    and last few bars are systematically under-sampled.
+    """
+    n = returns.size
+    n_blocks = int(np.ceil(n / block_size))
+    starts = rng.integers(0, n, size=n_blocks)
+    offsets = np.arange(block_size)
+    indices = (starts[:, None] + offsets[None, :]).ravel() % n
+    return returns[indices[:n]]
+
+
 def bootstrap_sharpe_ci(
     equity_curve: pd.Series,
     n_bootstrap: int = 1000,
     confidence: float = 0.95,
     bars_per_year: int = 252,
     seed: int = 42,
+    block_size: int | None = None,
 ) -> Dict[str, Any]:
-    """Resample daily returns to estimate Sharpe confidence interval.
+    """Resample returns in blocks to estimate a Sharpe confidence interval.
+
+    Resampling one return at a time assumes they are independent, and strategy
+    returns are not: a trend rule holds a position for days, so its wins and
+    losses arrive in runs. Shuffling those runs apart destroys the very
+    dependence that makes the Sharpe uncertain, and the interval comes out too
+    narrow -- confident for the wrong reason. Resampling contiguous blocks keeps
+    the local dependence intact.
 
     Args:
         equity_curve: Equity time series.
@@ -117,22 +150,37 @@ def bootstrap_sharpe_ci(
         confidence: Confidence level (e.g. 0.95 for 95% CI).
         bars_per_year: Annualisation factor.
         seed: Random seed.
+        block_size: Length of the resampled blocks. ``None`` picks
+            ``round(n ** (1/3))``, at least 2. Pass ``1`` for the old iid
+            bootstrap, which is worth doing only to see how much narrower it is.
 
     Returns:
         Dict with observed_sharpe, ci_lower, ci_upper, median_sharpe,
-        prob_positive (fraction of samples with Sharpe > 0).
+        prob_positive (fraction of samples with Sharpe > 0), and the
+        ``block_size`` actually used.
+
+    Raises:
+        ValueError: A block size below one, or longer than the sample.
     """
     returns = equity_curve.pct_change().dropna().values
     if len(returns) < 5:
         return {"error": "need at least 5 return observations"}
 
+    block = _auto_block_size(len(returns)) if block_size is None else int(block_size)
+    if block < 1:
+        raise ValueError(f"block_size must be at least 1; got {block}")
+    if block > len(returns):
+        raise ValueError(
+            f"block_size {block} exceeds the {len(returns)} available returns"
+        )
+
     observed = _sharpe(returns, bars_per_year)
 
     rng = np.random.default_rng(seed)
-    boot_sharpes = []
-    for _ in range(n_bootstrap):
-        sample = rng.choice(returns, size=len(returns), replace=True)
-        boot_sharpes.append(_sharpe(sample, bars_per_year))
+    boot_sharpes = [
+        _sharpe(_block_resample(returns, block, rng), bars_per_year)
+        for _ in range(n_bootstrap)
+    ]
 
     arr = np.array(boot_sharpes)
     alpha = (1 - confidence) / 2
@@ -148,6 +196,7 @@ def bootstrap_sharpe_ci(
         "prob_positive": round(prob_pos, 4),
         "confidence": confidence,
         "n_bootstrap": n_bootstrap,
+        "block_size": block,
     }
 
 
