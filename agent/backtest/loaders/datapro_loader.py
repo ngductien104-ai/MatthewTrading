@@ -29,6 +29,12 @@ class DataLoader:
     markets = {"vn_equity"}
     requires_auth = False
 
+    def __init__(self) -> None:
+        #: Symbols dropped by the schema gate during the last :meth:`fetch`,
+        #: as ``{"code": ..., "reason": ...}``. Read by the engine for the run
+        #: card so a shortened universe is stated rather than inferred.
+        self.skipped_symbols: List[Dict[str, str]] = []
+
     def is_available(self) -> bool:
         return price.datapro_available()
 
@@ -46,6 +52,13 @@ class DataLoader:
         Prices remain in DataPro's native convention (thousand VND for an
         equity, index points for an index), exactly as the old loader returned
         them. Instrument-aware unit metadata comes from :mod:`vndata.price`.
+
+        A symbol whose bars fail the :mod:`vndata.price` schema gate is dropped
+        from the result and recorded on :attr:`skipped_symbols`, which the
+        engine turns into a run-card warning. A bad number in one symbol is a
+        data-quality fault, and taking the other twenty-nine down with it buys
+        nothing; a source that is not the source it claims to be is a
+        provenance fault, and that still stops the run.
         """
         validate_date_range(start_date, end_date)
         timeframe = "1D" if interval == "1D" else interval
@@ -53,6 +66,7 @@ class DataLoader:
         canonical = list(dict.fromkeys(_FIELD_ALIASES.get(field, field) for field in requested))
         columns = list(dict.fromkeys([*_DEFAULT_COLUMNS, *canonical]))
         result: Dict[str, pd.DataFrame] = {}
+        self.skipped_symbols = []
 
         for code in codes:
             def _fetch_one(code: str = code) -> Optional[pd.DataFrame]:
@@ -78,15 +92,21 @@ class DataLoader:
                             out = out.drop(columns=canonical_name)
                 return out
 
-            frame = cached_loader_fetch(
-                source=self.name,
-                symbol=code,
-                timeframe=timeframe,
-                start_date=start_date,
-                end_date=end_date,
-                fields=requested,
-                fetch=_fetch_one,
-            )
+            try:
+                frame = cached_loader_fetch(
+                    source=self.name,
+                    symbol=code,
+                    timeframe=timeframe,
+                    start_date=start_date,
+                    end_date=end_date,
+                    fields=requested,
+                    fetch=_fetch_one,
+                )
+            except ValueError as exc:
+                # Schema gate only. SourceUnavailable — a frame that is not
+                # from the source it claims — deliberately keeps propagating.
+                self.skipped_symbols.append({"code": code, "reason": str(exc)})
+                continue
             if frame is not None and not frame.empty:
                 result[code] = frame
 

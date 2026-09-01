@@ -50,6 +50,29 @@ def _run_card_data_sources(config: Dict[str, Any], loader: Any) -> List[str]:
     return [str(source)] if source else []
 
 
+def _record_skipped_symbols(config: Dict[str, Any], loader: Any) -> None:
+    """Put symbols the loader dropped on the run card instead of losing them.
+
+    A schema failure in one symbol no longer stops the whole run, so the
+    universe the backtest actually traded can be narrower than the one that was
+    configured. Saying which symbols left, and why, is what keeps that from
+    being a silent change in the result — the same reason the VN30 universe
+    carries its survivorship warning.
+    """
+    skipped = getattr(loader, "skipped_symbols", None)
+    if not skipped:
+        return
+    warnings = config.setdefault("_run_card_warnings", [])
+    for entry in skipped:
+        code = entry.get("code", "?") if isinstance(entry, dict) else str(entry)
+        reason = entry.get("reason", "") if isinstance(entry, dict) else ""
+        message = f"SYMBOL DROPPED: {code} failed the data schema gate and was not traded"
+        if reason:
+            message = f"{message} — {reason}"
+        if message not in warnings:
+            warnings.append(message)
+
+
 # ─── Market detection (lightweight, for signal alignment only) ───
 
 _CRYPTO_RE = _re.compile(r"^[A-Z]+-USDT$|^[A-Z]+/USDT$", _re.I)
@@ -373,6 +396,7 @@ class BaseEngine(ABC):
             fields=extra_fields,
             interval=interval,
         )
+        _record_skipped_symbols(config, loader)
         if not data_map:
             print(json.dumps({"error": "No data fetched"}))
             sys.exit(1)

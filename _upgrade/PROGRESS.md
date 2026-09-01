@@ -472,6 +472,27 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_vndata.py` **59 passed** (+13); targeted **82 passed**; full suite
         `11 failed, **3412 passed**, 1 skipped, 9 errors` — khớp baseline, passed +13.
 
+- [x] **Q10 [C]** *(anh chốt câu hỏi treo của Q7)* Schema hỏng ở một mã **bỏ qua theo mã +
+      ghi run card**, thay vì giết cả lần chạy.
+      - **Ranh giới giữ nguyên chỗ Q7 đã vạch:** bỏ qua chỉ dành cho **lỗi chất lượng dữ liệu**
+        (`ValueError` từ cổng schema). **Lỗi xuất xứ** — `SourceUnavailable`, frame không đến từ
+        nguồn nó tự khai — **vẫn dừng cả lần chạy như cũ**. Có test riêng cho vế này để lần sau
+        không ai nới nhầm.
+      - Mã bị loại đi vào `DataLoader.skipped_symbols`, engine đổ sang `_run_card_warnings` —
+        **đúng kênh Q6 dùng cho cảnh báo survivorship**, không đẻ cơ chế mới. Chống ghi trùng vì
+        `runner.py` và `base.py` **đều** gọi `fetch()`.
+      - **Kiểm trên dữ liệu DataPro SỐNG, không phải trên mock**: 5 mã 162 phiên, tiêm 3 `NaN`
+        vào `close` của VCB.
+        ```
+        MỚI: trả về 4/5 mã (FPT, HPG, MWG, VRE), và run card ghi
+             "SYMBOL DROPPED: VCB.VN failed the data schema gate and was not traded —
+              close: 3 rows non-finite, first dates=['2026-01-08','2026-01-14','2026-03-09']"
+        CŨ (git stash): raise ValueError, trả về 0 mã.
+        ```
+        Đây là **đổi hành vi thật**, không phải đổi chữ ký hàm — đúng câu hỏi luật 7 bắt phải hỏi.
+      - **Số đo:** `test_datapro_loader.py` **15 passed** (+9); targeted **88 passed**; full suite
+        `11 failed, **3420 passed**, 1 skipped, 9 errors` — khớp baseline, passed +8.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```
