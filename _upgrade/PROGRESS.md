@@ -493,6 +493,30 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_datapro_loader.py` **15 passed** (+9); targeted **88 passed**; full suite
         `11 failed, **3420 passed**, 1 skipped, 9 errors` — khớp baseline, passed +8.
 
+- [x] **Q11 [K]** MWG vào sổ cái — **15 → 16 call.** Đây là thư mục Q3 mở đường HTML cho mà
+      chưa ai rút; `_mwg_research` chỉ có `.html` + `.pdf`, không có `.md`, nên trước Q3 nó
+      **vô hình** với trình quét.
+      - Claude đóng vai extractor (không tốn token provider). Reply lưu ở
+        `~/.vibe-trading/backfill_replies/mwg_report.json`, cùng chỗ 12 reply backfill cũ —
+        đúng lý do docstring `_run_extract` nêu: *"A backfill nobody can re-run against the same
+        input is not a backfill, it is a one-off."*
+      - **Trích dẫn lấy bằng chuỗi con của chính văn bản đã chuyển, không gõ lại.** Kiểm 17 chuỗi
+        trước khi nộp, khớp từng ký tự. Kết quả: **16 evidence, refused: none**, `complete`.
+      - **Ba chỗ Claude tự quyết, anh phủ quyết được:**
+        1. Tài liệu nêu **hai hành động trong một dòng**. Chọn cái **vận hành được** theo đúng
+           luật của contract, và câu *"chưa nên mua đuổi"* trong chính tài liệu là căn cứ.
+        2. Cả ba kịch bản định giá đều là **dải**, mà sổ chỉ có một ô. Lấy **cận dưới** của mỗi
+           dải chứ không lấy trung điểm — theo tiền lệ PET, và vì cận dưới là số **được viết ra**
+           còn trung điểm là số mình tính. Dải đầy đủ ghi ở `notes`.
+        3. Khung thời gian tài liệu ghi theo **tháng**; **không quy đổi** sang số phiên, để trống
+           `horizon_sessions` và giữ nguyên câu chữ ở `notes`. `resolve.py` sẽ phải xử lý một call
+           không có horizon tính bằng phiên — cùng loại câu hỏi VRE `avoid` đã đặt ra.
+      - **Nội dung call cố ý KHÔNG chép vào file này** (repo public) — nó nằm trong sổ cái cục bộ
+        `~/.vibe-trading/learning.db`, ngoài git. Tiền lệ `63bbfbd`, mà lần đó cắt đúng chính
+        báo cáo MWG này.
+      - **Số đo:** `calls` 15 → **16**, `evidence` 88 → **104**, `process_records` 23 (không đổi —
+        đây là backfill tài liệu, không phải phiên mới). Không đụng code, không chạy lại full suite.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```
