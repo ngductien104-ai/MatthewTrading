@@ -576,6 +576,32 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_validation.py` **37 passed** (+14); full suite `11 failed, **3438 passed**,
         1 skipped, 9 errors` — khớp baseline, passed +14.
 
+- [x] **R3 [C]** CPCV — Combinatorial Purged Cross-Validation.
+      - **Lý do tồn tại:** walk-forward cho **đúng một** đường ngoài mẫu, nên Sharpe của nó
+        **không có phân phối** và không phân biệt được chiến lược tốt với một thứ tự dữ liệu may
+        mắn. CPCV cắt mẫu thành `N` nhóm, test mọi tổ hợp `k` nhóm; `C(N,k)` split ghép lại thành
+        `C(N-1,k-1)` **đường OOS đầy đủ**, mỗi đường là một cách đan xen khác của cùng các fold.
+        Có phân phối thì mới tính được PBO và DSR — đó là điều kiện của R4/R5, không phải trang trí.
+      - Với `N=6, k=2`: **15 split → 5 đường**, và test khẳng định **mỗi đường phủ cả 6 nhóm đúng
+        một lần** — đó chính là tính chất khiến một "đường" là một backtest chứ không phải một fold.
+      - **Lượt kiểm đầu tiên của em SAI, và cái sai đáng ghi lại.** Em chấm bằng chiến lược
+        mua-và-giữ, được 5 đường **giống hệt nhau, sd = 0**, và suýt đọc đó là lỗi. Không phải:
+        mua-và-giữ **không dùng tập train**, nên mọi đường chỉ là cùng một tập lợi suất ghép lại.
+        **Muốn thấy phân phối thì phải có thứ được khớp trên train.**
+      - Kiểm lại trên VNINDEX 2.159 phiên với quy tắc SMA chọn lookback **chỉ bằng dữ liệu train**
+        của từng split:
+        ```
+        đường 0..4, mỗi đường 2.159 phiên :  +1,5098 · +1,2047 · +1,5098 · +1,4120 · +1,1202
+        IN-SAMPLE tốt nhất (lookback 10)  :  +1,5098   <- con số sẽ được đem đi báo cáo
+        CPCV ngoài mẫu                    :  mean +1,3513, sd 0,1605, min +1,1202
+        ```
+        **Con số in-sample nằm đúng ở CỰC ĐẠI của phân phối OOS.** Đó là thiên lệch chọn lọc,
+        hiện ra thành số, và là chính thứ R4 (DSR) với R5 (PBO) sinh ra để đo.
+      - `k=1` rút gọn về đúng purged k-fold của R2 — có test đối chiếu từng phần tử, để hai đường
+        code không trôi khỏi nhau.
+      - **Số đo:** `test_validation.py` **46 passed** (+9); full suite `11 failed, **3447 passed**,
+        1 skipped, 9 errors` — khớp baseline, passed +9.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```

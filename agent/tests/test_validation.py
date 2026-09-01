@@ -21,6 +21,9 @@ from backtest.validation import (
     equity_consistency_report,
     purged_kfold_splits,
     purged_train_positions,
+    cpcv_n_paths,
+    cpcv_path_assignment,
+    cpcv_splits,
 )
 
 
@@ -350,3 +353,60 @@ class TestPurgedKFold:
     def test_more_folds_than_bars_is_refused(self) -> None:
         with pytest.raises(ValueError, match="at least 5 bars"):
             purged_kfold_splits(3, 5)
+
+
+class TestCPCV:
+    """Walk-forward yields one OOS path; CPCV yields a distribution of them."""
+
+    def test_split_count_is_the_combination_count(self) -> None:
+        assert len(cpcv_splits(120, n_groups=6, n_test_groups=2)) == 15
+        assert len(cpcv_splits(120, n_groups=5, n_test_groups=2)) == 10
+
+    def test_path_count_follows_from_the_group_count(self) -> None:
+        assert cpcv_n_paths(6, 2) == 5
+        assert cpcv_n_paths(5, 2) == 4
+        assert cpcv_n_paths(6, 3) == 10
+
+    def test_every_path_covers_the_whole_sample_exactly_once(self) -> None:
+        """This is the property that makes a path a backtest rather than a fold."""
+        n_groups, n_test = 6, 2
+        assignment = cpcv_path_assignment(n_groups, n_test)
+        per_path: dict[int, list[int]] = {}
+        for (_split, group), path in assignment.items():
+            per_path.setdefault(path, []).append(group)
+        assert len(per_path) == cpcv_n_paths(n_groups, n_test)
+        for groups in per_path.values():
+            assert sorted(groups) == list(range(n_groups))
+
+    def test_each_group_is_tested_in_every_path_and_no_more(self) -> None:
+        assignment = cpcv_path_assignment(6, 2)
+        counts: dict[int, int] = {}
+        for (_split, group), _path in assignment.items():
+            counts[group] = counts.get(group, 0) + 1
+        assert set(counts.values()) == {cpcv_n_paths(6, 2)}
+
+    def test_train_and_test_never_overlap_in_any_split(self) -> None:
+        for split in cpcv_splits(200, 6, 2, holding_bars=5, embargo_bars=5):
+            assert not set(split["train"].tolist()) & set(split["test"].tolist())
+
+    def test_disjoint_test_groups_are_purged_separately(self) -> None:
+        """Groups 0 and 5 are not adjacent, so the bars between them survive."""
+        splits = {s["test_groups"]: s for s in cpcv_splits(60, 6, 2, holding_bars=2)}
+        train = splits[(0, 5)]["train"]
+        assert 30 in train  # the middle of the sample is untouched
+        assert 48 not in train  # purged ahead of group 5, which starts at 50
+
+    def test_a_single_group_of_test_is_ordinary_purged_kfold(self) -> None:
+        cpcv = cpcv_splits(60, 5, 1, holding_bars=2, embargo_bars=2)
+        kfold = purged_kfold_splits(60, 5, holding_bars=2, embargo_bars=2)
+        for split, (train, test) in zip(cpcv, kfold):
+            assert split["test"].tolist() == test.tolist()
+            assert split["train"].tolist() == train.tolist()
+
+    def test_testing_every_group_leaves_no_training_data(self) -> None:
+        with pytest.raises(ValueError, match=r"must be in \[1, 5\]"):
+            cpcv_splits(60, 6, 6)
+
+    def test_one_group_is_not_a_partition(self) -> None:
+        with pytest.raises(ValueError, match="at least 2 groups"):
+            cpcv_splits(60, 1, 1)

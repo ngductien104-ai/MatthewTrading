@@ -16,6 +16,8 @@ is present, or invoked directly on backtest outputs.
 
 from __future__ import annotations
 
+import itertools
+import math
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -374,6 +376,96 @@ def purged_kfold_splits(
         )
         splits.append((train, test))
     return splits
+
+
+# ─── Combinatorial Purged Cross-Validation ───
+#
+# Walk-forward gives you exactly one out-of-sample path, so its Sharpe has no
+# distribution and you cannot tell a good strategy from a lucky ordering of the
+# same data. CPCV builds many. Split the sample into ``N`` groups, test on every
+# combination of ``k`` of them, and the C(N, k) splits reassemble into
+# C(N-1, k-1) complete out-of-sample paths over the whole period -- each one a
+# different interleaving of the same folds. A distribution of paths is what
+# makes PBO and a deflated Sharpe computable at all.
+#
+# Lopez de Prado, Advances in Financial Machine Learning, ch. 12.
+
+
+def cpcv_splits(
+    n_samples: int,
+    n_groups: int = 6,
+    n_test_groups: int = 2,
+    *,
+    holding_bars: int = 0,
+    embargo_bars: int = 0,
+) -> List[Dict[str, Any]]:
+    """Enumerate the combinatorial purged splits of a sample.
+
+    Args:
+        n_samples: Total number of bars.
+        n_groups: Contiguous groups the sample is cut into.
+        n_test_groups: How many groups are held out per split.
+        holding_bars: How many bars a signal stays open.
+        embargo_bars: Bars withheld after each test run.
+
+    Returns:
+        One dict per split, in combination order, with ``test_groups`` (the
+        group indices held out), ``train`` and ``test`` position arrays.
+
+    Raises:
+        ValueError: The group count is below two, the test count is not in
+            ``[1, n_groups)``, or there are fewer bars than groups.
+    """
+    if n_groups < 2:
+        raise ValueError(f"need at least 2 groups; got {n_groups}")
+    if not 1 <= n_test_groups < n_groups:
+        raise ValueError(
+            f"n_test_groups must be in [1, {n_groups - 1}]; got {n_test_groups}"
+        )
+    if n_samples < n_groups:
+        raise ValueError(f"need at least {n_groups} bars for {n_groups} groups; got {n_samples}")
+
+    bounds = np.linspace(0, n_samples, n_groups + 1).astype(int)
+    groups = [np.arange(bounds[i], bounds[i + 1]) for i in range(n_groups)]
+
+    splits: List[Dict[str, Any]] = []
+    for combo in itertools.combinations(range(n_groups), n_test_groups):
+        test = np.concatenate([groups[g] for g in combo])
+        train = purged_train_positions(
+            n_samples, test, holding_bars=holding_bars, embargo_bars=embargo_bars
+        )
+        splits.append({"test_groups": combo, "train": train, "test": np.sort(test)})
+    return splits
+
+
+def cpcv_path_assignment(n_groups: int = 6, n_test_groups: int = 2) -> Dict[tuple, int]:
+    """Map each ``(split index, group index)`` to the path it belongs to.
+
+    Every group is tested in exactly ``C(n_groups - 1, n_test_groups - 1)``
+    splits, and that count is also the number of complete out-of-sample paths.
+    Handing each group's occurrences out to a different path is what makes each
+    path cover the whole sample exactly once.
+
+    Args:
+        n_groups: Contiguous groups the sample is cut into.
+        n_test_groups: How many groups are held out per split.
+
+    Returns:
+        ``{(split_index, group_index): path_index}``.
+    """
+    combos = list(itertools.combinations(range(n_groups), n_test_groups))
+    seen: Dict[int, int] = {}
+    assignment: Dict[tuple, int] = {}
+    for split_index, combo in enumerate(combos):
+        for group in combo:
+            assignment[(split_index, group)] = seen.get(group, 0)
+            seen[group] = seen.get(group, 0) + 1
+    return assignment
+
+
+def cpcv_n_paths(n_groups: int = 6, n_test_groups: int = 2) -> int:
+    """Return how many complete out-of-sample paths the splits reassemble into."""
+    return math.comb(n_groups - 1, n_test_groups - 1)
 
 
 # ─── Runner integration ───
