@@ -250,6 +250,132 @@ def equity_consistency_report(
     }
 
 
+# ─── Purging and embargo ───
+#
+# Cross-validating a time series by shuffling folds leaks, and it leaks in a way
+# that flatters the strategy. Two separate leaks, and both have to be closed:
+#
+#   1. A training bar's outcome reaches into the test window. A signal taken at
+#      bar ``i`` and held for ``h`` bars is scored on bars ``i..i+h``, so if
+#      ``i + h`` reaches the test window, that training observation and the test
+#      set are measuring some of the same days. Dropping those training bars is
+#      the *purge*.
+#   2. The test window's own outcome reaches into training bars that follow it.
+#      The last test signal is still open for ``h`` bars past the end of the
+#      window, and those days are serially correlated with the bars just after.
+#      Dropping a run of training bars after the test window is the *embargo*.
+#
+# The two are not the same operation and neither implies the other: the purge
+# removes bars *before* the test window, the embargo removes bars *after* it.
+# Lopez de Prado, Advances in Financial Machine Learning, ch. 7.
+
+
+def purged_train_positions(
+    n_samples: int,
+    test_positions: np.ndarray | List[int],
+    *,
+    holding_bars: int = 0,
+    embargo_bars: int = 0,
+) -> np.ndarray:
+    """Return training positions that cannot see the test window.
+
+    Args:
+        n_samples: Total number of bars.
+        test_positions: Integer positions belonging to the test set. They need
+            not be contiguous -- CPCV tests several disjoint groups at once --
+            and every contiguous run is purged and embargoed on its own.
+        holding_bars: How many bars a signal stays open. This is what makes a
+            training bar's outcome overlap the test window.
+        embargo_bars: How many bars after each test run to withhold from
+            training. Lopez de Prado suggests at least ``holding_bars``.
+
+    Returns:
+        Sorted array of training positions, with the test set, the purged bars
+        and the embargoed bars removed.
+
+    Raises:
+        ValueError: A negative window, or a test position outside the sample.
+    """
+    if holding_bars < 0 or embargo_bars < 0:
+        raise ValueError(
+            f"holding_bars and embargo_bars cannot be negative; got "
+            f"holding_bars={holding_bars}, embargo_bars={embargo_bars}"
+        )
+    test = np.unique(np.asarray(test_positions, dtype=int))
+    if test.size and (test.min() < 0 or test.max() >= n_samples):
+        raise ValueError(
+            f"test positions must lie in [0, {n_samples - 1}]; got "
+            f"[{int(test.min())}, {int(test.max())}]"
+        )
+
+    blocked = np.zeros(n_samples, dtype=bool)
+    blocked[test] = True
+    for run_start, run_end in _contiguous_runs(test):
+        # Purge: a training bar at i is scored over i..i+holding_bars, so it
+        # overlaps this run whenever i + holding_bars >= run_start.
+        purge_from = max(0, run_start - holding_bars)
+        blocked[purge_from:run_start] = True
+        # Embargo: the run's own last signals stay open past run_end.
+        embargo_to = min(n_samples, run_end + 1 + embargo_bars)
+        blocked[run_end + 1:embargo_to] = True
+
+    return np.flatnonzero(~blocked)
+
+
+def _contiguous_runs(positions: np.ndarray) -> List[tuple[int, int]]:
+    """Return inclusive ``(start, end)`` bounds of each run of consecutive ints."""
+    if positions.size == 0:
+        return []
+    breaks = np.flatnonzero(np.diff(positions) > 1)
+    starts = np.concatenate(([positions[0]], positions[breaks + 1]))
+    ends = np.concatenate((positions[breaks], [positions[-1]]))
+    return [(int(a), int(b)) for a, b in zip(starts, ends)]
+
+
+def purged_kfold_splits(
+    n_samples: int,
+    n_splits: int = 5,
+    *,
+    holding_bars: int = 0,
+    embargo_bars: int = 0,
+) -> List[tuple[np.ndarray, np.ndarray]]:
+    """Split a series into contiguous test folds with purged, embargoed training.
+
+    Folds stay in time order and are never shuffled; only the training side is
+    thinned. Note that the training set is not always in the past: the fold at
+    the start of the sample trains entirely on later bars. That is deliberate --
+    it is what makes this cross-validation rather than a backtest -- and it is
+    also why :mod:`backtest.walkforward` exists separately for the strictly
+    causal version.
+
+    Args:
+        n_samples: Total number of bars.
+        n_splits: Number of contiguous test folds.
+        holding_bars: How many bars a signal stays open.
+        embargo_bars: Bars withheld after each test fold.
+
+    Returns:
+        List of ``(train_positions, test_positions)`` pairs.
+
+    Raises:
+        ValueError: Fewer than two folds, or fewer bars than folds.
+    """
+    if n_splits < 2:
+        raise ValueError(f"need at least 2 folds to cross-validate; got {n_splits}")
+    if n_samples < n_splits:
+        raise ValueError(f"need at least {n_splits} bars for {n_splits} folds; got {n_samples}")
+
+    bounds = np.linspace(0, n_samples, n_splits + 1).astype(int)
+    splits = []
+    for i in range(n_splits):
+        test = np.arange(bounds[i], bounds[i + 1])
+        train = purged_train_positions(
+            n_samples, test, holding_bars=holding_bars, embargo_bars=embargo_bars
+        )
+        splits.append((train, test))
+    return splits
+
+
 # ─── Runner integration ───
 
 

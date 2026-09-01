@@ -19,6 +19,8 @@ from backtest.validation import (
     monte_carlo_test,
     run_validation,
     equity_consistency_report,
+    purged_kfold_splits,
+    purged_train_positions,
 )
 
 
@@ -269,3 +271,82 @@ class TestTheReportDoesNotClaimToBeWalkForward:
         }}
         result = run_validation(config, eq, _make_trades([100] * 6), 1_000_000)
         assert result["equity_consistency"]["n_windows"] == 5
+
+
+class TestPurgeAndEmbargo:
+    """Two different leaks, on two different sides of the test window."""
+
+    def test_purge_removes_training_bars_whose_outcome_reaches_the_test_window(self) -> None:
+        train = purged_train_positions(20, range(8, 12), holding_bars=2, embargo_bars=0)
+        # A signal at bar 6 is still open at bar 8, the first test bar.
+        assert 6 not in train and 7 not in train
+        assert 5 in train
+
+    def test_embargo_removes_training_bars_that_follow_the_test_window(self) -> None:
+        train = purged_train_positions(20, range(8, 12), holding_bars=0, embargo_bars=3)
+        assert [12, 13, 14] == [i for i in (12, 13, 14) if i not in train]
+        assert 15 in train
+
+    def test_purge_and_embargo_are_independent(self) -> None:
+        """Neither implies the other: one looks back, the other looks forward."""
+        purged_only = purged_train_positions(20, range(8, 12), holding_bars=2, embargo_bars=0)
+        embargo_only = purged_train_positions(20, range(8, 12), holding_bars=0, embargo_bars=3)
+        assert 6 in embargo_only and 6 not in purged_only
+        assert 12 in purged_only and 12 not in embargo_only
+
+    def test_with_no_holding_and_no_embargo_only_the_test_bars_leave(self) -> None:
+        train = purged_train_positions(10, [3, 4], holding_bars=0, embargo_bars=0)
+        assert train.tolist() == [0, 1, 2, 5, 6, 7, 8, 9]
+
+    def test_each_disjoint_test_run_is_purged_on_its_own(self) -> None:
+        """CPCV tests several groups at once; a gap between them is not one run."""
+        train = purged_train_positions(
+            30, [5, 6, 7, 20, 21, 22], holding_bars=2, embargo_bars=2
+        )
+        for blocked in (3, 4, 8, 9, 18, 19, 23, 24):
+            assert blocked not in train, blocked
+        for kept in (2, 10, 17, 25):
+            assert kept in train, kept
+
+    def test_windows_that_run_off_the_ends_are_clipped_not_wrapped(self) -> None:
+        train = purged_train_positions(10, [0, 1], holding_bars=5, embargo_bars=5)
+        assert train.tolist() == [7, 8, 9]
+
+    def test_a_negative_window_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="cannot be negative"):
+            purged_train_positions(10, [3], holding_bars=-1)
+
+    def test_a_test_position_outside_the_sample_is_refused(self) -> None:
+        with pytest.raises(ValueError, match=r"must lie in \[0, 9\]"):
+            purged_train_positions(10, [3, 10])
+
+
+class TestPurgedKFold:
+    def test_test_folds_tile_the_sample_exactly_once(self) -> None:
+        splits = purged_kfold_splits(50, 5, holding_bars=3, embargo_bars=3)
+        covered = np.concatenate([test for _, test in splits])
+        assert sorted(covered.tolist()) == list(range(50))
+
+    def test_train_and_test_never_overlap(self) -> None:
+        for train, test in purged_kfold_splits(50, 5, holding_bars=3, embargo_bars=3):
+            assert not set(train.tolist()) & set(test.tolist())
+
+    def test_folds_stay_in_time_order(self) -> None:
+        splits = purged_kfold_splits(50, 5)
+        starts = [int(test[0]) for _, test in splits]
+        assert starts == sorted(starts)
+
+    def test_a_wider_holding_window_can_only_shrink_the_training_set(self) -> None:
+        narrow = purged_kfold_splits(60, 4, holding_bars=1, embargo_bars=1)
+        wide = purged_kfold_splits(60, 4, holding_bars=6, embargo_bars=6)
+        for (n_train, _), (w_train, _) in zip(narrow, wide):
+            assert set(w_train.tolist()) <= set(n_train.tolist())
+            assert len(w_train) < len(n_train)
+
+    def test_one_fold_is_not_cross_validation(self) -> None:
+        with pytest.raises(ValueError, match="at least 2 folds"):
+            purged_kfold_splits(50, 1)
+
+    def test_more_folds_than_bars_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="at least 5 bars"):
+            purged_kfold_splits(3, 5)

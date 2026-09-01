@@ -550,6 +550,32 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_validation.py` **23 passed** (+4); full suite `11 failed, **3424 passed**,
         1 skipped, 9 errors` — khớp baseline, passed +4.
 
+- [x] **R2 [C]** Purge + embargo — nền cho CPCV.
+      - **Hai chỗ rò rỉ khác nhau, ở hai phía khác nhau của cửa sổ test**, và **không cái nào bao
+        cái nào**:
+        1. Kết quả của một phiên train **thò vào** test. Tín hiệu vào ở phiên `i` giữ `h` phiên
+           thì được chấm trên `i..i+h`; nếu `i+h` chạm cửa sổ test thì train và test đang đo
+           **chung một số ngày**. Bỏ những phiên train đó = **purge** (nhìn về sau).
+        2. Kết quả của chính test **thò ra** các phiên train phía sau nó. Lệnh test cuối cùng còn
+           mở thêm `h` phiên. Bỏ một quãng train ngay sau test = **embargo** (nhìn về trước).
+      - **Đo trên VNINDEX thật, 1.409 phiên, giữ 5 phiên, 5 fold** — không phải trên mock:
+        ```
+                                     rò chiều 1   rò chiều 2
+        k-fold trần                      20           20
+        purge=5, embargo=0                0           20
+        purge=0, embargo=5               20            0
+        purge=5, embargo=5                0            0     (train giữ 79,4% mẫu)
+        ```
+        Bảng này **chính là bằng chứng hai thao tác độc lập**: mỗi cái đóng đúng chiều của nó và
+        **không** đóng chiều kia. Ai bỏ một trong hai vì "chắc cái kia lo rồi" thì đọc lại 20 ô này.
+      - `purged_train_positions` xử lý **từng đoạn liên tục riêng** — CPCV test nhiều nhóm rời
+        cùng lúc, và một khoảng trống giữa hai nhóm **không phải** một đoạn. Có test cho ca đó.
+      - Docstring nói thẳng một điều dễ hiểu lầm: **train của purged k-fold không nhất thiết ở
+        quá khứ** — fold đầu mẫu train hoàn toàn bằng dữ liệu sau nó. Đó là cross-validation, cố ý;
+        bản nhân quả nghiêm ngặt là việc của `walkforward.py` ở R5.
+      - **Số đo:** `test_validation.py` **37 passed** (+14); full suite `11 failed, **3438 passed**,
+        1 skipped, 9 errors` — khớp baseline, passed +14.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```
