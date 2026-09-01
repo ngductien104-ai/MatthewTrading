@@ -700,6 +700,37 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_validation.py` **77 passed** (+9); full suite `11 failed, **3478 passed**,
         1 skipped, 9 errors` — khớp baseline, passed +9.
 
+- [x] **R7 [C]** `risk_free` — Sharpe thôi giả định lãi phi rủi ro bằng 0.
+      - **Sharpe đo phần thưởng SO VỚI việc không giao dịch.** Ở VN lựa chọn "không giao dịch" trả
+        **4–5%/năm**. Để mốc bằng 0 là **tính công cho chiến lược cả phần lãi gửi mà nó không phải
+        làm gì để có**.
+      - **Đo trên đường vốn SMA10 VNINDEX thật, cùng một đường vốn, chỉ đổi giả định:**
+        ```
+        risk_free    sharpe   sortino   annual_return
+            0,000    1,5095    1,4201        0,1872
+            0,030    1,2597    1,1852        0,1872
+            0,045    1,1376    1,0703        0,1872
+            0,050    1,0972    1,0323        0,1872
+            0,090    0,7813    0,7351        0,1872
+        ```
+        **Giả định 0 thổi Sharpe lên +37,6%** so với mốc 5%. `annual_return` **không đổi** — đây là
+        hiệu chỉnh tỷ số điều chỉnh rủi ro, không phải hiệu chỉnh số tiền kiếm được, và test khẳng
+        định điều đó để không ai sửa nhầm sang trừ vào lợi nhuận.
+      - **Sortino dùng CÙNG tử số.** Để một cái đo với mốc 0 còn cái kia vượt rào 5% thì hai chỉ số
+        không so được với nhau. Mẫu số (độ lệch xuống) giữ nguyên quanh 0 — đúng quy ước file này
+        đang dùng, không nhân tiện đổi.
+      - **Quy đổi bằng LŨY THỪA, không phải chia**: `(1+rf)^(1/bpy) − 1` chứ không phải `rf/bpy`.
+        Qua 252 phiên chênh lệch nhỏ nhưng đó là **thiên lệch có hướng, không phải nhiễu**, và
+        tránh được thì tránh. Có test khẳng định mốc theo phiên nhỏ hơn `rf/252`.
+      - **Mặc định `0.0`, nên mọi kết quả đã có KHÔNG đổi** — có test so bằng nhau toàn bộ dict.
+        Hiệu chỉnh chỉ áp khi config xin.
+      - **Ghi vào run card** (`BACKTEST_SUMMARY_KEYS`): một Sharpe báo cáo mà không nói nó vượt rào
+        nào thì mơ hồ, và khoảng mơ hồ đó rộng 37,6%.
+      - Kiểm dây nối config → engine → Sharpe chạy thật, gồm cả các giá trị dị (`None`, `0`, `""`)
+        đều hạ về 0,0 thay vì nổ.
+      - **Số đo:** `test_metrics.py` + `test_validation.py` **118 passed** (+8); `test_run_card.py`
+        vẫn xanh; full suite `11 failed, **3486 passed**, 1 skipped, 9 errors` — khớp baseline, +8.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```

@@ -477,7 +477,10 @@ class BaseEngine(ABC):
         bench_equity = self.initial_capital * (1 + bench_ret).cumprod()
 
         # 6. Metrics
-        m = calc_metrics(equity_series, self.trades, self.initial_capital, bars_per_year, bench_ret)
+        m = calc_metrics(
+            equity_series, self.trades, self.initial_capital, bars_per_year, bench_ret,
+            risk_free=float(config.get("risk_free", 0.0) or 0.0),
+        )
         m.update(benchmark_metadata)
         m["by_symbol"] = by_symbol_stats(self.trades)
         m["by_exit_reason"] = by_exit_reason_stats(self.trades)

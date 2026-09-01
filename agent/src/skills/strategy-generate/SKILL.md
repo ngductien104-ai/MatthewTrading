@@ -146,6 +146,7 @@ Tự kiểm tra sau khi viết `signal_engine.py`:
 - `engine`: engine backtest, mặc định `"daily"`. Chiến lược quyền chọn dùng `"options"` (cần `OptionsSignalEngine`)
 - `initial_cash`: mặc định 1.000.000
 - `commission`: mặc định 0,1%
+- `risk_free`: lãi phi rủi ro **theo năm**, dạng phân số (VD `0.05`). Trừ khỏi lợi suất trước khi tính Sharpe và Sortino, vì cả hai đo phần thưởng **so với việc KHÔNG giao dịch** — mà ở VN lựa chọn đó trả 4–5%/năm. Để mặc định `0.0` là tính công cho chiến lược cả phần lãi gửi nó không phải làm gì để có: đo trên đường vốn SMA10 VNINDEX thật, giả định 0 **thổi Sharpe lên 37,6%** so với mốc 5%. Không đổi `total_return`/`annual_return` — nó đổi tỷ số điều chỉnh rủi ro, không đổi số tiền kiếm được.
 - `validation`: tùy chọn, kiểm định thống kê sau khi backtest xong. Bỏ qua thì không chạy. Ví dụ:
   ```json
   "validation": {

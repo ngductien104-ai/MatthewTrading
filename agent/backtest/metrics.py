@@ -154,6 +154,7 @@ def calc_metrics(
     initial_cash: float,
     bars_per_year: Optional[int] = 252,
     bench_ret: Optional[pd.Series] = None,
+    risk_free: float = 0.0,
 ) -> Dict[str, Any]:
     """Full set of performance metrics.
 
@@ -164,9 +165,16 @@ def calc_metrics(
         bars_per_year: Bars per year for annualisation. None = auto-detect
             from equity curve dates (calendar-day method, for cross-market).
         bench_ret: Benchmark per-bar return series (optional).
+        risk_free: Annual risk-free rate as a fraction, e.g. ``0.05``. It is
+            subtracted from the return before Sharpe and Sortino, because both
+            measure reward *over the alternative of not trading*, and in
+            Vietnam that alternative pays 4-5%. Leaving it at zero credits the
+            strategy with the deposit rate it never had to work for. Defaults
+            to 0.0 so existing runs are unchanged until a config asks for it.
 
     Returns:
-        Metrics dictionary (compatible with daily_portfolio format).
+        Metrics dictionary (compatible with daily_portfolio format), including
+        the ``risk_free`` that was applied.
     """
     if len(equity_curve) == 0:
         return _empty_metrics(initial_cash)
@@ -184,10 +192,15 @@ def calc_metrics(
 
     port_ret = equity_curve.pct_change().fillna(0.0)
 
+    # Compound the annual rate down to one bar rather than dividing by bpy:
+    # over 252 bars the difference is small but it is a bias, not noise.
+    rf_bar = (1.0 + float(risk_free)) ** (1.0 / bpy) - 1.0 if bpy > 0 else 0.0
+    excess_ret = port_ret - rf_bar
+
     total_ret = float(equity_curve.iloc[-1] / initial_cash - 1)
     ann_ret = float((1 + total_ret) ** (bpy / max(n, 1)) - 1)
     vol = float(port_ret.std())
-    sharpe = float(port_ret.mean() / (vol + 1e-10) * np.sqrt(bpy))
+    sharpe = float(excess_ret.mean() / (vol + 1e-10) * np.sqrt(bpy))
 
     # Drawdown
     peak = equity_curve.cummax()
@@ -196,10 +209,13 @@ def calc_metrics(
 
     calmar = ann_ret / abs(max_dd) if abs(max_dd) > 1e-10 else 0.0
 
-    # Sortino
+    # Sortino. The numerator is the same excess return as Sharpe's -- leaving
+    # one of the two measured against zero while the other clears a hurdle
+    # would make the pair incomparable. The downside deviation stays measured
+    # about zero, which is the convention this codebase already used.
     downside = port_ret[port_ret < 0]
     downside_std = float(downside.std()) if len(downside) > 1 else 1e-10
-    sortino = float(port_ret.mean() / (downside_std + 1e-10) * np.sqrt(bpy))
+    sortino = float(excess_ret.mean() / (downside_std + 1e-10) * np.sqrt(bpy))
 
     trade_stats = win_rate_and_stats(trades)
 
@@ -220,6 +236,7 @@ def calc_metrics(
         "annual_return": ann_ret,
         "max_drawdown": max_dd,
         "sharpe": sharpe,
+        "risk_free": float(risk_free),
         "calmar": round(calmar, 4),
         "sortino": round(sortino, 4),
         "win_rate": trade_stats["win_rate"],
@@ -239,7 +256,7 @@ def _empty_metrics(initial_cash: float) -> Dict[str, Any]:
     return {
         "final_value": initial_cash,
         "total_return": 0, "annual_return": 0, "max_drawdown": 0,
-        "sharpe": 0, "calmar": 0, "sortino": 0,
+        "sharpe": 0, "calmar": 0, "sortino": 0, "risk_free": 0.0,
         "win_rate": 0, "profit_loss_ratio": 0, "profit_factor": 0,
         "max_consecutive_loss": 0, "avg_holding_days": 0, "trade_count": 0,
         "benchmark_return": 0, "excess_return": 0, "information_ratio": 0,

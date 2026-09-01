@@ -287,3 +287,74 @@ class TestCalcMetrics:
         # Calmar = annual_return / |max_drawdown|
         if m["annual_return"] > 0:
             assert m["calmar"] > 0
+
+
+class TestRiskFreeRate:
+    """Sharpe measures reward over the alternative of not trading.
+
+    In Vietnam that alternative is a deposit paying 4-5%, so leaving the rate at
+    zero credits the strategy with return it never had to work for. Measured on
+    a real VNINDEX SMA curve, assuming zero inflates the Sharpe by 37.6%
+    against a 5% deposit rate.
+    """
+
+    def _noisy_equity(self, seed: int = 3) -> pd.Series:
+        dates = pd.bdate_range("2020-01-01", periods=1000)
+        rng = np.random.default_rng(seed)
+        return pd.Series(
+            np.cumprod(1 + rng.normal(0.0006, 0.01, 1000)) * 1_000_000, index=dates
+        )
+
+    def test_the_default_leaves_every_existing_result_unchanged(self) -> None:
+        eq = self._noisy_equity()
+        assert calc_metrics(eq, [], 1_000_000, 252) == calc_metrics(
+            eq, [], 1_000_000, 252, risk_free=0.0
+        )
+
+    def test_a_hurdle_lowers_the_sharpe(self) -> None:
+        eq = self._noisy_equity()
+        assert (
+            calc_metrics(eq, [], 1_000_000, 252, risk_free=0.05)["sharpe"]
+            < calc_metrics(eq, [], 1_000_000, 252)["sharpe"]
+        )
+
+    def test_a_higher_hurdle_lowers_it_further(self) -> None:
+        eq = self._noisy_equity()
+        sharpes = [
+            calc_metrics(eq, [], 1_000_000, 252, risk_free=rf)["sharpe"]
+            for rf in (0.0, 0.03, 0.05, 0.09)
+        ]
+        assert sharpes == sorted(sharpes, reverse=True)
+
+    def test_sortino_clears_the_same_hurdle_as_sharpe(self) -> None:
+        """One measured against zero while the other clears 5% is incomparable."""
+        eq = self._noisy_equity()
+        plain = calc_metrics(eq, [], 1_000_000, 252)
+        hurdled = calc_metrics(eq, [], 1_000_000, 252, risk_free=0.05)
+        assert hurdled["sortino"] < plain["sortino"]
+
+    def test_the_return_itself_is_untouched(self) -> None:
+        """A hurdle changes the risk-adjusted ratio, not what the account made."""
+        eq = self._noisy_equity()
+        plain = calc_metrics(eq, [], 1_000_000, 252)
+        hurdled = calc_metrics(eq, [], 1_000_000, 252, risk_free=0.05)
+        assert hurdled["total_return"] == plain["total_return"]
+        assert hurdled["annual_return"] == plain["annual_return"]
+        assert hurdled["max_drawdown"] == plain["max_drawdown"]
+
+    def test_the_rate_is_compounded_down_not_divided(self) -> None:
+        """Dividing by bars_per_year is a bias, not noise, and it is avoidable."""
+        eq = self._noisy_equity()
+        m = calc_metrics(eq, [], 1_000_000, 252, risk_free=0.05)
+        rf_bar = (1.05) ** (1 / 252) - 1
+        ret = eq.pct_change().fillna(0.0)
+        expected = float((ret - rf_bar).mean() / (ret.std() + 1e-10) * np.sqrt(252))
+        assert m["sharpe"] == pytest.approx(expected, rel=1e-9)
+        assert rf_bar < 0.05 / 252  # compounding gives a smaller per-bar hurdle
+
+    def test_the_applied_rate_is_reported_back(self) -> None:
+        eq = self._noisy_equity()
+        assert calc_metrics(eq, [], 1_000_000, 252, risk_free=0.045)["risk_free"] == 0.045
+
+    def test_an_empty_run_still_carries_the_key(self) -> None:
+        assert "risk_free" in calc_metrics(pd.Series(dtype=float), [], 1_000_000, 252)

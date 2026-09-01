@@ -18,6 +18,9 @@ BACKTEST_SUMMARY_KEYS = (
     "engine",
     "initial_cash",
     "source",
+    # A Sharpe reported without the hurdle it cleared is ambiguous, and the
+    # difference is large: 37.6% on a real VNINDEX curve between 0% and 5%.
+    "risk_free",
 )
 
 
