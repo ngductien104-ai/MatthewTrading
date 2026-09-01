@@ -526,6 +526,30 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `calls` 15 → **16**, `evidence` 88 → **104**, `process_records` 23 (không đổi —
         đây là backfill tài liệu, không phải phiên mới). Không đụng code, không chạy lại full suite.
 
+---
+
+## Giai đoạn 2.1 — Walk-forward thật + chống overfit *(bắt đầu 01/09/2026)*
+
+- [x] **R1 [C]** Gọi đúng tên: `walk_forward_analysis` → `equity_consistency_report`.
+      - **Cái tên là một lời hứa sai.** Hàm này **không refit gì và không giữ lại gì**: nó cắt
+        đúng một đường vốn mà backtest đã sinh ra từ **một** lần khớp trên **một** giai đoạn, rồi
+        hỏi lợi nhuận đến đều hay đến từ một đoạn may. Câu hỏi đó đáng hỏi. Nó **không** phải câu
+        hỏi "chiến lược có chạy trên dữ liệu chưa từng khớp không".
+      - **Hệ quả thực tế, không phải chuyện chữ nghĩa:** một chiến lược overfit **có thể nhất quán
+        hoàn hảo trong mẫu**, nên `consistency_rate` cao dưới cái tên cũ đọc như bằng chứng tổng
+        quát hóa trong khi nó không phải. Payload nay mang thẳng `"in_sample": True`.
+      - **Và cái tên đang chiếm chỗ.** Walk-forward thật (`backtest/walkforward.py`) sắp có ở
+        R5; để nguyên thì hai thứ khác hẳn nhau cùng tên `walk_forward` trong một file kết quả.
+      - Docstring module nói rõ **cả ba công cụ** (Monte Carlo, bootstrap, consistency) **đều đọc
+        cùng một đường vốn của cùng một lần khớp** — nói được kết quả có mong manh không, không
+        nói được nó có tổng quát hóa không.
+      - **Tương thích ngược có kiểm soát:** config viết theo tên cũ `walk_forward` **vẫn chạy**
+        (chỉ có `_risk_committee_202608/out/regime_results.json` dùng), nhưng kết quả **luôn** trả
+        về dưới khóa mới, và có test khẳng định khóa cũ **không** vọng lại — vì cái tên đó phải
+        trống cho R5.
+      - **Số đo:** `test_validation.py` **23 passed** (+4); full suite `11 failed, **3424 passed**,
+        1 skipped, 9 errors` — khớp baseline, passed +4.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```

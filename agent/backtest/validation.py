@@ -3,7 +3,12 @@
 Three independent tools:
   - Monte Carlo permutation test: is the strategy significantly better than random?
   - Bootstrap Sharpe CI: how stable is the risk-adjusted return?
-  - Walk-Forward analysis: is performance consistent across time windows?
+  - Equity consistency report: is the in-sample curve steady across time windows?
+
+None of the three is an out-of-sample test. They all read one equity curve that
+was produced by one fit over one period, so they can say a result is fragile
+but they can never say it generalises. Walk-forward -- refit on a train window,
+measure on an unseen test window -- lives in :mod:`backtest.walkforward`.
 
 Usage: called automatically by BaseEngine.run_backtest when config[\"validation\"]
 is present, or invoked directly on backtest outputs.
@@ -148,16 +153,26 @@ def _sharpe(returns: np.ndarray, bars_per_year: int = 252) -> float:
     return float(returns.mean() / (std + 1e-10) * np.sqrt(bars_per_year))
 
 
-# ─── Walk-Forward Analysis ───
+# ─── Equity Consistency Report ───
 
 
-def walk_forward_analysis(
+def equity_consistency_report(
     equity_curve: pd.Series,
     trades: List[TradeRecord],
     n_windows: int = 5,
     bars_per_year: int = 252,
 ) -> Dict[str, Any]:
-    """Split backtest into sequential windows, check consistency.
+    """Split one in-sample equity curve into windows and report its steadiness.
+
+    This was called ``walk_forward_analysis``, which it never was. It refits
+    nothing and holds nothing out: it slices the single curve the backtest
+    already produced and asks whether the profit came evenly or from one lucky
+    stretch. That is a worthwhile question and a different one from whether the
+    strategy works on data it was not fitted to, which is what
+    :mod:`backtest.walkforward` answers.
+
+    A high consistency rate here is therefore not evidence of generalisation.
+    An overfitted strategy can be perfectly consistent in sample.
 
     Each window is evaluated independently (returns normalised to window start).
 
@@ -168,7 +183,8 @@ def walk_forward_analysis(
         bars_per_year: Annualisation factor.
 
     Returns:
-        Dict with per_window stats, consistency metrics.
+        Dict with per-window stats and consistency metrics, plus ``in_sample``,
+        which is True because it is always True.
     """
     if len(equity_curve) < n_windows * 2:
         return {"error": f"need at least {n_windows * 2} bars for {n_windows} windows"}
@@ -223,6 +239,7 @@ def walk_forward_analysis(
 
     return {
         "n_windows": n_windows,
+        "in_sample": True,
         "windows": windows,
         "profitable_windows": profitable_windows,
         "consistency_rate": round(profitable_windows / n_windows, 4),
@@ -248,7 +265,7 @@ def run_validation(
     Reads from config["validation"]:
       - monte_carlo: {n_simulations, seed}
       - bootstrap: {n_bootstrap, confidence, seed}
-      - walk_forward: {n_windows}
+      - equity_consistency: {n_windows}  (accepts the old name walk_forward)
 
     Args:
         config: Backtest config (must contain "validation" key).
@@ -280,11 +297,15 @@ def run_validation(
             seed=bs_cfg.get("seed", 42),
         )
 
-    if "walk_forward" in v_cfg:
-        wf_cfg = v_cfg["walk_forward"] if isinstance(v_cfg["walk_forward"], dict) else {}
-        results["walk_forward"] = walk_forward_analysis(
+    # "walk_forward" is still read so an existing config keeps working, but the
+    # result is reported under the name that describes it. Leaving it under the
+    # old key would let the real walk-forward and this in-sample report collide.
+    ec_key = "equity_consistency" if "equity_consistency" in v_cfg else "walk_forward"
+    if ec_key in v_cfg:
+        ec_cfg = v_cfg[ec_key] if isinstance(v_cfg[ec_key], dict) else {}
+        results["equity_consistency"] = equity_consistency_report(
             equity_curve, trades,
-            n_windows=wf_cfg.get("n_windows", 5),
+            n_windows=ec_cfg.get("n_windows", 5),
             bars_per_year=bars_per_year,
         )
 
@@ -382,7 +403,7 @@ def main(run_dir: Path) -> Dict[str, Any]:
     results = {
         "monte_carlo": monte_carlo_test(trades, initial_capital),
         "bootstrap": bootstrap_sharpe_ci(equity),
-        "walk_forward": walk_forward_analysis(equity, trades),
+        "equity_consistency": equity_consistency_report(equity, trades),
     }
 
     # Write results

@@ -18,7 +18,7 @@ from backtest.validation import (
     bootstrap_sharpe_ci,
     monte_carlo_test,
     run_validation,
-    walk_forward_analysis,
+    equity_consistency_report,
 )
 
 
@@ -158,11 +158,11 @@ class TestBootstrapSharpe:
 # ---------------------------------------------------------------------------
 
 
-class TestWalkForward:
+class TestEquityConsistency:
     def test_output_structure(self) -> None:
         eq = _make_equity(100)
         trades = _make_trades([100, -50] * 10)
-        result = walk_forward_analysis(eq, trades, n_windows=4)
+        result = equity_consistency_report(eq, trades, n_windows=4)
         assert result["n_windows"] == 4
         assert len(result["windows"]) == 4
         assert "consistency_rate" in result
@@ -172,7 +172,7 @@ class TestWalkForward:
     def test_window_fields(self) -> None:
         eq = _make_equity(100)
         trades = _make_trades([100, -50] * 10)
-        result = walk_forward_analysis(eq, trades, n_windows=5)
+        result = equity_consistency_report(eq, trades, n_windows=5)
         w = result["windows"][0]
         assert "window" in w
         assert "start" in w
@@ -187,13 +187,13 @@ class TestWalkForward:
         """Equity with positive drift should have high consistency."""
         eq = _make_equity(200, drift=0.003)
         trades = _make_trades([100] * 50)
-        result = walk_forward_analysis(eq, trades, n_windows=5)
+        result = equity_consistency_report(eq, trades, n_windows=5)
         assert result["consistency_rate"] > 0.5
 
     def test_windows_cover_full_range(self) -> None:
         eq = _make_equity(100)
         trades = _make_trades([100] * 10)
-        result = walk_forward_analysis(eq, trades, n_windows=5)
+        result = equity_consistency_report(eq, trades, n_windows=5)
         first_start = result["windows"][0]["start"]
         last_end = result["windows"][-1]["end"]
         assert first_start == str(eq.index[0].date())
@@ -201,7 +201,7 @@ class TestWalkForward:
 
     def test_too_few_bars(self) -> None:
         eq = pd.Series([100, 101], index=pd.bdate_range("2025-01-01", periods=2))
-        result = walk_forward_analysis(eq, [], n_windows=5)
+        result = equity_consistency_report(eq, [], n_windows=5)
         assert "error" in result
 
 
@@ -223,13 +223,13 @@ class TestRunValidation:
             "validation": {
                 "monte_carlo": {"n_simulations": 50},
                 "bootstrap": {"n_bootstrap": 50},
-                "walk_forward": {"n_windows": 3},
+                "equity_consistency": {"n_windows": 3},
             }
         }
         result = run_validation(config, eq, trades, 1_000_000)
         assert "monte_carlo" in result
         assert "bootstrap" in result
-        assert "walk_forward" in result
+        assert "equity_consistency" in result
 
     def test_single_tool(self) -> None:
         eq = _make_equity(100)
@@ -238,3 +238,34 @@ class TestRunValidation:
         result = run_validation(config, eq, trades, 1_000_000)
         assert "bootstrap" in result
         assert "monte_carlo" not in result
+
+
+class TestTheReportDoesNotClaimToBeWalkForward:
+    """The old name promised out-of-sample evidence this function cannot give."""
+
+    def test_the_result_says_it_is_in_sample(self) -> None:
+        eq = _make_equity(100)
+        result = equity_consistency_report(eq, _make_trades([100] * 10), n_windows=4)
+        assert result["in_sample"] is True
+
+    def test_a_config_written_against_the_old_name_still_runs(self) -> None:
+        eq = _make_equity(100)
+        config = {"validation": {"walk_forward": {"n_windows": 3}}}
+        result = run_validation(config, eq, _make_trades([100] * 6), 1_000_000)
+        assert result["equity_consistency"]["n_windows"] == 3
+
+    def test_the_old_key_is_not_echoed_back(self) -> None:
+        """The name is being freed for the real walk-forward, so it must not linger."""
+        eq = _make_equity(100)
+        config = {"validation": {"walk_forward": {"n_windows": 3}}}
+        result = run_validation(config, eq, _make_trades([100] * 6), 1_000_000)
+        assert "walk_forward" not in result
+
+    def test_the_new_name_wins_when_both_are_given(self) -> None:
+        eq = _make_equity(100)
+        config = {"validation": {
+            "walk_forward": {"n_windows": 3},
+            "equity_consistency": {"n_windows": 5},
+        }}
+        result = run_validation(config, eq, _make_trades([100] * 6), 1_000_000)
+        assert result["equity_consistency"]["n_windows"] == 5

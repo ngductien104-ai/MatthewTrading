@@ -151,12 +151,13 @@ Tự kiểm tra sau khi viết `signal_engine.py`:
   "validation": {
     "monte_carlo": {"n_simulations": 1000},
     "bootstrap": {"n_bootstrap": 1000, "confidence": 0.95},
-    "walk_forward": {"n_windows": 5}
+    "equity_consistency": {"n_windows": 5}
   }
   ```
   - `monte_carlo`: kiểm định hoán vị — xáo trộn thứ tự lệnh để tính p-value (Sharpe có vượt ngẫu nhiên một cách có ý nghĩa không?)
   - `bootstrap`: lấy mẫu lại lợi suất ngày để tính khoảng tin cậy 95% của Sharpe
-  - `walk_forward`: chia đường vốn thành N cửa sổ, kiểm tra tính nhất quán hiệu suất
+  - `equity_consistency`: chia đường vốn thành N cửa sổ, kiểm tra lợi nhuận đến đều hay đến từ một đoạn may. **Đây là báo cáo TRONG MẪU** — không refit, không giữ lại dữ liệu nào, nên nhất quán cao KHÔNG phải bằng chứng chiến lược chạy được ngoài mẫu. (Tên cũ `walk_forward` vẫn đọc được, nhưng kết quả luôn trả về dưới tên mới.)
+  - **Cả ba đều đọc CÙNG một đường vốn của CÙNG một lần khớp** — chúng nói được kết quả có mong manh không, không nói được nó có tổng quát hóa không
   - Mỗi khóa là tùy chọn — chỉ thêm phần kiểm định bạn muốn
   - Có thể chạy độc lập trên kết quả cũ: `python -m backtest.validation <run_dir>`
 
