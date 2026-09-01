@@ -731,6 +731,59 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_metrics.py` + `test_validation.py` **118 passed** (+8); `test_run_card.py`
         vẫn xanh; full suite `11 failed, **3486 passed**, 1 skipped, 9 errors` — khớp baseline, +8.
 
+- [x] **R8 [C]** `agent/backtest/walkforward.py` — walk-forward thật. **Kết thúc Giai đoạn 2.1.**
+      - Chạy lại engine **một lần mỗi fold**, chỉ giữ những phiên fold đó **chưa từng được xem**,
+        rồi ghép thành một đường ngoài mẫu duy nhất. Mỗi fold có thư mục riêng, artifacts riêng,
+        **run card riêng có hash cấu hình** — nên bất kỳ fold nào cũng tái lập được một mình.
+      - **Module tự nói giới hạn của nó, thay vì để cái tên hứa hộ** (đúng bài học R1):
+        - **Bảo đảm được:** *đánh giá* ngoài mẫu. Không phiên nào vào đường ghép nếu nó không nằm
+          sau `train_end` của fold đó, và embargo cắt các phiên ngay sau cửa sổ train để một vị thế
+          còn mở ở ranh giới không bị chấm hai lần.
+        - **KHÔNG bảo đảm được:** *khớp* ngoài mẫu. Engine **không có bước fit riêng** —
+          `SignalEngine.generate(data_map)` nhận frame và trả tín hiệu — nên mỗi fold config mang
+          `train_end` + `oos_start` và **việc tôn trọng ranh giới là của signal engine**. Một signal
+          engine đọc quá `train_end` để chọn tham số thì **không hề được kiểm định chéo**, và
+          không phép tính fold nào ở đây phát hiện được. Câu này nằm trong docstring module.
+      - Mỗi fold được **hâm nóng bằng cả cửa sổ train** chứ không khởi động lạnh ở `test_start`:
+        chỉ báo lookback 200 phiên thì 200 phiên đầu vô nghĩa, và fold bắt đầu ở ranh giới test sẽ
+        **đo giai đoạn hâm nóng chứ không đo chiến lược**.
+      - **`signal_engine_factory` là hàm tạo, không phải một thể hiện** — một signal engine có
+        trạng thái không được mang thứ học ở fold 2 sang fold 3. Có test kiểm 4 fold ra 4 đối tượng
+        khác `id`.
+      - **Fold hỏng thì DỪNG, không bỏ qua** — ngược với quyết định Q10, và cố ý: một mã hỏng chỉ
+        làm universe hẹp lại, còn một fold hỏng **để lại lỗ thủng trên đường ngoài mẫu**, tức đường
+        đó ngắn hơn thứ nó tự nhận. Engine gọi `sys.exit`, nên `SystemExit` được bắt và đổi thành
+        `WalkForwardError` **có tên fold và khoảng ngày**.
+      - **Một lỗi thật, và chỉ chạy thật mới lộ.** 26 test xanh ngay lượt đầu — rồi hoá ra
+        `VNEquityEngine.__init__` **nhận `config`**, nên `engine_factory()` mặc định không tham số
+        sẽ nổ `TypeError` ngay lần dùng thật đầu tiên. **Test không bắt được vì stub của em có
+        `__init__` rỗng** — em đã tự viết một hợp đồng dễ hơn hợp đồng thật. Sửa: factory nhận
+        config, stub nhận config, thêm test dựng `VNEquityEngine` **thật** đúng cách module dựng nó.
+      - **Chạy end-to-end thật** — DataPro sống, `VNEquityEngine` thật, VCB.VN 1.405 phiên,
+        4 fold, embargo 5, `risk_free=0,05`:
+        ```
+        fold 0: train 2021-01-04..2022-02-21 | test 2022-03-01..2023-04-12 | 281 phiên | OOS +0,0252
+        fold 1: train 2022-02-23..2023-04-05 | test 2023-04-13..2024-05-30 | 281 phiên | OOS +0,0832
+        fold 2: train 2023-04-07..2024-05-23 | test 2024-05-31..2025-07-15 | 281 phiên | OOS −0,0034
+        fold 3: train 2024-05-27..2025-07-08 | test 2025-07-16..2026-08-28 | 281 phiên | OOS −0,1608
+        ghép lại: 1.124 phiên, lợi suất −7,12%, sharpe −0,2785, maxDD −28,73%
+        ```
+      - **Đối chứng in-sample vs OOS, và kết quả KHÔNG ly kỳ — đó mới là điều đáng ghi:**
+        ```
+                             một lần khớp (in-sample)    walk-forward OOS
+        total return                      −0,1144              −0,0712
+        sharpe                            −0,2832              −0,2785
+        max drawdown                      −0,2873              −0,2873
+        ```
+        Gần như trùng nhau. **Đúng, không phải lỗi:** SMA20/50 là quy tắc **tham số cứng, không
+        khớp gì cả**, nên không có gì để overfit và walk-forward đang đo đúng cùng một thứ. Đây là
+        **lần thứ hai trong Giai đoạn 2.1 cùng một sự thật hiện ra** — lần đầu là CPCV cho 5 đường
+        giống hệt với mua-và-giữ (R3). **Công cụ chống overfit chỉ tách được in khỏi out khi có
+        thứ gì đó thật sự được khớp**; chạy chúng lên một quy tắc cố định thì được một con số
+        nghiêm túc mà không có thông tin nào thêm.
+      - **Số đo:** `test_walkforward.py` **28 passed** (module mới); full suite
+        `11 failed, **3514 passed**, 1 skipped, 9 errors` — khớp baseline, passed +28.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```
