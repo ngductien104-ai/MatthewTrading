@@ -10,30 +10,28 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 30/08/2026 (Claude điều phối, Codex thực thi — hết hàng đợi Q1–Q8)
+## 🔖 ĐIỂM DỪNG — 01/09/2026 (Giai đoạn 2.2 ĐÓNG — hết Q1–Q11)
 
-**Nhánh:** `upgrade/learning-loop`. **9 commit mới, CHƯA PUSH** (`96409bc` → `f36345b`).
-Cây làm việc sạch. **Full suite `11 failed, 3399 passed, 1 skipped, 9 errors`** — fail/error
-khớp baseline từng cái; passed đi từ **3350 → 3399** (+49) qua 8 mục.
+**Nhánh:** `upgrade/learning-loop`, **đã push tới `08235b8`**; sau đó **3 commit chưa push**
+(`048888e` Q9 · `1a6e60a` Q10 · `76e3f12` Q11). Cây làm việc sạch.
+**Full suite `11 failed, 3420 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái;
+passed đi từ **3131 (baseline) → 3420** qua 11 mục.
 
-**Sổ cái `~/.vibe-trading/learning.db`: `calls=15`** (11 → 13 nhờ Q2 mở khoá memo TPB/HDB,
-13 → 15 nhờ Q1 hỏi lại VRE + PET). `outcomes=0`, `lessons=0` — chưa có gì để chấm cho tới
-khi làm `resolve.py`.
+**Sổ cái `~/.vibe-trading/learning.db`: `calls=16`, `evidence=104`, `process_records=23`.**
+`outcomes=0`, `lessons=0` — vẫn chưa có gì để chấm cho tới khi làm `resolve.py`.
 
-**Giai đoạn 2.2 xong phần làm được trong sandbox.** Còn **Q9** (chính sách điều chỉnh giá +
-đối chiếu DataPro ↔ vnstock_data) **bị chặn bởi môi trường**, không phải bởi thiếu người làm.
+**GIAI ĐOẠN 2.2 ĐÓNG.** Q9 — mục cuối, hôm 30/08 còn ghi *"bị chặn bởi môi trường"* — làm được
+vì **môi trường tự mở**: đầu phiên 01/09 `datapro_available()` còn `False`, vài phút sau lên
+`True`, và mạng tới `vnstocks.com:443` đã thông. Hai nguồn sống cùng lúc lần đầu tiên.
 
 ### Việc kế tiếp
-1. **Push 9 commit** — repo PUBLIC, liếc `_upgrade/PROGRESS.md` một lượt trước (đã cắt khuyến
-   nghị sống ở `63bbfbd` theo tiền lệ `0c24536`).
-2. **Q9** — cần máy có **DataPro desktop mở** và **mạng tới `vnstocks.com`**. Đây cũng là phép
-   đo duy nhất trả lời được đơn vị thật của `vnstock_data` mà Q7 phải để ngỏ.
-3. **MWG vào sổ** — Q3 mở đường vào HTML nhưng `_mwg_research` chưa có call nào. Cần một reply
-   do Claude đóng vai model (không tốn token provider).
-4. **Câu hỏi treo cần anh quyết** (chi tiết ở Q7): schema hỏng ở **một** mã nay giết **cả** lần
-   chạy. Giữ nguyên, hay bỏ qua theo mã rồi ghi vào run card như Q6 làm với survivorship bias?
-5. Rồi sang **2.1** (walk-forward, CPCV, DSR, PBO) — nay đã đứng trên nền dữ liệu sạch hơn,
-   đúng thứ tự kế hoạch đã đảo.
+1. **Push 3 commit** (`048888e` → `76e3f12`). Repo PUBLIC — đã kiểm: không commit nào thêm
+   khuyến nghị sống; nội dung call MWG cố ý ở lại sổ cái cục bộ, ngoài git.
+2. **Giai đoạn 2.1** — walk-forward, CPCV, DSR, PBO. Nay đứng trên nền dữ liệu đã siết qua
+   Q4–Q10, đúng thứ tự kế hoạch đã đảo. **Đây là mục lớn nhất còn lại.**
+3. **`resolve.py`** — sổ đã có 16 call nhưng `outcomes=0`. Ba câu hỏi thiết kế đang treo sẵn
+   chờ nó trả lời: chấm một call `avoid` bằng gì (VRE); chấm một call không có
+   `horizon_sessions` bằng gì (MWG); và `_DISCLOSURE_LAG_DAYS` từ Q8 sẽ là định nghĩa nó dùng.
 
 ### Ba việc môi trường, không phải việc code
 - **5 thư mục pytest rỗng KẸT VĨNH VIỄN** trong `_upgrade/` (`q4_pytest_tmp`, `q5_pytest_tmp`,
@@ -42,10 +40,21 @@ khi làm `resolve.py`.
   repo public**, chỉ làm `git status` in warning. Cần shell quyền cao hơn. Luật 8 đã chặn việc đẻ thêm.
 - **`/codex:transfer` HỎNG** ở codex-cli 0.150.1: báo "import completed" nhưng không ghi thread
   nào, cả khi truyền `--source` đúng đường dẫn. Bàn giao ngữ cảnh đi bằng chính file này.
-- **Provider LLM vẫn chết** (DeepSeek $0 — xem Đính chính 1). Mọi việc trên đây làm được là vì
-  không mục nào cần gọi model: reply backfill có sẵn trên đĩa, còn Claude tự đóng vai extractor.
+- **Provider LLM vẫn chết** (DeepSeek $0 — xem Đính chính 1). Q11 làm được là vì Claude tự đóng
+  vai extractor, reply lưu lại trên đĩa để chạy lại được.
 
-### Điều đáng giá nhất rút ra từ vòng này
+### Bài học mới của vòng này: một điều kiện bị chặn đáng được đo lại, không đáng được tin
+
+Q9 nằm im một vòng với nhãn *"cần máy có DataPro mở và mạng thông"*. Phép kiểm mất **hai lệnh**
+và hoá ra một nửa điều kiện đã tự thoả từ trước, nửa còn lại thoả ngay trong phiên. Nhãn "bị
+chặn" viết hôm qua là **một quan sát, không phải một trạng thái**.
+
+Và khi đo được thì nó **trả về nhiều hơn phần được hỏi**: câu hỏi là đơn vị với chính sách điều
+chỉnh giá, nhưng chính phép đối chiếu lôi ra **ba khiếm khuyết của đường suy giảm** mà không ai
+đi tìm — trong đó có việc **DataPro chết là mọi yêu cầu chỉ số đều raise**. Không có phép đo thật
+thì không lỗi nào trong ba lộ ra, vì cả ba đều nằm ở nhánh chỉ chạy khi nguồn chính chết.
+
+### Bài học vòng 30/08 (giữ lại — vẫn là luật của luồng)
 
 **Ba mục đầu (Q2, Q3, Q4) đều bị trả lại, và cả ba lần Codex đã nộp với test xanh cùng báo cáo
 tự tin.** Không lần nào test của nó bắt được lỗi — vì test do chính nó viết, cho ca chính nó
