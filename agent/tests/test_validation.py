@@ -9,6 +9,7 @@ Validates:
 
 from __future__ import annotations
 
+import math
 import numpy as np
 import pandas as pd
 import pytest
@@ -24,6 +25,9 @@ from backtest.validation import (
     cpcv_n_paths,
     cpcv_path_assignment,
     cpcv_splits,
+    deflated_sharpe_ratio,
+    expected_max_sharpe,
+    probabilistic_sharpe_ratio,
 )
 
 
@@ -410,3 +414,114 @@ class TestCPCV:
     def test_one_group_is_not_a_partition(self) -> None:
         with pytest.raises(ValueError, match="at least 2 groups"):
             cpcv_splits(60, 1, 1)
+
+
+class TestProbabilisticSharpe:
+    """A Sharpe is an estimate; PSR is how much of one."""
+
+    def _normal_returns(self, n: int = 500, mu: float = 0.0008, sd: float = 0.01):
+        return np.random.default_rng(7).normal(mu, sd, n)
+
+    def test_matches_the_closed_form_under_normality(self) -> None:
+        """With skew 0 and kurtosis 3 the correction collapses to 1 + SR^2/2."""
+        from statistics import NormalDist
+
+        r = self._normal_returns()
+        out = probabilistic_sharpe_ratio(r, bars_per_year=252)
+        sr = r.mean() / r.std(ddof=1)
+        skew = ((r - r.mean()) ** 3).mean() / r.std(ddof=1) ** 3
+        kurt = ((r - r.mean()) ** 4).mean() / r.std(ddof=1) ** 4
+        expected = NormalDist().cdf(
+            sr * math.sqrt(len(r) - 1) / math.sqrt(1 - skew * sr + (kurt - 1) / 4 * sr ** 2)
+        )
+        assert out["psr"] == pytest.approx(expected, abs=1e-6)
+
+    def test_the_same_sharpe_is_more_believable_in_a_longer_sample(self) -> None:
+        rng = np.random.default_rng(11)
+        short = rng.normal(0.0008, 0.01, 60)
+        long = np.tile(short, 12)  # same mean, same sd, twenty times the evidence
+        assert (
+            probabilistic_sharpe_ratio(long)["psr"]
+            > probabilistic_sharpe_ratio(short)["psr"]
+        )
+
+    def test_a_fat_left_tail_costs_the_same_sharpe_confidence(self) -> None:
+        """Two samples, one Sharpe, different shapes — PSR must separate them."""
+        rng = np.random.default_rng(3)
+        clean = rng.normal(0.001, 0.01, 800)
+        crashy = clean.copy()
+        crashy[::80] -= 0.05      # periodic crashes
+        crashy = crashy - crashy.mean() + clean.mean()
+        crashy = crashy / crashy.std(ddof=1) * clean.std(ddof=1)
+        crashy = crashy - crashy.mean() + clean.mean()
+        a, b = probabilistic_sharpe_ratio(clean), probabilistic_sharpe_ratio(crashy)
+        assert a["sharpe"] == pytest.approx(b["sharpe"], rel=1e-6)
+        assert b["skew"] < a["skew"]
+        assert b["psr"] < a["psr"]
+
+    def test_beating_a_benchmark_is_harder_than_beating_zero(self) -> None:
+        r = self._normal_returns()
+        assert (
+            probabilistic_sharpe_ratio(r, benchmark_sharpe=1.5)["psr"]
+            < probabilistic_sharpe_ratio(r, benchmark_sharpe=0.0)["psr"]
+        )
+
+    def test_two_returns_cannot_have_a_shape(self) -> None:
+        with pytest.raises(ValueError, match="at least 3 returns"):
+            probabilistic_sharpe_ratio(np.array([0.01, 0.02]))
+
+    def test_a_flat_series_has_no_sharpe_to_report(self) -> None:
+        with pytest.raises(ValueError, match="zero variance"):
+            probabilistic_sharpe_ratio(np.zeros(50))
+
+
+class TestExpectedMaxSharpe:
+    """What a strategy with no skill at all posts, purely for having been searched."""
+
+    def test_searching_harder_raises_the_bar(self) -> None:
+        rng = np.random.default_rng(5)
+        trials = rng.normal(0.0, 0.8, 2000)
+        bars = [expected_max_sharpe(trials[:n]) for n in (5, 25, 125, 625)]
+        assert bars == sorted(bars)
+
+    def test_a_wider_spread_of_trials_raises_the_bar(self) -> None:
+        rng = np.random.default_rng(5)
+        narrow = expected_max_sharpe(rng.normal(0, 0.2, 100))
+        wide = expected_max_sharpe(rng.normal(0, 1.6, 100))
+        assert wide > narrow
+
+    def test_identical_trials_selected_nothing(self) -> None:
+        assert expected_max_sharpe([1.2] * 50) == 0.0
+
+    def test_one_trial_is_not_a_search(self) -> None:
+        with pytest.raises(ValueError, match="at least 2 trials"):
+            expected_max_sharpe([1.2])
+
+
+class TestDeflatedSharpe:
+    def test_deflation_can_only_lower_the_probability(self) -> None:
+        rng = np.random.default_rng(13)
+        r = rng.normal(0.0009, 0.012, 900)
+        undeflated = probabilistic_sharpe_ratio(r)["psr"]
+        deflated = deflated_sharpe_ratio(r, [0.5, 1.1, 0.2, 1.4, 0.9, 1.8])["dsr"]
+        assert deflated < undeflated
+
+    def test_the_more_variants_were_tried_the_less_the_winner_means(self) -> None:
+        rng = np.random.default_rng(17)
+        r = rng.normal(0.0012, 0.011, 900)
+        few = deflated_sharpe_ratio(r, rng.normal(0.6, 0.5, 5))["dsr"]
+        many = deflated_sharpe_ratio(r, rng.normal(0.6, 0.5, 500))["dsr"]
+        assert many < few
+
+    def test_it_reports_how_many_trials_it_charged_for(self) -> None:
+        """Passing only survivors is the way to cheat this, so the count is returned."""
+        rng = np.random.default_rng(19)
+        out = deflated_sharpe_ratio(rng.normal(0.001, 0.01, 500), [0.4, 0.9, 1.3, 1.1])
+        assert out["n_trials"] == 4
+
+    def test_the_benchmark_it_deflated_against_is_reported(self) -> None:
+        rng = np.random.default_rng(23)
+        out = deflated_sharpe_ratio(rng.normal(0.001, 0.01, 500), [0.4, 0.9, 1.3, 1.1])
+        assert out["expected_max_sharpe"] == pytest.approx(
+            expected_max_sharpe([0.4, 0.9, 1.3, 1.1]), abs=1e-6
+        )

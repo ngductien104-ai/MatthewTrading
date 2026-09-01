@@ -602,6 +602,42 @@ tick `[x]` kèm **số đo thật**, rồi commit riêng một mục.
       - **Số đo:** `test_validation.py` **46 passed** (+9); full suite `11 failed, **3447 passed**,
         1 skipped, 9 errors` — khớp baseline, passed +9.
 
+- [x] **R4 [C]** Probabilistic Sharpe + Deflated Sharpe (Bailey & López de Prado 2014).
+      - **Hai thứ thổi phồng Sharpe, và chúng khác nhau:**
+        1. **Mẫu ngắn + lợi suất không chuẩn.** Sai số chuẩn của ước lượng Sharpe phụ thuộc skew
+           và kurtosis, mà lợi suất giao dịch thì thừa cả hai. **PSR** trả lời: xác suất Sharpe
+           thật vượt một mốc, **có tính đến hình dạng thật của mẫu**.
+        2. **Chọn lọc.** Thử 100 biến thể rồi giữ cái tốt nhất thì Sharpe đó là **cực đại của 100
+           lần rút**, không phải một lần rút điển hình. Kỳ vọng cực đại của N lần thử **vô giá trị**
+           với độ phân tán σ lớn cỡ `σ√(2 ln N)` — nó lớn, và nó **miễn phí**. **DSR** = PSR đo với
+           mốc đó thay vì mốc 0.
+      - **Đo trên VNINDEX 2018–2026, đúng lưới SMA đã dùng ở R3:**
+        ```
+        SMA5 +1,3044 · SMA10 +1,5098 (giữ) · SMA20 +1,0189 · SMA50 +0,5517
+        SMA100 +0,4014 · SMA150 +0,6376 · SMA200 +0,7048
+
+        Sharpe đem đi báo cáo                    : +1,5098
+        PSR với mốc 0 (chỉ hình dạng + cỡ mẫu)   :  1,0000   <- vô dụng, cái gì cũng "hơn không"
+        Kỳ vọng cực đại của 7 lần thử vô giá trị : +0,5724  -> DSR 0,9957
+        Đếm ĐÚNG số lần thử (7 quy tắc × 15 split = 105):
+                             kỳ vọng cực đại     : +1,1541  -> DSR 0,8406
+        ```
+        **Đọc dòng cuối:** một chiến lược **không có kỹ năng gì**, nếu bị tìm kiếm chăm chỉ như
+        vậy, **được kỳ vọng đạt Sharpe 1,15**. Con số 1,5098 phải trừ đi cái đó trước khi có
+        nghĩa.
+      - **Khai bao nhiêu lần thử thì đổi kết luận** — 7 lần cho 0,9957, 105 lần cho 0,8406. Đó là
+        cách gian lận duy nhất với hàm này (chỉ nộp những biến thể sống sót), nên `n_trials` được
+        **trả ngược ra** để người đọc đối chiếu với thứ thật sự đã chạy, và docstring nói thẳng.
+      - **Đơn vị:** tính bên trong bằng Sharpe **theo quan sát**, nhận và trả **theo năm**. Trộn
+        lẫn hai thứ này là cách nhanh nhất để có một con số sai đầy tự tin.
+      - **Một lỗi số học đã sửa:** `expected_max_sharpe([1.2]*50)` ra `5,1e-16` chứ không phải 0,
+        vì `std` của các float giống hệt nhau không đúng bằng 0. Điều kiện đúng là **ngữ nghĩa**
+        ("mọi lần thử cùng điểm ⇒ không chọn lọc gì"), tức so `min == max`, không phải so σ với 0.
+      - Có test đối chiếu PSR với **dạng đóng** khi lợi suất chuẩn, và test khẳng định hai mẫu
+        **cùng Sharpe** nhưng đuôi trái dày hơn thì PSR **phải thấp hơn**.
+      - **Số đo:** `test_validation.py` **60 passed** (+14); full suite `11 failed, **3461 passed**,
+        1 skipped, 9 errors` — khớp baseline, passed +14.
+
 ## Mốc test baseline (chốt 28/08/2026, TRƯỚC khi sửa)
 
 ```

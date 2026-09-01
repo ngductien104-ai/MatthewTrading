@@ -19,6 +19,7 @@ from __future__ import annotations
 import itertools
 import math
 from pathlib import Path
+from statistics import NormalDist
 from typing import Any, Dict, List
 
 import numpy as np
@@ -466,6 +467,188 @@ def cpcv_path_assignment(n_groups: int = 6, n_test_groups: int = 2) -> Dict[tupl
 def cpcv_n_paths(n_groups: int = 6, n_test_groups: int = 2) -> int:
     """Return how many complete out-of-sample paths the splits reassemble into."""
     return math.comb(n_groups - 1, n_test_groups - 1)
+
+
+# ─── Probabilistic and Deflated Sharpe ───
+#
+# A Sharpe ratio is an estimate that gets reported as though it were a
+# measurement. Two separate things inflate it:
+#
+#   1. **Short samples and non-normal returns.** The standard error of a Sharpe
+#      estimate depends on skew and kurtosis, and trading returns have plenty of
+#      both. The Probabilistic Sharpe Ratio gives the probability that the true
+#      Sharpe exceeds a benchmark, given the sample's actual shape.
+#   2. **Selection.** If a hundred variants were tried and the best kept, that
+#      Sharpe is the maximum of a hundred draws, not a typical one. The expected
+#      maximum of N independent worthless trials with dispersion sigma grows
+#      like sigma * sqrt(2 log N) -- it is large, and it is free. The Deflated
+#      Sharpe Ratio is the PSR measured against that expected maximum instead of
+#      against zero.
+#
+# Bailey & Lopez de Prado, "The Deflated Sharpe Ratio" (2014).
+#
+# Everything here computes in per-observation Sharpe internally while taking and
+# returning annualised numbers, because quietly mixing the two is the easiest
+# way to get a confident wrong answer out of these formulas.
+
+_EULER_MASCHERONI = 0.5772156649015329
+
+
+def _per_observation_sharpe(returns: np.ndarray) -> float:
+    std = float(returns.std(ddof=1))
+    if std <= 0:
+        return 0.0
+    return float(returns.mean()) / std
+
+
+def probabilistic_sharpe_ratio(
+    returns: "np.ndarray | pd.Series",
+    *,
+    benchmark_sharpe: float = 0.0,
+    bars_per_year: int = 252,
+) -> Dict[str, Any]:
+    """Return the probability that the true Sharpe beats *benchmark_sharpe*.
+
+    Args:
+        returns: Per-bar returns, not an equity curve.
+        benchmark_sharpe: Annualised Sharpe to beat. Zero asks only "is this
+            better than nothing", which is the weakest question available.
+        bars_per_year: Annualisation factor for the inputs and outputs.
+
+    Returns:
+        Dict with ``psr``, the annualised ``sharpe``, the sample ``skew`` and
+        ``kurtosis`` that shaped it, and ``n_observations``.
+
+    Raises:
+        ValueError: Fewer than three returns, zero variance, or a sample so
+            skewed the estimator's variance term goes non-positive. Each of
+            those makes the correction undefined rather than merely imprecise.
+    """
+    values = np.asarray(returns, dtype=float)
+    values = values[np.isfinite(values)]
+    if values.size < 3:
+        raise ValueError(
+            f"need at least 3 returns to estimate skew and kurtosis; got {values.size}"
+        )
+
+    n = values.size
+    sr = _per_observation_sharpe(values)
+    sr_star = float(benchmark_sharpe) / math.sqrt(bars_per_year)
+
+    centred = values - values.mean()
+    sd = float(centred.std(ddof=1))
+    if sd <= 0:
+        raise ValueError("returns have zero variance, so a Sharpe ratio is undefined")
+    skew = float((centred ** 3).mean() / sd ** 3)
+    kurtosis = float((centred ** 4).mean() / sd ** 4)  # not excess
+
+    variance = 1.0 - skew * sr + (kurtosis - 1.0) / 4.0 * sr ** 2
+    if variance <= 0:
+        raise ValueError(
+            f"the Sharpe estimator variance term is non-positive ({variance:.4g}); "
+            "this sample is too skewed or heavy-tailed for the approximation"
+        )
+
+    z = (sr - sr_star) * math.sqrt(n - 1) / math.sqrt(variance)
+    return {
+        "psr": round(NormalDist().cdf(z), 6),
+        "sharpe": round(sr * math.sqrt(bars_per_year), 6),
+        "benchmark_sharpe": round(float(benchmark_sharpe), 6),
+        "skew": round(skew, 6),
+        "kurtosis": round(kurtosis, 6),
+        "n_observations": int(n),
+    }
+
+
+def expected_max_sharpe(
+    trial_sharpes: "np.ndarray | List[float]",
+    *,
+    bars_per_year: int = 252,
+) -> float:
+    """Return the Sharpe a *worthless* strategy is expected to post as best of N.
+
+    This is the deflation benchmark. Given ``n`` trials whose Sharpes have
+    dispersion ``sigma`` and no skill whatever, the best of them lands here.
+    A result at or below this number is fully explained by having looked many
+    times, without any of it being skill.
+
+    Args:
+        trial_sharpes: Annualised Sharpe of every variant tried, the kept one
+            included.
+        bars_per_year: Annualisation factor.
+
+    Returns:
+        Annualised expected maximum Sharpe. Zero when every trial scored the
+        same, since choosing between identical results selects nothing.
+
+    Raises:
+        ValueError: Fewer than two trials. One trial involves no selection, so
+            there is no maximum to correct for.
+    """
+    trials = np.asarray(trial_sharpes, dtype=float)
+    trials = trials[np.isfinite(trials)]
+    n = trials.size
+    if n < 2:
+        raise ValueError(
+            f"deflation needs at least 2 trials to have selected between; got {n}. "
+            "With a single trial there is no selection bias -- use the PSR against zero."
+        )
+
+    # The condition is semantic, not numeric: every variant scored the same, so
+    # choosing between them selected nothing. Testing the standard deviation
+    # against zero would miss it, because the sd of identical floats is ~1e-16.
+    if float(trials.min()) == float(trials.max()):
+        return 0.0
+    sigma = float(trials.std(ddof=1)) / math.sqrt(bars_per_year)
+    if sigma <= 0:
+        return 0.0
+
+    normal = NormalDist()
+    gamma = _EULER_MASCHERONI
+    z_one = normal.inv_cdf(1.0 - 1.0 / n)
+    z_two = normal.inv_cdf(1.0 - 1.0 / (n * math.e))
+    sr0 = sigma * ((1.0 - gamma) * z_one + gamma * z_two)
+    return float(sr0 * math.sqrt(bars_per_year))
+
+
+def deflated_sharpe_ratio(
+    returns: "np.ndarray | pd.Series",
+    trial_sharpes: "np.ndarray | List[float]",
+    *,
+    bars_per_year: int = 252,
+) -> Dict[str, Any]:
+    """Return the Sharpe's survival probability after charging for the search.
+
+    Args:
+        returns: Per-bar returns of the strategy that was kept.
+        trial_sharpes: Annualised Sharpe of every variant tried, the kept one
+            included. Passing only the survivors understates the search and
+            inflates the answer, which is the specific error this function
+            exists to prevent, so ``n_trials`` is reported back for the reader
+            to check against what was actually run.
+        bars_per_year: Annualisation factor.
+
+    Returns:
+        Dict with ``dsr``, the ``expected_max_sharpe`` it was deflated against,
+        ``n_trials``, and the sample statistics behind the PSR.
+
+    Raises:
+        ValueError: Propagated from the two functions above.
+    """
+    sr0 = expected_max_sharpe(trial_sharpes, bars_per_year=bars_per_year)
+    psr = probabilistic_sharpe_ratio(
+        returns, benchmark_sharpe=sr0, bars_per_year=bars_per_year
+    )
+    n_trials = int(np.isfinite(np.asarray(trial_sharpes, dtype=float)).sum())
+    return {
+        "dsr": psr["psr"],
+        "expected_max_sharpe": round(sr0, 6),
+        "n_trials": n_trials,
+        "sharpe": psr["sharpe"],
+        "skew": psr["skew"],
+        "kurtosis": psr["kurtosis"],
+        "n_observations": psr["n_observations"],
+    }
 
 
 # ─── Runner integration ───
