@@ -10,49 +10,59 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 01/09/2026 (Giai đoạn 2.2 ĐÓNG — hết Q1–Q11)
+## 🔖 ĐIỂM DỪNG — 01/09/2026 (Giai đoạn 2.2 VÀ 2.1 ĐÓNG)
 
-**Nhánh:** `upgrade/learning-loop`, **đã push tới `08235b8`**; sau đó **3 commit chưa push**
-(`048888e` Q9 · `1a6e60a` Q10 · `76e3f12` Q11). Cây làm việc sạch.
-**Full suite `11 failed, 3420 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái;
-passed đi từ **3131 (baseline) → 3420** qua 11 mục.
+**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch.
+**Full suite `11 failed, 3514 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
+suốt 19 mục; passed đi từ **3131 (baseline) → 3514**.
 
 **Sổ cái `~/.vibe-trading/learning.db`: `calls=16`, `evidence=104`, `process_records=23`.**
-`outcomes=0`, `lessons=0` — vẫn chưa có gì để chấm cho tới khi làm `resolve.py`.
+`outcomes=0`, `lessons=0` — **đây là khoảng trống lớn nhất còn lại**, và `resolve.py` là thứ lấp nó.
 
-**GIAI ĐOẠN 2.2 ĐÓNG.** Q9 — mục cuối, hôm 30/08 còn ghi *"bị chặn bởi môi trường"* — làm được
-vì **môi trường tự mở**: đầu phiên 01/09 `datapro_available()` còn `False`, vài phút sau lên
-`True`, và mạng tới `vnstocks.com:443` đã thông. Hai nguồn sống cùng lúc lần đầu tiên.
+**GIAI ĐOẠN 2.2 ĐÓNG** (Q1–Q11). Q9 — mục cuối, hôm 30/08 ghi *"bị chặn bởi môi trường"* — làm được
+vì môi trường **tự mở**: đầu phiên 01/09 `datapro_available()` còn `False`, vài phút sau lên `True`,
+và mạng tới `vnstocks.com:443` đã thông.
+
+**GIAI ĐOẠN 2.1 ĐÓNG** (R1–R8): đổi tên hàm hứa sai · purge+embargo · CPCV · PSR+DSR · PBO ·
+block bootstrap · `risk_free` · `walkforward.py`.
 
 ### Việc kế tiếp
-1. **Push 3 commit** (`048888e` → `76e3f12`). Repo PUBLIC — đã kiểm: không commit nào thêm
-   khuyến nghị sống; nội dung call MWG cố ý ở lại sổ cái cục bộ, ngoài git.
-2. **Giai đoạn 2.1** — walk-forward, CPCV, DSR, PBO. Nay đứng trên nền dữ liệu đã siết qua
-   Q4–Q10, đúng thứ tự kế hoạch đã đảo. **Đây là mục lớn nhất còn lại.**
-3. **`resolve.py`** — sổ đã có 16 call nhưng `outcomes=0`. Ba câu hỏi thiết kế đang treo sẵn
-   chờ nó trả lời: chấm một call `avoid` bằng gì (VRE); chấm một call không có
-   `horizon_sessions` bằng gì (MWG); và `_DISCLOSURE_LAG_DAYS` từ Q8 sẽ là định nghĩa nó dùng.
+1. **`resolve.py`** — sổ có 16 call mà `outcomes=0`. **Ba câu hỏi thiết kế đã treo sẵn chờ nó:**
+   chấm một call `avoid` bằng gì (VRE); chấm một call **không có `horizon_sessions`** bằng gì (MWG);
+   và `_DISCLOSURE_LAG_DAYS` từ Q8 là định nghĩa "khi nào một kỳ trở nên nhìn thấy được" mà nó phải dùng.
+2. **Nối bộ chống overfit vào `run_validation`** — DSR/PBO/CPCV hiện gọi được nhưng
+   `run_validation` mới dispatch `monte_carlo`/`bootstrap`/`equity_consistency`. Cần khoá config +
+   ghi vào run card, nếu không cả Giai đoạn 2.1 chỉ là thư viện không ai gọi.
+3. **Một chiến lược CÓ THAM SỐ ĐƯỢC KHỚP** để bộ công cụ này có việc thật mà làm — xem bài học dưới.
 
 ### Ba việc môi trường, không phải việc code
 - **5 thư mục pytest rỗng KẸT VĨNH VIỄN** trong `_upgrade/` (`q4_pytest_tmp`, `q5_pytest_tmp`,
-  `q6_pytest_tmp{,_targeted,_targeted2}`). ACL chặn tới mức `icacls` **đọc** cũng bị từ chối;
-  `takeown`, `robocopy /MIR` đều thất bại. Git không commit thư mục rỗng nên **không lọt lên
-  repo public**, chỉ làm `git status` in warning. Cần shell quyền cao hơn. Luật 8 đã chặn việc đẻ thêm.
-- **`/codex:transfer` HỎNG** ở codex-cli 0.150.1: báo "import completed" nhưng không ghi thread
-  nào, cả khi truyền `--source` đúng đường dẫn. Bàn giao ngữ cảnh đi bằng chính file này.
-- **Provider LLM vẫn chết** (DeepSeek $0 — xem Đính chính 1). Q11 làm được là vì Claude tự đóng
-  vai extractor, reply lưu lại trên đĩa để chạy lại được.
+  `q6_pytest_tmp{,_targeted,_targeted2}`). ACL chặn tới mức `icacls` **đọc** cũng bị từ chối.
+  Git không commit thư mục rỗng nên **không lọt lên repo public**. Cần shell quyền cao hơn.
+- **`/codex:transfer` HỎNG** ở codex-cli 0.150.1. Bàn giao ngữ cảnh đi bằng chính file này.
+- **Provider LLM vẫn chết** (DeepSeek $0). Q11 làm được vì Claude tự đóng vai extractor, reply lưu
+  ở `~/.vibe-trading/backfill_replies/mwg_report.json` để chạy lại được.
 
-### Bài học mới của vòng này: một điều kiện bị chặn đáng được đo lại, không đáng được tin
+### Bài học lớn nhất của Giai đoạn 2.1: công cụ đúng, đối tượng đo sai
 
-Q9 nằm im một vòng với nhãn *"cần máy có DataPro mở và mạng thông"*. Phép kiểm mất **hai lệnh**
-và hoá ra một nửa điều kiện đã tự thoả từ trước, nửa còn lại thoả ngay trong phiên. Nhãn "bị
-chặn" viết hôm qua là **một quan sát, không phải một trạng thái**.
+**Cùng một sự thật hiện ra HAI lần, ở hai mục không liên quan nhau:**
+- **R3:** CPCV cho **5 đường OOS giống hệt nhau, sd = 0**. Vì em chấm bằng mua-và-giữ — thứ
+  **không dùng tập train**.
+- **R8:** walk-forward cho Sharpe OOS **−0,2785** so với in-sample **−0,2832**, gần như trùng. Vì
+  SMA20/50 là quy tắc **tham số cứng, không khớp gì cả**.
 
-Và khi đo được thì nó **trả về nhiều hơn phần được hỏi**: câu hỏi là đơn vị với chính sách điều
-chỉnh giá, nhưng chính phép đối chiếu lôi ra **ba khiếm khuyết của đường suy giảm** mà không ai
-đi tìm — trong đó có việc **DataPro chết là mọi yêu cầu chỉ số đều raise**. Không có phép đo thật
-thì không lỗi nào trong ba lộ ra, vì cả ba đều nằm ở nhánh chỉ chạy khi nguồn chính chết.
+**Bộ chống overfit chỉ tách được trong-mẫu khỏi ngoài-mẫu khi có thứ gì đó THẬT SỰ ĐƯỢC KHỚP.**
+Chạy chúng lên một quy tắc cố định thì được một con số trông nghiêm túc và **không có thông tin nào
+thêm** — nguy hiểm hơn là không chạy, vì nó tạo cảm giác đã kiểm định. Cả hai cảnh báo đã vào
+docstring. Và đây là lý do việc kế tiếp số 3 tồn tại.
+
+### Bài học thứ hai: test của chính mình là hợp đồng dễ hơn hợp đồng thật
+
+**R8: 26 test xanh ngay lượt đầu, module vẫn hỏng.** `VNEquityEngine.__init__` nhận `config`, nên
+`engine_factory()` mặc định sẽ nổ `TypeError` ngay lần dùng thật đầu tiên. Test không bắt được vì
+**stub tự viết có `__init__` rỗng** — tức em viết một hợp đồng dễ hơn rồi kiểm mình theo nó.
+Thứ bắt được vẫn là **chạy lên engine thật với dữ liệu thật**, đúng luật 7 mà vòng 30/08 đã rút ra
+cho Codex — lần này áp cho chính Claude.
 
 ### Bài học vòng 30/08 (giữ lại — vẫn là luật của luồng)
 
