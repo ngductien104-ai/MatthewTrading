@@ -49,6 +49,14 @@ from src.learning.records import (
     resolve_deadline,
     sessions_between,
 )
+from src.learning.report import (
+    GRADED,
+    Row,
+    Scorecard,
+    brier_score,
+    build_scorecard,
+    wilson_interval,
+)
 from src.learning.resolve import (
     ACTION_DIRECTION,
     BENCHMARK_SYMBOL,
@@ -93,6 +101,12 @@ from src.learning.transcript import (
 )
 
 __all__ = [
+    "GRADED",
+    "Row",
+    "Scorecard",
+    "brier_score",
+    "build_scorecard",
+    "wilson_interval",
     "ACTION_DIRECTION",
     "BENCHMARK_SYMBOL",
     "NO_CLAIM",

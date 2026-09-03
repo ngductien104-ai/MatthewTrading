@@ -138,15 +138,22 @@ class TestStop:
         assert report.outcomes[0].verdict == "hit"
         assert report.outcomes[0].trigger_fired is False
 
-    def test_the_stop_is_read_on_the_traded_grid_not_the_adjusted_one(self):
-        """A 10% back-adjustment must not fabricate a breach that never traded.
-
-        Adjusted lows sit at 89.1; the price actually quoted was 98.0, so a stop
-        at 90 was never hit.
-        """
+    def test_a_flat_back_adjustment_does_not_fabricate_a_breach(self):
+        """Adjusted lows sit at 90.0 but the stop was quoted on the same grid
+        shift, so at 90/1.1 it was never reached."""
         prices = frame([100.0] * 30, adj_rate=1.1, low_scale=0.9)
         report = score(prices, FLAT_BENCHMARK, record=call(stop=90.0))
         assert report.outcomes[0].trigger_fired is False
+
+    def test_a_corporate_action_inside_the_window_does_not_fake_a_breach(self):
+        """The PET shape: a 1,45x action mid-window drops the traded price 32%
+        while the stock is flat. Testing a quoted stop against the later traded
+        grid would report a stop-out that never happened."""
+        rates = [1.45] * 5 + [1.0] * 25
+        prices = frame([100.0] * 30, adj_rate=rates, low_scale=0.99)
+        outcome = score(prices, FLAT_BENCHMARK, record=call(stop=130.0)).outcomes[0]
+        assert outcome.realized_ret == pytest.approx(0.0)
+        assert outcome.trigger_fired is False
 
     def test_a_stop_on_a_stay_away_call_is_not_checked(self):
         """BSR waits at 26.350 for 24.000 with a "stop" at 24.900, between the
@@ -186,10 +193,24 @@ class TestBasis:
         assert outcome.realized_ret == pytest.approx(0.0)
         assert outcome.resolved_price == pytest.approx(100.0)
 
-    def test_the_target_error_is_taken_on_the_traded_grid(self):
+    def test_the_target_is_moved_onto_the_grid_the_outcome_is_measured_on(self):
         prices = frame([100.0] * 30, adj_rate=1.1)
         outcome = score(prices, FLAT_BENCHMARK, record=call(target=110.0)).outcomes[0]
         assert outcome.target_error == pytest.approx(0.0)
+
+    def test_a_corporate_action_does_not_flip_the_sign_of_the_target_error(self):
+        """PET as shipped: 44.000 target, 1,45x action, a 1,07% loss.
+
+        Against the raw traded close the target error reads -15%, as if the
+        price had undershot; on a single grid it is +23%, an overshoot. The
+        sign of every target error through a corporate action depends on this.
+        """
+        rates = [1.45] * 5 + [1.0] * 25
+        prices = frame([100.0] * 21 + [98.93] * 9, adj_rate=rates)
+        outcome = score(prices, FLAT_BENCHMARK, record=call(target=80.0)).outcomes[0]
+        assert outcome.realized_ret == pytest.approx(-0.0107, abs=1e-4)
+        assert outcome.target_error == pytest.approx(0.7934, abs=1e-3)
+        assert outcome.target_error > 0
 
     def test_a_call_with_no_target_carries_no_target_error(self):
         record = call(target=None, confidence=None)
@@ -276,11 +297,14 @@ class TestHonesty:
     def test_the_window_extremes_survive_on_the_evidence(self):
         """The verdict is close-to-close, so the extremes are the only record of
         whether an entry a ``wait`` promised ever actually printed."""
-        prices = frame([100.0] * 30, low_scale=0.8, high_scale=1.3)
+        prices = frame([100.0] * 30, adj_rate=1.1, low_scale=0.8, high_scale=1.3)
         report = score(prices, FLAT_BENCHMARK)
         excerpt = report.evidence[0].excerpt
-        assert "traded_low=80" in excerpt
-        assert "traded_high=130" in excerpt
+        assert "adj_low=80" in excerpt
+        assert "adj_high=130" in excerpt
+        assert "traded_low=88" in excerpt
+        assert "traded_high=143" in excerpt
+        assert "entry_adj_rate=1.1" in excerpt
 
     def test_evidence_is_observed_at_the_checkpoint_not_at_run_time(self):
         report = score(frame([100.0] * 30), FLAT_BENCHMARK)

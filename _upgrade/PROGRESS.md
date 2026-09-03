@@ -10,14 +10,17 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 03/09/2026 (`resolve.py` xong — sổ cái có kết quả, không chỉ có ý kiến)
+## 🔖 ĐIỂM DỪNG — 03/09/2026 (`resolve.py` + `report.py` — sổ cái đọc ngược lại được)
 
-**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch.
-**Full suite `11 failed, 3547 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
-suốt 20 mục; passed đi từ **3131 (baseline) → 3547**.
+**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch. **5 commit chưa push.**
+**Full suite `11 failed, 3568 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
+suốt 21 mục; passed đi từ **3131 (baseline) → 3568**.
 
-**Sổ cái `~/.vibe-trading/learning.db`: `calls=16`, `outcomes=15`, `evidence=127`,
+**Sổ cái `~/.vibe-trading/learning.db`: `calls=16`, `outcomes=15`, `evidence=142`,
 `process_records=23`.** `lessons=0` — nay đó là khoảng trống lớn nhất còn lại.
+
+**Chạy bảng điểm:** `python -m src.learning.cli report` (offline hoàn toàn — không model,
+không mạng; có test chặn `socket.socket` để chứng minh).
 
 **Bảng điểm đầu tiên (checkpoint 21 phiên, chốt 03/09/2026):**
 
@@ -28,8 +31,22 @@ suốt 20 mục; passed đi từ **3131 (baseline) → 3547**.
 | invalidated | 2 | **MWG** (thủng stop 63.000 ngày 28/07 rồi mới lên 75.100) · **PHR** (chạm 54.400 vs stop 56.000) |
 | no_claim | 5 | HAH neutral · VCB/ACB/MBB/HDB hold — không khẳng định chiều nào |
 
-**n=8 call có thể chấm chiều. Chưa kết luận được gì về kỹ năng** — khoảng tin cậy rộng hơn
-mọi con số ở trên. Checkpoint 63 phiên chưa call nào chạm tới (33 mục `pending`).
+- **Hit rate 4/8 = 50,0%, KTC 95% [21,5%; 78,5%]** — khoảng phủ 57% biên độ. Ở n=8 con số này
+  **không tách được gì khỏi ngẫu nhiên**, và bảng điểm in KTC kèm mọi lần, không bao giờ in
+  tỷ lệ trần trụi.
+- **Alpha trung bình +0,71%, trung vị +0,61%, dương 5/8.**
+- **Hiệu chỉnh độ tin cậy (7 call có khai `confidence`): khai trung bình 69,7% vs thực tế 57,1%
+  → nói quá 12,6 điểm. Brier 0,2717 vs 0,2449 nếu cứ nói "57%" mọi lần.** Tức **khai một con số
+  tin cậy KHÔNG tốt hơn khai base rate**. n=7, chưa kết luận gì — nhưng đây là mục đáng đọc
+  nhất trong bảng, vì `confidence` là số duy nhất trên một call nói về **người phân tích** chứ
+  không nói về cổ phiếu.
+- **`avoid` 0/2** (STB, VRE — cả hai đều chạy tiếp). **`wait` 2/4, alpha trung bình −0,05%.**
+- **"Giá vào lệnh đã hứa có in ra không?"** — câu hỏi sắc hơn alpha cho call đứng-ngoài:
+  BSR (hứa 24.000, chạm 23.350) **CÓ** · PHP (37.000 / 33.868) **CÓ** · SBT (19.500 / 20.650)
+  không · PET (44.000 / 48.900) không. **2/4.** Alpha chấm BSR là "hit" nhờ tránh được 1,2%
+  kém hiệu suất — đánh giá thấp hẳn so với thực tế là **giá 24.000 đã về thật**.
+
+Checkpoint 63 phiên chưa call nào chạm tới (33 mục `pending`).
 
 **GIAI ĐOẠN 2.2 ĐÓNG** (Q1–Q11). Q9 — mục cuối, hôm 30/08 ghi *"bị chặn bởi môi trường"* — làm được
 vì môi trường **tự mở**: đầu phiên 01/09 `datapro_available()` còn `False`, vài phút sau lên `True`,
@@ -39,12 +56,17 @@ và mạng tới `vnstocks.com:443` đã thông.
 block bootstrap · `risk_free` · `walkforward.py`.
 
 ### Việc kế tiếp
-1. **`report.py` — scorecard + đường cong hiệu chỉnh độ tin cậy.** Nay đã có 15 outcome để đọc.
-   Hai việc bộ chấm cố ý để trống và tầng report phải lấp: **`regime` + `base_rate_pctile`**
-   (đối chiếu `_risk_committee_202608/out/calibration.json`, n=147 — mốc đúng để chấm một call
-   định hướng, **không phải so với 0%**), và **câu hỏi sắc hơn cho `wait`**: giá vào lệnh đã hứa
-   có bao giờ in ra thật không — trả lời được từ `traded_low`/`traded_high` đã ghi trong evidence.
-   Kèm Brier score cho 8 call có `confidence`, và ghi rõ **n=8 là chưa đủ kết luận**.
+1. **`base_rate_pctile` bằng phân vị CHÉO, không phải bằng `calibration.json`.**
+   ⚠️ **Đính chính kế hoạch gốc.** Kế hoạch viết dùng `_risk_committee_202608/out/calibration.json`
+   (n=147) làm base rate. **Dùng thẳng là sai về phương pháp:** file đó phân phối **lợi suất
+   forward của VN-Index**, còn thứ cần xếp hạng là lợi suất **một cổ phiếu**. Cổ phiếu có
+   biến động ~2× chỉ số nên sẽ rơi vào đuôi phân phối vì lý do chẳng liên quan gì tới chất
+   lượng call — đọc biến động thành kỹ năng. Hơn nữa bộ chấm **đã** so với VN-Index **thực tế
+   cùng cửa sổ** (alpha), là biến kiểm soát mạnh hơn hẳn một phân phối lịch sử.
+   Bản đúng: **phân vị chéo so với rổ (VN30/HOSE) trên đúng cửa sổ đó** — trả lời "alpha
+   +6,69% của HDB là giỏi, hay hôm đó cái gì cũng tăng". Cần `vndata.reference.symbols_by_group`
+   + fetch ~30 mã/cửa sổ (DataPro cục bộ, rẻ). `regime` thì vẫn gán nhãn được từ VN-Index
+   (dd252/mom63/mom21/rvpct) để nói rõ "cả 16 call đều nằm trong MỘT chế độ thị trường".
 2. **Sửa `ref_price` ở khâu trích xuất.** Bộ chấm vừa lộ ra 3/16 call ghi **giá vào lệnh** vào
    ô giá đóng cửa (PHR +1,61%, MWG −1,45%, VRE +2,06%). Hoặc tách hai trường, hoặc siết prompt.
 3. **Nối bộ chống overfit vào `run_validation`** — DSR/PBO/CPCV hiện gọi được nhưng
@@ -1132,10 +1154,42 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
   - **Stop trên call `wait`/`avoid` KHÔNG kiểm** — BSR chờ ở 26.350 để mua 24.000 với "stop"
     24.900, nằm **giữa** hai mức. Mức đó canh phía nào là không quyết định được bằng máy; đoán
     là bịa ý định của người viết.
-  - `regime` + `base_rate_pctile` (đối chiếu `calibration.json`) **để trống có chủ ý** và nói
-    rõ trong `notes` — đó là việc kế tiếp, không phải việc này. Cực trị trong cửa sổ
-    (`traded_low`/`traded_high`) **ghi vào evidence** để sau còn trả lời được câu hỏi sắc hơn
-    cho `wait`: giá vào lệnh đã hứa có bao giờ in ra thật không.
+  - `regime` + `base_rate_pctile` **để trống có chủ ý** và nói rõ trong `notes` — xem "Việc kế
+    tiếp" mục 1: dùng `calibration.json` cho việc này là **sai phương pháp**, không phải chưa
+    làm. Cực trị trong cửa sổ **ghi vào evidence** để sau còn trả lời được câu hỏi sắc hơn cho
+    `wait`: giá vào lệnh đã hứa có bao giờ in ra thật không.
+
+- [x] **1.6b Sửa lỗi lưới giá qua sự kiện doanh nghiệp** *(cùng ngày, tìm ra khi đọc evidence thật)*
+  — **lỗi trong chính bản 1.6 vừa ship.** `target_error` và kiểm `stop` so **giá báo ngày ra
+  khuyến nghị** với **giá của một ngày khác** — hai lưới khác nhau nếu có sự kiện doanh nghiệp
+  xen vào.
+  - **PET là ca thật, không phải giả thuyết.** PET chạy sự kiện **1,45×** ngay trong cửa sổ 21
+    phiên của chính nó: giá khớp "rơi" 54.800 → 37.400 trong khi cổ phiếu **chỉ mất 1,07%**.
+    Bản đã ship ghi `target_error = −15,00%` (như thể hụt mục tiêu 44.000); **sự thật là
+    +23,22%, vượt mục tiêu — đảo dấu.** Kiểm `stop` dính cùng một lớp lỗi (MWG/PHR không lộ
+    vì `adj_rate` phẳng trong cửa sổ của chúng).
+  - **Sửa:** mọi mức giá được báo ngày `as_of` phải chia `adj_rate` của **đúng ngày đó** trước
+    khi gặp một bar sau. Evidence nay ghi **cả hai lưới** (`adj_low`/`adj_high` +
+    `traded_low`/`traded_high` + `entry_adj_rate`) nên lựa chọn này còn kiểm lại được.
+  - **Verdict KHÔNG đổi cái nào** (4/4/2/5) — vì target không bao giờ quyết định verdict. Đó là
+    quyết định thiết kế của 1.6 tự chứng minh giá trị: một lỗi ở target không làm hỏng được
+    bảng điểm chiều.
+  - Sổ append-only giữ **cả hai bản**: mỗi `outcome_id` nay có 2 dòng, con số sai vẫn nằm đó
+    cạnh con số đúng. Không ghi đè.
+
+- [x] **1.7 `report.py`** — đọc ngược sổ cái thành bảng điểm. **19 test xanh**, gồm một test
+  **chặn `socket.socket`** để chứng minh báo cáo chạy offline thật (mọi thứ nó in đều đã nằm
+  trong evidence từ lúc chấm, nên nó **không thể** lệch với con số bộ chấm đứng sau).
+  Thống kê đối chiếu bằng tay, không đối chiếu với chính output.
+  - **Wilson interval, không dùng xấp xỉ chuẩn** — xấp xỉ chuẩn sai đúng ở chỗ sổ này đang
+    sống (n nhỏ, tỷ lệ xa 0,5) và trả ra biên ngoài `[0,1]`, đọc thành độ chính xác không có.
+  - **`invalidated` KHÔNG vào hit rate.** Một call bị thủng stop giữa chừng không sai về chiều,
+    nó bị **đóng**; nhét vào hit rate là chấm một vị thế không ai còn cầm.
+  - **Bẫy mẫu số đã tự bắt được:** bản đầu so `confidence` trung bình của **7** call với hit
+    rate của **8** call. Nay khối CONFIDENCE dùng mẫu số của chính tập nó.
+  - Ba giới hạn in ra **mọi lần**, không phải phụ chú: n=8 · **một** checkpoint (chưa call nào
+    tới 63 phiên) · **một** chế độ thị trường (T6–T8/2026) — hit rate trên một chế độ đo chế
+    độ đó nhiều ngang đo người phân tích.
 - [x] **1.5 Hook cuối phiên Claude Code** — `session.py` + `cli.py` +
   `.claude/hooks/learning-capture.sh`. **25 test xanh**, gồm một test chạy **thẳng script
   hook thật** qua `bash` (không mô phỏng), và một test đọc `.claude/settings.json` để chắc

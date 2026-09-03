@@ -32,9 +32,18 @@ unchecked instead of being silently recorded as "did not fire".
 The look-ahead trap on the price side is a different one, and it is real. Prices
 from DataPro are back-adjusted: BSR's close on 17/06 reads 26.056 today but
 traded at 26.350, the 1,1% gap being a dividend paid since. So returns are taken
-on the adjusted series -- the only series where a return means anything -- while
-targets, stops and the reference price are compared on
-``vndata.price.traded_price``, the grid a human actually saw.
+on the adjusted series -- the only series where a return means anything -- and
+the reference price, which is quoted on the same day it is checked against, is
+compared on ``vndata.price.traded_price``, the grid a human actually saw.
+
+A **target or a stop is quoted on one day and tested on another**, so neither
+lives on a single grid. PET ran a 1,45x corporate action inside its own
+21-session window: its traded price "fell" from 54.800 to 37.400 while the stock
+lost 1,07%. Comparing the 44.000 target straight against 37.400 records the
+outcome as 15% *below* target when it finished 23% *above* it -- the sign
+flips. Every quoted level is therefore divided by ``adj_rate`` on the day it was
+quoted before it meets a later bar, and both grids are written to the evidence
+so the choice stays auditable.
 
 That comparison found something worth saying out loud: ``ref_price`` is
 documented as the close on ``as_of``, and on this ledger it frequently is not.
@@ -202,32 +211,60 @@ def _window_return(frame: pd.DataFrame, start: str, end: str) -> float | None:
     return last / first - 1.0
 
 
-def _window_extremes(frame: pd.DataFrame, start: str, end: str) -> tuple[float, float]:
-    """Return the lowest and highest traded price in ``(start, end]``.
+def _in_window(series: pd.Series, start: str, end: str) -> pd.Series:
+    """Return the part of *series* falling in ``(start, end]``."""
+    return series[(series.index > pd.Timestamp(start)) & (series.index <= pd.Timestamp(end))]
 
-    Recorded on the evidence rather than dropped, because the verdict is
-    close-to-close and the extremes answer a different question the report layer
-    will need: whether the entry a ``wait`` promised ever actually printed. BSR
-    waiting at 26.350 for 24.000 is judged here on alpha, but "did 24.000 ever
-    trade" is the sharper test, and it is unanswerable once these are gone.
+
+def _as_adjusted(level: float, entry_rate: float) -> float:
+    """Express a price *quoted on the day of the call* on the adjusted grid.
+
+    ``adj_rate`` is the cumulative factor from a bar forward to the present, so
+    a level quoted at entry sits at ``level / entry_rate`` on the series every
+    later bar is measured on. Dividing is not cosmetic: PET ran a 1,45x
+    corporate action inside its own 21-session window, and its traded price
+    "fell" from 54.800 to 37.400 while the stock lost 1,07%. A target or a stop
+    compared straight against a later traded price is comparing two different
+    grids, which is how a target 23% *above* the outcome gets recorded as 15%
+    below it.
     """
-    mask = lambda series: series[  # noqa: E731 - one expression, used twice
-        (series.index > pd.Timestamp(start)) & (series.index <= pd.Timestamp(end))
-    ]
-    return float(mask(_traded(frame, "low")).min()), float(mask(_traded(frame, "high")).max())
+    return level / entry_rate
 
 
-def _stop_breach(frame: pd.DataFrame, start: str, end: str, stop: float) -> str | None:
-    """Return the first session in ``(start, end]`` whose traded low hit *stop*.
+def _window_extremes(frame: pd.DataFrame, start: str, end: str) -> dict[str, float]:
+    """Return the window's extremes on both grids.
+
+    The adjusted pair is the comparable one -- it is what a quoted level must be
+    tested against. The traded pair is what a human would have seen on a screen,
+    and the two diverge exactly when a corporate action lands inside the window.
+    Both are recorded because the verdict is close-to-close, and the extremes
+    answer a sharper question the report layer needs for a ``wait``: whether the
+    entry it promised ever actually printed. BSR waiting at 26.350 for 24.000 is
+    judged here on alpha, but it did trade 23.350 -- and that is unanswerable
+    once these are gone.
+    """
+    return {
+        "adj_low": float(_in_window(frame["low"], start, end).min()),
+        "adj_high": float(_in_window(frame["high"], start, end).max()),
+        "traded_low": float(_in_window(_traded(frame, "low"), start, end).min()),
+        "traded_high": float(_in_window(_traded(frame, "high"), start, end).max()),
+    }
+
+
+def _stop_breach(frame: pd.DataFrame, start: str, end: str, stop_adjusted: float) -> str | None:
+    """Return the first session in ``(start, end]`` whose low hit the stop.
+
+    *stop_adjusted* must already be on the adjusted grid, via
+    :func:`_as_adjusted`; the comparison is made there because that is the only
+    grid on which every bar in the window is measured the same way.
 
     Only long-side calls are checked. A ``stop`` on a ``wait`` or ``avoid`` call
     is not the same object -- BSR waits at 26.350 for a target of 24.000 with a
     "stop" at 24.900, sitting between the two -- and guessing which side it
     guards would be inventing the analyst's intent.
     """
-    lows = _traded(frame, "low")
-    window = lows[(lows.index > pd.Timestamp(start)) & (lows.index <= pd.Timestamp(end))]
-    hits = window[window <= stop]
+    hits = _in_window(frame["low"], start, end)
+    hits = hits[hits <= stop_adjusted]
     if hits.empty:
         return None
     return pd.Timestamp(hits.index[0]).date().isoformat()
@@ -288,6 +325,13 @@ def score_call(
 
     direction = ACTION_DIRECTION[call.action]
     traded_close = _traded(prices, "close")
+    try:
+        entry_rate = float(prices.loc[pd.Timestamp(entry), "adj_rate"])
+    except KeyError:
+        report.pending.append(
+            Pending(call.call_id, call.ticker, 0, f"no bar for {call.ticker} on {entry}")
+        )
+        return report
 
     if call.ref_price is not None and pd.Timestamp(entry) in traded_close.index:
         actual = float(traded_close.loc[pd.Timestamp(entry)])
@@ -316,16 +360,19 @@ def score_call(
             continue
 
         resolved_price = float(traded_close.loc[pd.Timestamp(landing)])
+        exit_adjusted = float(prices.loc[pd.Timestamp(landing), "close"])
         alpha = realized - vni_ret
         vn30_ret = _window_return(vn30, entry, landing) if vn30 is not None else None
         target_error = (
-            resolved_price / call.target - 1.0 if call.target else None
+            exit_adjusted / _as_adjusted(call.target, entry_rate) - 1.0
+            if call.target
+            else None
         )
 
         notes: list[str] = []
         replacement = _superseded_by(call, siblings, landing)
         breach = (
-            _stop_breach(prices, entry, landing, call.stop)
+            _stop_breach(prices, entry, landing, _as_adjusted(call.stop, entry_rate))
             if direction > 0 and call.stop is not None
             else None
         )
@@ -349,7 +396,6 @@ def score_call(
             notes.append(f"{unchecked} free-text trigger(s) not machine-checked")
         notes.append("regime and base rate not attributed")
 
-        window_low, window_high = _window_extremes(prices, entry, landing)
         evidences = [
             _price_evidence(
                 call.ticker,
@@ -357,10 +403,10 @@ def score_call(
                 landing,
                 {
                     "entry_close": float(prices.loc[pd.Timestamp(entry), "close"]),
-                    "exit_close": float(prices.loc[pd.Timestamp(landing), "close"]),
+                    "entry_adj_rate": entry_rate,
+                    "exit_close": exit_adjusted,
                     "exit_traded": resolved_price,
-                    "traded_low": window_low,
-                    "traded_high": window_high,
+                    **_window_extremes(prices, entry, landing),
                 },
             ),
             _price_evidence(

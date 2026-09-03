@@ -1,6 +1,6 @@
 """Command line entry point for the learning ledger.
 
-Four verbs, in two pairs.
+Six verbs: two pairs and two singles.
 
 ``capture`` is what the ``SessionEnd`` hook runs; ``scan`` is the catch-up for
 the sessions ``SessionEnd`` never fires for -- a killed terminal, a crash, a
@@ -14,14 +14,19 @@ difference between a backfill and a one-off: the same input can be re-run
 against an improved parser, and the store recognises it as the same
 observation rather than a second one.
 
-``resolve`` is the third pair on its own: it needs no model at all, only
-DataPro, and it is the verb that turns a ledger of opinions into a ledger of
-results. It refuses to run on the sponsored fallback, so a day when DataPro is
-down produces an error rather than a scorecard nobody can reproduce.
+``resolve`` needs no model at all, only DataPro, and it is the verb that turns
+a ledger of opinions into a ledger of results. It refuses to run on the
+sponsored fallback, so a day when DataPro is down produces an error rather than
+a scorecard nobody can reproduce.
 
-The verbs the plan also lists (``report``, ``retro``) wait for the phases that
-give them something to do, because a subcommand that prints an empty scorecard
-is worse than one that does not exist yet.
+``report`` reads the ledger back and needs nothing at all -- no model, no
+network -- because everything it prints was written to the evidence when the
+outcome was scored. It cannot therefore disagree with the numbers the resolver
+stood behind.
+
+The verb the plan also lists (``retro``) waits for the phase that gives it
+something to do, because a subcommand that prints an empty playbook is worse
+than one that does not exist yet.
 
 A hook that throws is a hook that gets deleted, so every failure here is caught,
 written to ``~/.vibe-trading/hook.log`` with a timestamp, and reported through
@@ -45,6 +50,7 @@ from src.learning.extract import (
     store_result,
 )
 from src.learning.records import utc_now
+from src.learning.report import build_scorecard
 from src.learning.resolve import resolve_ledger
 from src.learning.session import capture_session, scan_transcripts, summarize
 from src.learning.store import LearningStore, default_db_path
@@ -133,6 +139,12 @@ def _run_resolve(ticker: str | None, today: str | None, dry_run: bool) -> str:
     return "\n".join(lines)
 
 
+def _run_report(checkpoint: int) -> str:
+    """Render the scorecard. Reads the ledger only -- no model, no network."""
+    with LearningStore(default_db_path()) as store:
+        return build_scorecard(store, checkpoint=checkpoint).to_text()
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI.
 
@@ -159,6 +171,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     resolve.add_argument(
         "--dry-run", action="store_true", help="score and report without writing outcomes"
     )
+    report = sub.add_parser("report", help="print the scorecard for one checkpoint")
+    report.add_argument(
+        "--checkpoint", type=int, default=21, help="checkpoint in trading sessions"
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -168,6 +184,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             message = _run_scan(args.directory)
         elif args.command == "prompt":
             print(_run_prompt(args.doc))
+            return 0
+        elif args.command == "report":
+            print(_run_report(args.checkpoint))
             return 0
         elif args.command == "resolve":
             message = _run_resolve(args.ticker, args.today, args.dry_run)
