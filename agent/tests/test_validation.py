@@ -18,6 +18,7 @@ from backtest.models import TradeRecord
 from backtest.validation import (
     bootstrap_sharpe_ci,
     monte_carlo_test,
+    VALIDATION_METHODS,
     run_validation,
     equity_consistency_report,
     purged_kfold_splits,
@@ -250,6 +251,117 @@ class TestRunValidation:
         result = run_validation(config, eq, trades, 1_000_000)
         assert "bootstrap" in result
         assert "monte_carlo" not in result
+
+
+class TestTheAntiOverfitSuiteIsReachableFromConfig:
+    """Stage 2.1 built these; until now nothing could call them.
+
+    A library nobody dispatches is indistinguishable from a library that does
+    not exist, except that it looks like coverage on a checklist.
+    """
+
+    def test_psr_runs_from_an_equity_curve_alone(self) -> None:
+        eq = _make_equity(200)
+        result = run_validation({"validation": {"psr": {}}}, eq, [], 1_000_000)
+        assert 0.0 <= result["psr"]["psr"] <= 1.0
+        assert result["psr"]["n_observations"] == 199
+
+    def test_psr_can_be_asked_to_clear_a_real_hurdle(self) -> None:
+        eq = _make_equity(200)
+        config = {"validation": {"psr": {"benchmark_sharpe": 1.5}}}
+        easy = run_validation({"validation": {"psr": {}}}, eq, [], 1_000_000)
+        hard = run_validation(config, eq, [], 1_000_000)
+        assert hard["psr"]["psr"] <= easy["psr"]["psr"]
+        assert hard["psr"]["benchmark_sharpe"] == 1.5
+
+    def test_psr_is_charged_the_same_risk_free_rate_the_sharpe_is(self) -> None:
+        """Two Sharpes for one strategy in one run card would be a defect."""
+        eq = _make_equity(200)
+        free = run_validation({"validation": {"psr": {}}}, eq, [], 1_000_000)
+        charged = run_validation(
+            {"risk_free": 0.05, "validation": {"psr": {}}}, eq, [], 1_000_000
+        )
+        assert charged["psr"]["sharpe"] < free["psr"]["sharpe"]
+
+    def test_deflated_sharpe_runs_when_the_search_is_declared(self) -> None:
+        eq = _make_equity(200)
+        config = {"validation": {"deflated_sharpe": {"trial_sharpes": [0.4, 0.9, 1.3, 0.2]}}}
+        result = run_validation(config, eq, [], 1_000_000)
+        assert result["deflated_sharpe"]["n_trials"] == 4
+        assert result["deflated_sharpe"]["expected_max_sharpe"] > 0
+
+    def test_deflated_sharpe_refuses_to_invent_a_search_of_one(self) -> None:
+        eq = _make_equity(200)
+        with pytest.raises(ValueError, match="needs trial_sharpes"):
+            run_validation({"validation": {"deflated_sharpe": {}}}, eq, [], 1_000_000)
+
+    def test_pbo_runs_on_a_declared_variant_matrix(self) -> None:
+        eq = _make_equity(200)
+        rng = np.random.default_rng(3)
+        config = {
+            "validation": {
+                "pbo": {"variant_returns": rng.normal(0, 0.01, (400, 6)).tolist(), "n_blocks": 8}
+            }
+        }
+        result = run_validation(config, eq, [], 1_000_000)
+        assert 0.0 <= result["pbo"]["pbo"] <= 1.0
+
+    def test_pbo_refuses_without_the_variants_it_measures_selection_over(self) -> None:
+        eq = _make_equity(200)
+        with pytest.raises(ValueError, match="needs variant_returns"):
+            run_validation({"validation": {"pbo": {}}}, eq, [], 1_000_000)
+
+
+class TestAConfigThatAsksForNothingGetsToldSo:
+    def test_a_misspelled_method_is_refused_rather_than_ignored(self) -> None:
+        """Silently ignoring it looks exactly like a strategy that passed."""
+        eq = _make_equity(100)
+        with pytest.raises(ValueError, match="unknown validation method 'deflated_sharp'"):
+            run_validation({"validation": {"deflated_sharp": {}}}, eq, [], 1_000_000)
+
+    def test_cpcv_is_refused_with_the_reason_and_the_place_to_go(self) -> None:
+        eq = _make_equity(100)
+        with pytest.raises(ValueError, match="backtest.walkforward"):
+            run_validation({"validation": {"cpcv": {}}}, eq, [], 1_000_000)
+
+    def test_every_known_method_is_actually_dispatched(self) -> None:
+        """A name in the vocabulary that no branch reads would accept a config
+        and then quietly do nothing, which is the bug this list prevents."""
+        eq = _make_equity(300)
+        rng = np.random.default_rng(11)
+        cfg = {
+            "monte_carlo": {"n_simulations": 20},
+            "bootstrap": {"n_bootstrap": 20},
+            "equity_consistency": {"n_windows": 3},
+            "psr": {},
+            "deflated_sharpe": {"trial_sharpes": [0.5, 1.0]},
+            "pbo": {"variant_returns": rng.normal(0, 0.01, (200, 4)).tolist(), "n_blocks": 6},
+        }
+        assert set(cfg) | {"walk_forward"} == set(VALIDATION_METHODS)
+        result = run_validation(
+            {"validation": cfg}, eq, _make_trades([100] * 8), 1_000_000
+        )
+        assert set(result) == set(cfg)
+
+
+def test_the_anti_overfit_results_reach_the_run_card(tmp_path) -> None:
+    """The dispatcher is only half the wiring; the card is where anyone reads it."""
+    from backtest.run_card import write_run_card
+
+    eq = _make_equity(300)
+    config = {
+        "codes": ["VCB.VN"],
+        "start_date": "2024-01-01",
+        "end_date": "2025-12-31",
+        "validation": {"psr": {}, "deflated_sharpe": {"trial_sharpes": [0.4, 1.1, 0.7]}},
+    }
+    results = run_validation(config, eq, [], 1_000_000)
+    card = write_run_card(tmp_path, config, {"validation": results})
+
+    assert set(card["validation"]) == {"psr", "deflated_sharpe"}
+    assert card["validation"]["deflated_sharpe"]["n_trials"] == 3
+    rendered = (tmp_path / "run_card.md").read_text(encoding="utf-8")
+    assert "psr" in rendered and "deflated_sharpe" in rendered
 
 
 class TestTheReportDoesNotClaimToBeWalkForward:

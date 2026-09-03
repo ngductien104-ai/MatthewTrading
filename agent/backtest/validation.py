@@ -832,6 +832,45 @@ def probability_of_backtest_overfitting(
 # ─── Runner integration ───
 
 
+#: Every key ``run_validation`` understands. An unrecognised key is refused
+#: rather than ignored: a config asking for ``deflated_sharp`` used to run
+#: nothing and say nothing, which looks exactly like a strategy that was
+#: validated and was not.
+VALIDATION_METHODS = (
+    "monte_carlo",
+    "bootstrap",
+    "equity_consistency",
+    "walk_forward",  # deprecated alias, still read
+    "psr",
+    "deflated_sharpe",
+    "pbo",
+)
+
+#: Checks that cannot be answered from a finished equity curve, with the reason.
+#: These are refused loudly instead of silently skipped, because a config that
+#: asks for CPCV and gets nothing back has been told its strategy passed.
+_NEEDS_AN_ENGINE = {
+    "cpcv": (
+        "CPCV refits the model on each split, so it needs the engine and the data, "
+        "not a finished equity curve. Run it through backtest.walkforward instead."
+    ),
+}
+
+
+def _bar_returns(equity_curve: pd.Series, risk_free: float, bars_per_year: int) -> np.ndarray:
+    """Return per-bar excess returns, on the same footing as ``calc_metrics``.
+
+    The risk-free rate is compounded down to one bar rather than divided, and
+    subtracted here for the same reason it is subtracted there: a PSR computed
+    on raw returns while the reported Sharpe clears a hurdle would put two
+    different Sharpes for one strategy in one run card.
+    """
+    returns = equity_curve.pct_change().dropna()
+    if bars_per_year > 0 and risk_free:
+        returns = returns - ((1.0 + float(risk_free)) ** (1.0 / bars_per_year) - 1.0)
+    return np.asarray(returns, dtype=float)
+
+
 def run_validation(
     config: Dict[str, Any],
     equity_curve: pd.Series,
@@ -845,6 +884,16 @@ def run_validation(
       - monte_carlo: {n_simulations, seed}
       - bootstrap: {n_bootstrap, confidence, seed}
       - equity_consistency: {n_windows}  (accepts the old name walk_forward)
+      - psr: {benchmark_sharpe}
+      - deflated_sharpe: {trial_sharpes: [...]}  -- required, see below
+      - pbo: {variant_returns: [[...]], n_blocks}  -- required, see below
+
+    ``deflated_sharpe`` and ``pbo`` both ask a question about a *search*, and
+    neither can be answered from the one run that survived it. They therefore
+    require the caller to declare what was tried, and raise when it is missing.
+    Defaulting them to a single trial would report a deflation against a search
+    of size one -- a number that always flatters, computed from an assumption
+    the config never made.
 
     Args:
         config: Backtest config (must contain "validation" key).
@@ -855,9 +904,23 @@ def run_validation(
 
     Returns:
         Dict keyed by validation type with results.
+
+    Raises:
+        ValueError: An unknown validation key, a check that needs an engine, or
+            a search-aware check with nothing declared about the search.
     """
     v_cfg = config.get("validation", {})
     results: Dict[str, Any] = {}
+
+    for key in v_cfg:
+        if key in _NEEDS_AN_ENGINE:
+            raise ValueError(f"validation.{key} cannot run here: {_NEEDS_AN_ENGINE[key]}")
+        if key not in VALIDATION_METHODS:
+            raise ValueError(
+                f"unknown validation method {key!r}. Known: {', '.join(VALIDATION_METHODS)}"
+            )
+
+    risk_free = float(config.get("risk_free", 0.0) or 0.0)
 
     if "monte_carlo" in v_cfg:
         mc_cfg = v_cfg["monte_carlo"] if isinstance(v_cfg["monte_carlo"], dict) else {}
@@ -886,6 +949,45 @@ def run_validation(
             equity_curve, trades,
             n_windows=ec_cfg.get("n_windows", 5),
             bars_per_year=bars_per_year,
+        )
+
+    if "psr" in v_cfg:
+        psr_cfg = v_cfg["psr"] if isinstance(v_cfg["psr"], dict) else {}
+        results["psr"] = probabilistic_sharpe_ratio(
+            _bar_returns(equity_curve, risk_free, bars_per_year),
+            benchmark_sharpe=float(psr_cfg.get("benchmark_sharpe", 0.0)),
+            bars_per_year=bars_per_year,
+        )
+
+    if "deflated_sharpe" in v_cfg:
+        dsr_cfg = v_cfg["deflated_sharpe"] if isinstance(v_cfg["deflated_sharpe"], dict) else {}
+        trials = dsr_cfg.get("trial_sharpes")
+        if not trials:
+            raise ValueError(
+                "validation.deflated_sharpe needs trial_sharpes: the annualised Sharpe of "
+                "every variant tried, the kept one included. There is no default, because "
+                "assuming a single trial deflates against a search that never happened and "
+                "returns a number that can only flatter."
+            )
+        results["deflated_sharpe"] = deflated_sharpe_ratio(
+            _bar_returns(equity_curve, risk_free, bars_per_year),
+            trials,
+            bars_per_year=bars_per_year,
+        )
+
+    if "pbo" in v_cfg:
+        pbo_cfg = v_cfg["pbo"] if isinstance(v_cfg["pbo"], dict) else {}
+        matrix = pbo_cfg.get("variant_returns")
+        if matrix is None:
+            raise ValueError(
+                "validation.pbo needs variant_returns: a (bars x variants) matrix holding "
+                "every variant that was considered, not only the ones that looked good. A "
+                "pre-filtered set has already had the selection applied to it, which is the "
+                "selection PBO is trying to measure."
+            )
+        results["pbo"] = probability_of_backtest_overfitting(
+            np.asarray(matrix, dtype=float),
+            n_blocks=int(pbo_cfg.get("n_blocks", 16)),
         )
 
     return results
