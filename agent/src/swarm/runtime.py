@@ -916,6 +916,15 @@ class SwarmRuntime:
 
             fatal_reason = classify_fatal_provider_error(result.error)
             if fatal_reason is not None:
+                # Waiting cannot fix this one, but another provider might. The
+                # candidate is probed with a real completion before the run
+                # moves onto it, so a switch never trades a known-dead endpoint
+                # for an untested one. Unset means no fallbacks, and then this
+                # behaves exactly as it did: abandon the remaining retries.
+                switch = self._failover_for_run(run_id, task, fatal_reason)
+                if switch is not None and switch.switched:
+                    continue
+
                 logger.error(
                     "Task %s hit a non-retryable provider failure (%s); "
                     "abandoning its remaining retries",
@@ -948,6 +957,44 @@ class SwarmRuntime:
                 }
             )
         return result  # type: ignore[return-value]
+
+    def _failover_for_run(self, run_id: str, task: SwarmTask, reason: str):
+        """Try to move the run onto a healthy provider. Returns the Switch.
+
+        Returns ``None`` when the failover machinery itself fails, which is
+        treated exactly like "no fallback available": a provider failure must
+        not become a crash.
+
+        The switch is emitted as an event rather than only logged. run.json
+        records the provider the run *started* on, so a run that changed
+        provider halfway would otherwise carry a field that quietly lies about
+        what produced its output -- and this branch added git_commit and seed
+        specifically so quality changes have something to be attributed to.
+        """
+        try:
+            from src.providers.failover import describe, failover
+
+            switch = failover()
+        except Exception:  # noqa: BLE001 - failover must never crash a run
+            logger.warning("Provider failover raised; continuing without it", exc_info=True)
+            return None
+
+        logger.warning("Task %s: %s (%s)", task.id, describe(switch), reason)
+        self._emit_event(
+            run_id,
+            self._make_event(
+                "provider_failover" if switch.switched else "provider_failover_unavailable",
+                task_id=task.id,
+                data={
+                    "trigger": reason,
+                    "from": switch.from_provider,
+                    "to": switch.to_provider,
+                    "reason": switch.reason,
+                    "probed": list(switch.probed),
+                },
+            ),
+        )
+        return switch
 
     def _cancel_remaining_tasks(
         self,

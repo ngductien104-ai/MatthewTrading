@@ -93,26 +93,75 @@ def _classify_response(status_code: int, body: str) -> tuple[str, str, bool]:
     return "unreachable", f"HTTP {status_code}: {snippet}", status_code >= 500
 
 
-def probe_provider(*, timeout: float = PROBE_TIMEOUT_SEC) -> ProviderHealth:
-    """Return what the configured provider will actually do.
+def probe_provider(
+    *,
+    timeout: float = PROBE_TIMEOUT_SEC,
+    provider: str = "",
+    model: str = "",
+) -> ProviderHealth:
+    """Return what a provider will actually do.
 
     Args:
         timeout: Seconds to wait on each request.
+        provider: Provider to ask about instead of the configured one. Used by
+            failover to test a candidate *before* switching to it, so a run
+            never moves onto a provider that is just as dead as the one it
+            left.
+        model: Model to ask about, required with *provider*. A provider name
+            alone is not enough: a model that exists on one provider will
+            usually 404 on another, and a probe that reused the old model name
+            would report the candidate broken for the wrong reason.
 
     Returns:
         The health. Never raises: a preflight that throws is a preflight that
         gets removed.
     """
     health = ProviderHealth()
+    restore: dict[str, str | None] = {}
     try:
         from src.providers.llm import _ensure_dotenv, _sync_provider_env
 
         _ensure_dotenv()
+        if provider:
+            # Ask about the candidate without leaving the process pointed at
+            # it. A probe that mutated the live configuration would move every
+            # concurrent worker onto an untested provider as a side effect of
+            # asking a question about it.
+            for name, value in (
+                ("LANGCHAIN_PROVIDER", provider),
+                ("LANGCHAIN_MODEL_NAME", model),
+                ("OPENAI_API_KEY", None),
+                ("OPENAI_BASE_URL", None),
+                ("OPENAI_API_BASE", None),
+            ):
+                restore[name] = os.environ.get(name)
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
         _sync_provider_env()
     except Exception as exc:  # noqa: BLE001 - config problems are a result, not a crash
         health.detail = f"could not load provider config: {exc}"
+        _restore_env(restore)
         return health
 
+    try:
+        return _probe_current(health, timeout=timeout)
+    finally:
+        _restore_env(restore)
+
+
+def _restore_env(saved: dict[str, str | None]) -> None:
+    """Put back exactly what was there, including what was absent."""
+    for name, value in saved.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+
+def _probe_current(health: ProviderHealth, *, timeout: float) -> ProviderHealth:
+    """Probe whatever the environment currently points at."""
     health.provider = (os.getenv("LANGCHAIN_PROVIDER") or "").strip()
     health.model = (os.getenv("LANGCHAIN_MODEL_NAME") or "").strip()
     base_url = (os.getenv("OPENAI_BASE_URL", "") or os.getenv("OPENAI_API_BASE", "")).rstrip("/")
