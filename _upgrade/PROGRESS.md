@@ -10,16 +10,46 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 03/09/2026 (Giai đoạn 1 ĐÓNG: chấm + bảng điểm + quy kết)
+## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (Giai đoạn 3: hồi tiếp đã xong · đang làm van tin cậy)
 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
 > Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
 
-**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch. **13 commit chưa push.**
-**Full suite `11 failed, 3646 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
-suốt 27 mục; passed đi từ **3131 (baseline) → 3646**.
+**Nhánh:** `upgrade/learning-loop`. **20 commit chưa push** (chưa ai bảo push).
+**Full suite `12 failed, 3779 passed, 1 skipped, 9 errors`** — **11/12 fail + 9 error khớp**
+baseline từng cái; cái thứ 12 là test lung lay của `rich` (xem mục riêng bên dưới, đã kiểm trên
+cây sạch tại HEAD). Passed đi từ **3131 (baseline) → 3779**.
 
-### Đã xong trong phiên 03/09 (8 commit)
+**Sổ cái `~/.vibe-trading/learning.db` — đếm THEO ID, không đếm dòng:**
+`calls=16` · `outcomes=15` · `evidence=142` · `lessons=5` · `process_records=25`.
+> ⚠️ **BẪY ĐẾM.** `SELECT count(*) FROM outcomes` trả **45**, không phải 15. Sổ cái
+> append-only **ghi bản sửa chứ không ghi đè**: 3 lần chạy `resolve` = 3 revision cho cùng
+> một `outcome_id`. Diff giữa chúng là thật (`target_error` của PET đổi dấu, thêm
+> `regime` + `base_rate_pctile`), nên đây **không phải lỗi** — nhưng đọc `count(*)` như số
+> outcome sẽ **thổi phồng mẫu số gấp 3** và làm KTC Wilson hẹp giả. Đường đọc đúng là
+> `outcomes_for()` — đã `GROUP BY outcome_id` lấy revision mới nhất.
+
+### Đã xong trong phiên 03–04/09 — đợt 2 (7 commit, mới nhất trước)
+| Commit | Mục |
+|---|---|
+| `66e635e` | **G3.5-c** `resume_run` — chạy lại **phần chưa xong**, không chạy lại cả run |
+| `67ed4cc` | **G3.5-b** trần token mỗi run (`VIBE_TRADING_RUN_TOKEN_BUDGET`) |
+| `6a7cfa7` | **G3.5-a** preflight: tích xanh trước một tài khoản **hết tiền** |
+| `da62247` | **G3.2** playbook vào prompt worker + skill `research-memory` |
+| `ab713d5` | **G3.1** `lessons` 0 → 5 (suất theo luật, không hỏi model) + `.gitignore` vault |
+| `79aa7ae` | **G3.4** 4 trường tái lập cho `SwarmRun` |
+| `ddd731e` | **G2.3** `process_score.py` — chấm **cách làm**, không chấm kết quả |
+
+**Ba con số đáng nhớ nhất của đợt 2:**
+- **24 run, 3 về đích (12,5%), và 81% tổng token sinh ra rơi vào run không ra kết luận nào.**
+  Đây là lý do mọi van ở mục 8 tồn tại.
+- **`ProcessRecord.tokens` thổi phồng 225×** vì cộng cả `cache_read_input_tokens`
+  (1,37 tỷ raw vs 6,1 triệu sinh thực). Tỷ lệ sống sót nguyên vẹn (80,6% vs 81,4%),
+  nhưng **số tuyệt đối chưa bao giờ là tiền**. Nay tách `token_usage`.
+- **Provider: `/models` trả 200, completion trả 402 Insufficient Balance.** Key hợp lệ và
+  **tiêu được tiền** là hai chuyện khác nhau; chỉ câu thứ hai dự đoán được việc có chạy hay không.
+
+### Đã xong trong phiên 03/09 — đợt 1 (5 commit)
 | Commit | Mục |
 |---|---|
 | `edb0fa8` | **1.6** `resolve.py` — bộ chấm. `outcomes` 0 → 15 |
@@ -121,20 +151,99 @@ block bootstrap · `risk_free` · `walkforward.py`.
   `evidence_override` có **ghi lý do vào hồ sơ**. `create()` cũng chặn — hypothesis mới không có
   run_card nào nên đó là cánh cửa duy nhất mà bằng chứng không thể đi qua.
 
-4. **[G2.3] `process_score.py`** — rubric **xác định**, LLM chỉ được trả trích dẫn, **điểm do
-   code cộng**. Nguồn: transcript Claude Code (23 `ProcessRecord` đã có). Kế hoạch gọi đây là
-   phần học nhanh nhất.
-5. **[G3.4] 4 trường tái lập cho `SwarmRun`** (`git_commit`, `seed`, `temperature`,
-   `playbook_version`). Nhỏ, và là tiền đề để quy trách nhiệm nhân quả.
-6. **[G3.1] `lessons` + playbook ACE** — `lessons=0` là khoảng trống lớn nhất còn lại.
-7. **[G3.2] Nạp playbook lại vào phân tích sau** (swarm `{upstream_context}` + skill).
+- [x] **4. [G2.3] `process_score.py`** *(commit `ddd731e`)* — rubric 6 mục **xác định**, LLM
+  **chỉ được trích dẫn**, `str.find` định vị, **code cộng điểm**. Không đánh trọng số: trọng số
+  là một khẳng định về tầm quan trọng tương đối mà chưa ai ở đây đo được. Kèm `classify_errors`
+  (từ vựng **đóng**, để `recurrence` đếm được — model tự đẻ category thì đếm lặp thành vô nghĩa),
+  `disagreement` (chấm 2 lần cùng bộ tài liệu — một thước đo chưa ai đo là chưa phải bằng chứng),
+  `completion_rate`, `stalls`.
+- [x] **5. [G3.4] 4 trường tái lập cho `SwarmRun`** *(commit `79aa7ae`)* — `git_commit` (có hậu
+  tố `-dirty`, vì gần như mọi thứ ở đây chạy trên cây chưa commit — hash trần sẽ khẳng định run
+  tái lập được từ một commit mà code của nó chưa từng chạy), `seed`, `temperature`,
+  `playbook_version`. `seed`/`temperature` **để `None` khi chưa đặt**: ghi `0.0` vì không ai đặt
+  là khẳng định run tất định, mạnh hơn thứ hồ sơ chống đỡ nổi. `run.json` cũ vẫn load được.
+- [x] **6. [G3.1] `lessons` + playbook ACE** *(commit `ab713d5`)* — `lessons` 0 → **5**.
+  - **Giữ 2 trong 3 ý của ACE.** *Delta tăng dần*: id suy từ domain + câu chữ, nên suất lại cùng
+    phát hiện là **cộng dồn**, không đẻ bản sao — thứ xói mòn trước tiên khi regenerate lại chính
+    là chi tiết cụ thể đáng giữ nhất. *Hạn dùng 90 ngày* cho bài học chưa có bằng chứng.
+  - **Bỏ ý thứ ba.** Generator viết / Reflector chấm / Curator chọn — cùng một họ model — là giám
+    khảo tự chấm bài mình. Ở đây **mọi luật là predicate trên hồ sơ đã đo**, không hỏi model câu
+    nào đúng. Luật nổ hoặc không, và **trích ra thứ làm nó nổ**.
+  - Chỉ **1/5** bài học là confirmed; 4 cái còn lại provisional + hết hạn, và **tự nói ra điều đó
+    trong chính câu chữ của nó** — 4 hay 7 quan sát không tách được phát hiện khỏi ngẫu nhiên.
+  - **File bài học theo ngành: tạo ra nhưng để RỖNG, có ghi lý do bên trong.** 8 call đã chấm
+    không đủ bằng chứng cho từng ngành, và sinh chúng bằng LLM chính là thất bại mà module này
+    sinh ra để tránh.
+  - **Kèm `.gitignore`: vault / `Database` / `VNDIRECT` / 2 thư mục khách.** Chưa file nào từng
+    được track, nhưng cũng **chưa có gì chặn một `git add -A` lỡ tay**, và riêng vault là 287
+    file nghiên cứu khách hàng trên repo **public**. Việc này **đảo ngược mục 0.4 của kế hoạch**
+    (muốn đưa vault vào git để khỏi bị ghi đè) — mục đó viết **trước khi repo thành public**.
+    Mất một ghi chú thì cứu được; đăng danh mục khách hàng thì không.
+- [x] **7. [G3.2] Nạp playbook lại vào phân tích sau** *(commit `da62247`)* — vào **prompt worker**
+  của swarm + skill `research-memory` cho phiên Claude Code.
+  - **KHÔNG dùng `{upstream_context}` như kế hoạch bảo**, và chính kế hoạch ghi lý do: preset khai
+    `input_from:` mà không đặt placeholder trong `system_prompt` thì nội dung **rơi im lặng,
+    không báo lỗi**. Playbook lúc có lúc không mà không ai biết lúc nào **tệ hơn** playbook không
+    bao giờ có. Nay là **section riêng**; có test chứng minh bẫy vẫn cắn phần upstream còn
+    playbook thì sống.
+  - **KHÔNG bao giờ vào `build_system_prompt`** — prompt cache phải đứng yên, mà nội dung học
+    được đổi mỗi lần suất; nó đi đường user-message như mọi ngữ cảnh biến thiên.
+  - Mọi cửa vào **tự nuốt lỗi và trả `""`**: sổ cái chết không được làm hỏng một run nào. Test
+    quan trọng nhất đưa cho nó một store **raise ở mọi lệnh gọi**.
+  - Chặn **12 dòng**: quá chừng đó thì người đọc chuyển từ đọc-như-hướng-dẫn sang
+    lướt-như-boilerplate.
+
 8. **[G3.5 → G3.3] Độ tin cậy rồi mới tới scheduler.** Kế hoạch nói thẳng: **cấm** bật lịch tự
-   động trên runtime 3/18. Làm van trước (preflight, phân loại lỗi retry, trần ngân sách,
-   resume, failover), scheduler sau. Phần provider có thể bị chặn bởi môi trường (OpenRouter 401,
-   DeepSeek $0) — làm phần code được, ghi rõ phần không.
+   động trên runtime 3/24. Làm van trước, scheduler sau.
+   - [x] **a. Preflight thật** *(commit `6a7cfa7`)* — probe kết thúc bằng **completion 1 token**,
+     vì `/models` trả 200 với key hợp lệ trong khi completion trả **402 Insufficient Balance**;
+     chỉ câu hỏi thứ hai dự đoán được việc có chạy hay không. Ba trạng thái lỗi **để riêng**
+     (`unreachable` = mạng · `bad_credentials` = cấu hình · `no_balance` = hóa đơn — khác chủ,
+     khác cách sửa), mỗi cái kèm **chờ có đổi được không**. `classify_fatal_provider_error` dời
+     sang `src/core/provider_errors` để preflight và worker dùng **chung một danh sách mẫu**.
+   - [x] **b. Trần token mỗi run** *(commit `67ed4cc`)* — `VIBE_TRADING_RUN_TOKEN_BUDGET`,
+     kiểm ở **ranh giới layer** (chỗ run đang ở giữa hai cam kết). **Đếm token SINH, không đếm
+     tổng**: cache read áp đảo tổng 30–100×, nên trần đặt trên tổng thì hoặc không bao giờ nổ
+     hoặc nổ ở lượt thứ ba, tùy run đó tình cờ đọc lại bao nhiêu ngữ cảnh. **Không đặt thì không
+     giới hạn**, và giá trị sai cú pháp đọc là **vắng** chứ không đọc là 0 — đọc `BUDGET=abc`
+     thành "dừng ngay" sẽ giết mọi run trên máy vì một lỗi gõ. Trần không làm run hội tụ; nó chỉ
+     ngăn run **trả tiền cho việc phát hiện rằng nó sẽ không hội tụ**.
+   - [x] **c. Resume** *(commit `66e635e`)* — `runtime.resume_run(run_id)` + `/swarm resume`.
+     Chạy lại **chỉ phần chưa xong**; task đã completed giữ nguyên status, summary, artifact.
+     **Summary của chúng nuôi ngữ cảnh upstream** cho task dưới — thiếu bước này thì lần chạy lại
+     viết báo cáo **không có nghiên cứu ở trên**, đúng cái lỗ mà cổng phụ thuộc sinh ra để chặn,
+     chỉ là vào bằng cửa khác. Bộ đếm token **cố ý mang sang**: trần mà mọi lần thất bại reset
+     được thì không phải trần. Từ chối resume run **đang chạy** (hai executor trên cùng một thư
+     mục sẽ ghi xen vào cùng file task); resume run **đã xong** là no-op, không phải lỗi.
+     **Test dựng trên run THẬT** `swarm-20260827-064250-5c3d38f8` (2/4 xong, 1 failed, 1 blocked)
+     chứ không trên stub tự viết — và có một test chạy **`_execute_layer` thật** để cổng phụ
+     thuộc thực sự bị hỏi, vì recorder giả sẽ đi vòng qua đúng cái cổng cần kiểm.
+   - [ ] **d. Failover provider** — `_PROVIDER_MAP` có 13 provider; `ollama` **đủ code nhưng chưa
+     cấu hình**. Việc: khi probe nói `no_balance`/`bad_credentials` (**không retryable**) thì
+     chuyển sang provider khác thay vì retry vào tường.
+   - [ ] **e. Chi phí mỗi kết luận thành mặt điều khiển** — đã có mẫu số (`completion_rate`,
+     `token_usage`); còn thiếu bề mặt đọc được.
+   - [ ] **f. Scheduler (G3.3) — CHỈ SAU (d) và (e).** Bốn van: ngưỡng novelty, ngưỡng bằng
+     chứng, trần token mỗi chu kỳ, trần số PR mỗi tháng. **Mở PR, KHÔNG tự commit.**
+     ⛔ **Không bật trên runtime 3/24** — kế hoạch nói thẳng, và 3/24 vẫn là con số hiện tại.
 
 **Việc đã xong, giữ lại để khỏi làm lại:** `ref_price` (commit `2d0a335`) · `base_rate_pctile`
 phân vị chéo + `regime` (commit `fe98e2b`).
+
+### Một test HAY LUNG LAY, đừng đuổi theo nó
+
+`tests/test_cli_hypothesis.py::TestList::test_status_filter_with_no_matches` **fail khi chạy
+`-p no:randomly` hoặc chạy lẻ, pass khi chạy full suite ngẫu nhiên.** Lý do là `rich` tô màu
+chuỗi `status=rejected` (nó trông như key=value) nên assert tìm chuỗi trần không thấy:
+`'No hypotheses found \x1b[33mstatus\x1b[0m=\x1b[35mrejected\x1b[0m.'`. Phụ thuộc việc test
+nào chạy trước đã cấu hình console. **Không phải do nhánh này** — kiểm bằng cách chạy lẻ trên
+cây sạch. Baseline 11 fail = dividend 3 + loader 5 + oauth 3; test này là cái thứ 12 chỉ xuất
+hiện khi tắt ngẫu nhiên hoá.
+
+**Và một bẫy đo lường tự gây ra:** `inspect.getsource` trong `tests/test_budget.py` đọc file
+theo số dòng đã nạp lúc import. **Sửa `runtime.py` TRONG LÚC full suite đang chạy** thì hai test
+đó fail với source của hàm khác. Không phải lỗi code — nhưng đừng vừa sửa vừa chạy suite rồi
+đọc kết quả.
 
 ### Ba việc môi trường, không phải việc code
 - **5 thư mục pytest rỗng KẸT VĨNH VIỄN** trong `_upgrade/` (`q4_pytest_tmp`, `q5_pytest_tmp`,
