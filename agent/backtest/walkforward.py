@@ -22,6 +22,16 @@ the point: the function this replaces promised out-of-sample evidence in its
 name and delivered none, and a second module making a quieter version of the
 same promise would be no improvement.
 
+That said, the boundary now at least reaches the party expected to respect it.
+``signal_engine_factory`` is called with the fold config, because
+``BaseEngine`` passes the signal engine nothing but ``data_map`` -- so until
+this change, a fitting engine had no channel through which to learn
+``train_end``, and the paragraph above was requiring obedience to a boundary
+that was never disclosed. :mod:`backtest.strategies.fitted_sma` is the worked
+example, and the reason this module has something to measure at all: run
+against a rule with no fitted parameters, every fold returns the same numbers
+in and out of sample, and the machinery reports a reassuring nothing.
+
 Each fold is warmed with its whole training window rather than starting cold at
 ``test_start``, because an indicator with a 200-bar lookback produces nothing
 useful over its first 200 bars, and a fold that began at the test boundary
@@ -154,8 +164,16 @@ def make_folds(
     return folds
 
 
-def _oos_returns(fold_dir: Path, fold: Fold) -> pd.Series:
-    """Read one fold's equity and return only its out-of-sample per-bar returns."""
+def _oos_returns(fold_dir: Path, fold: Fold) -> tuple[pd.Series, pd.Series | None]:
+    """Read one fold's equity and return its out-of-sample per-bar returns.
+
+    Returns:
+        The strategy's out-of-sample returns, and the benchmark's over the same
+        bars when the fold recorded one. The benchmark is stitched alongside
+        rather than dropped: without it ``calc_metrics`` scores the stitched
+        path against a flat zero and reports ``information_ratio: 0.0``, which
+        does not read as "not measured", it reads as "added nothing".
+    """
     path = fold_dir / "artifacts" / "equity.csv"
     if not path.exists():
         raise WalkForwardError(
@@ -169,21 +187,28 @@ def _oos_returns(fold_dir: Path, fold: Fold) -> pd.Series:
     # Returns are differenced across the whole fold and only then sliced, so the
     # first out-of-sample bar keeps the move that carried into it rather than
     # silently starting flat.
+    mask_for = lambda series: (series.index >= fold.test_start) & (  # noqa: E731
+        series.index <= fold.test_end
+    )
     returns = frame["equity"].pct_change()
-    mask = (returns.index >= fold.test_start) & (returns.index <= fold.test_end)
-    oos = returns.loc[mask].fillna(0.0)
+    oos = returns.loc[mask_for(returns)].fillna(0.0)
     if oos.empty:
         raise WalkForwardError(
             f"fold {fold.index} produced no bars inside its test window "
             f"{fold.test_start.date()}..{fold.test_end.date()}"
         )
-    return oos
+
+    bench = None
+    if "benchmark_equity" in frame.columns:
+        bench_returns = frame["benchmark_equity"].pct_change()
+        bench = bench_returns.loc[mask_for(bench_returns)].fillna(0.0)
+    return oos, bench
 
 
 def walk_forward(
     config: Dict[str, Any],
     loader: Any,
-    signal_engine_factory: Callable[[], Any],
+    signal_engine_factory: Callable[[Dict[str, Any]], Any],
     run_dir: Path,
     *,
     dates: Sequence[pd.Timestamp] | pd.DatetimeIndex,
@@ -200,9 +225,14 @@ def walk_forward(
         config: Base backtest config. Each fold gets a copy carrying its own
             dates plus ``train_end`` and ``oos_start``.
         loader: Data loader, passed through to the engine unchanged.
-        signal_engine_factory: Called once per fold. A factory rather than an
-            instance, so a stateful signal engine cannot carry what it learned
-            in one fold into the next.
+        signal_engine_factory: Called once per fold with that fold's config. A
+            factory rather than an instance, so a signal engine that fits
+            parameters cannot carry what it learned in one fold into the next.
+            It receives the config because that is the only channel carrying
+            ``train_end``: ``BaseEngine`` calls ``generate(data_map)`` and hands
+            over no configuration, so an engine built without it has no way to
+            know where its training window stops -- and this module used to
+            require honouring a boundary it never disclosed.
         run_dir: Parent directory. Each fold writes into ``fold_00``,
             ``fold_01`` and so on, keeping its own artifacts and run card, so
             any single fold can be reproduced on its own.
@@ -245,6 +275,7 @@ def walk_forward(
 
     run_dir = Path(run_dir)
     pieces: List[pd.Series] = []
+    bench_pieces: List[pd.Series] = []
     per_fold: List[Dict[str, Any]] = []
 
     for fold in folds:
@@ -269,7 +300,7 @@ def walk_forward(
             metrics = engine_factory(fold_config).run_backtest(
                 fold_config,
                 loader,
-                signal_engine_factory(),
+                signal_engine_factory(fold_config),
                 fold_dir,
                 bars_per_year=bars_per_year,
             )
@@ -280,8 +311,10 @@ def walk_forward(
                 "not run"
             ) from exc
 
-        oos = _oos_returns(fold_dir, fold)
+        oos, bench = _oos_returns(fold_dir, fold)
         pieces.append(oos)
+        if bench is not None:
+            bench_pieces.append(bench)
         per_fold.append({
             **fold.as_dict(),
             "oos_bars": int(len(oos)),
@@ -297,13 +330,28 @@ def walk_forward(
 
     initial_cash = float(config.get("initial_cash", 1_000_000))
     oos_equity = (1 + stitched).cumprod() * initial_cash
+
+    # Only pass a benchmark if every fold supplied one. A partial stitch would
+    # compare the strategy's whole path against a benchmark covering some of it.
+    bench_ret = None
+    if len(bench_pieces) == len(folds):
+        candidate = pd.concat(bench_pieces).sort_index()
+        if candidate.index.equals(stitched.index):
+            bench_ret = candidate
+
     oos_metrics = calc_metrics(
         oos_equity,
         [],
         initial_cash,
         bars_per_year,
+        bench_ret,
         risk_free=float(config.get("risk_free", 0.0) or 0.0),
     )
+    if bench_ret is None:
+        # Better absent than present and zero: a reader takes information_ratio
+        # 0.0 as a measurement of no edge, not as the absence of a measurement.
+        for key in ("benchmark_return", "excess_return", "information_ratio"):
+            oos_metrics.pop(key, None)
 
     summary: Dict[str, Any] = {
         "n_folds": len(folds),

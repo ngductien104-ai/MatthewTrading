@@ -103,7 +103,9 @@ class _StubEngine:
 
     It takes a config in its constructor because the real engines do -- which
     a stub with a bare __init__ would have hidden until the default factory
-    was used for real.
+    was used for real. It writes ``benchmark_equity`` for the same reason: the
+    real engine's equity.csv carries it, and a stub omitting it would let the
+    stitched benchmark look untestable when it is merely unwritten.
     """
 
     seen_configs: list[dict] = []
@@ -116,9 +118,10 @@ class _StubEngine:
         index = pd.bdate_range(config["start_date"], config["end_date"])
         rng = np.random.default_rng(len(index))
         equity = pd.Series(np.cumprod(1 + rng.normal(0.0004, 0.01, len(index))) * 1e6, index=index)
+        bench = pd.Series(np.cumprod(1 + rng.normal(0.0002, 0.009, len(index))) * 1e6, index=index)
         artifacts = Path(run_dir) / "artifacts"
         artifacts.mkdir(parents=True, exist_ok=True)
-        frame = pd.DataFrame({"equity": equity})
+        frame = pd.DataFrame({"equity": equity, "benchmark_equity": bench})
         frame.index.name = "timestamp"
         frame.to_csv(artifacts / "equity.csv")
         return {"sharpe": 1.0}
@@ -148,7 +151,7 @@ class TestWalkForwardRun:
         return walk_forward(
             config,
             loader=object(),
-            signal_engine_factory=lambda: object(),
+            signal_engine_factory=lambda cfg: object(),
             run_dir=tmp_path,
             dates=_dates(),
             engine_factory=_StubEngine,
@@ -199,9 +202,9 @@ class TestWalkForwardRun:
         """A stateful engine must not carry fold 2's fit into fold 3."""
         built: list[object] = []
 
-        def factory():
+        def factory(config):
             instance = object()
-            built.append(instance)
+            built.append((instance, config.get("train_end")))
             return instance
 
         _StubEngine.seen_configs = []
@@ -215,7 +218,12 @@ class TestWalkForwardRun:
             engine_factory=_StubEngine,
         )
         assert len(built) == 4
-        assert len(set(map(id, built))) == 4
+        assert len({id(instance) for instance, _ in built}) == 4
+        # And each was told where its own training window stops -- the channel
+        # BaseEngine does not provide, so without it a fitting engine could not
+        # have honoured the boundary this module requires of it.
+        boundaries = [train_end for _, train_end in built]
+        assert all(boundaries) and boundaries == sorted(boundaries)
 
     def test_the_summary_is_written_where_a_reader_will_find_it(self, tmp_path: Path) -> None:
         out = self._run(tmp_path, n_folds=3)
@@ -227,13 +235,13 @@ class TestWalkForwardRun:
         _StubEngine.seen_configs = []
         plain = walk_forward(
             {"codes": ["X"], "initial_cash": 1_000_000},
-            object(), lambda: object(), tmp_path / "a",
+            object(), lambda cfg: object(), tmp_path / "a",
             dates=_dates(), n_folds=3, engine_factory=_StubEngine,
         )
         _StubEngine.seen_configs = []
         hurdled = walk_forward(
             {"codes": ["X"], "initial_cash": 1_000_000, "risk_free": 0.05},
-            object(), lambda: object(), tmp_path / "b",
+            object(), lambda cfg: object(), tmp_path / "b",
             dates=_dates(), n_folds=3, engine_factory=_StubEngine,
         )
         assert hurdled["oos_metrics"]["sharpe"] < plain["oos_metrics"]["sharpe"]
@@ -242,7 +250,7 @@ class TestWalkForwardRun:
         """The engine calls sys.exit; a loop that swallowed that would hang silently."""
         with pytest.raises(WalkForwardError, match="fold 0.*stopped the engine"):
             walk_forward(
-                {"codes": ["X"]}, object(), lambda: object(), tmp_path,
+                {"codes": ["X"]}, object(), lambda cfg: object(), tmp_path,
                 dates=_dates(), n_folds=3, engine_factory=_ExitingEngine,
             )
 
@@ -250,9 +258,61 @@ class TestWalkForwardRun:
         """A walk-forward with a hole in it is not a walk-forward."""
         with pytest.raises(WalkForwardError, match="produced no equity curve"):
             walk_forward(
-                {"codes": ["X"]}, object(), lambda: object(), tmp_path,
+                {"codes": ["X"]}, object(), lambda cfg: object(), tmp_path,
                 dates=_dates(), n_folds=3, engine_factory=_EmptyArtifactEngine,
             )
+
+
+class TestTheStitchedBenchmark:
+    """A zero benchmark is not a benchmark.
+
+    calc_metrics compares against a flat zero when given nothing, and reports
+    information_ratio 0.0 -- which a reader takes as a measured absence of
+    edge, not as an absent measurement.
+    """
+
+    def test_the_benchmark_is_stitched_when_every_fold_recorded_one(
+        self, tmp_path: Path
+    ) -> None:
+        _StubEngine.seen_configs = []
+        out = walk_forward(
+            {"codes": ["VRE.VN"], "initial_cash": 1_000_000},
+            loader=object(),
+            signal_engine_factory=lambda cfg: object(),
+            run_dir=tmp_path,
+            dates=_dates(),
+            n_folds=3,
+            engine_factory=_StubEngine,
+        )
+        assert "information_ratio" in out["oos_metrics"]
+        assert "benchmark_return" in out["oos_metrics"]
+
+    def test_a_missing_benchmark_drops_the_field_rather_than_zeroing_it(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        original = _StubEngine.run_backtest
+
+        def without_benchmark(self, config, loader, signal_engine, run_dir, **kwargs):
+            metrics = original(self, config, loader, signal_engine, run_dir, **kwargs)
+            path = run_dir / "artifacts" / "equity.csv"
+            frame = pd.read_csv(path, index_col=0, parse_dates=True)
+            frame.drop(columns=["benchmark_equity"], errors="ignore").to_csv(path)
+            return metrics
+
+        monkeypatch.setattr(_StubEngine, "run_backtest", without_benchmark)
+        _StubEngine.seen_configs = []
+        out = walk_forward(
+            {"codes": ["VRE.VN"], "initial_cash": 1_000_000},
+            loader=object(),
+            signal_engine_factory=lambda cfg: object(),
+            run_dir=tmp_path,
+            dates=_dates(),
+            n_folds=3,
+            engine_factory=_StubEngine,
+        )
+        assert "information_ratio" not in out["oos_metrics"]
+        assert "excess_return" not in out["oos_metrics"]
+        assert "sharpe" in out["oos_metrics"]
 
 
 class TestOutOfSampleSlicing:
@@ -276,13 +336,13 @@ class TestOutOfSampleSlicing:
         return tmp_path
 
     def test_only_test_window_bars_survive(self, tmp_path: Path) -> None:
-        oos = _oos_returns(self._write(tmp_path), self._fold())
+        oos, _ = _oos_returns(self._write(tmp_path), self._fold())
         assert oos.index.min() == pd.Timestamp("2020-01-13")
         assert oos.index.max() == pd.Timestamp("2020-01-17")
 
     def test_the_first_test_bar_keeps_the_move_that_carried_into_it(self, tmp_path: Path) -> None:
         """Differencing after slicing would zero this bar and understate the path."""
-        oos = _oos_returns(self._write(tmp_path), self._fold())
+        oos, _ = _oos_returns(self._write(tmp_path), self._fold())
         assert oos.iloc[0] != 0.0
 
 
