@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Callable
 
 from src.config.schema import AgentConfig
+from src.core.budget import check as budget_check
 from src.core.provenance import current_git_commit
 from src.swarm import grounding
 from src.swarm.models import (
@@ -290,6 +291,30 @@ class SwarmRuntime:
                 # Check cancellation between layers
                 if cancel_event.is_set():
                     logger.info("Run %s cancelled at layer %d", run_id, layer_idx)
+                    self._cancel_remaining_tasks(task_store, layer_task_ids, run.tasks)
+                    all_succeeded = False
+                    break
+
+                # Budget ceiling, checked at the layer boundary because that is
+                # where the run is between commitments. 81% of everything this
+                # machine has generated went to runs that finished nothing; a
+                # ceiling cannot make a run converge, but it stops one paying
+                # for the discovery that it will not. Unset means unlimited.
+                verdict = budget_check(run.total_output_tokens)
+                if verdict.exceeded:
+                    logger.warning("Run %s over budget: %s", run_id, verdict.reason)
+                    self._emit_event(
+                        run_id,
+                        self._make_event(
+                            "run_over_budget",
+                            data={
+                                "spent_output_tokens": verdict.spent,
+                                "limit": verdict.limit,
+                                "layer": layer_idx,
+                                "reason": verdict.reason,
+                            },
+                        ),
+                    )
                     self._cancel_remaining_tasks(task_store, layer_task_ids, run.tasks)
                     all_succeeded = False
                     break
