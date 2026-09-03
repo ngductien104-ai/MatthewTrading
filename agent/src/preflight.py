@@ -93,29 +93,33 @@ def _check_llm_provider() -> CheckResult:
             critical=True,
         )
 
-    # Ping the base URL
-    try:
-        import requests
+    # Ask the provider the question a task will ask. The check this replaces
+    # made an unauthenticated GET against the base URL and called any answer
+    # "ready" -- which passes for a revoked key and for an account with no
+    # money in it. Measured 2026-09-03 on the configured provider: GET /models
+    # with a valid key returns 200, and a real completion returns 402
+    # Insufficient Balance. Only the second question predicts whether work runs.
+    from src.providers.health import describe, probe_provider
 
-        # Strip /v1 suffix for health check, just test TCP+SSL
-        ping_url = base_url.rstrip("/")
-        if ping_url.endswith("/v1"):
-            ping_url = ping_url[:-3]
-        resp = requests.get(ping_url, timeout=10)
+    health = probe_provider()
+    if health.ok:
         return CheckResult(
             name=f"LLM ({provider})",
             status="ready",
-            message=f"{model} via {base_url}",
+            message=f"{model} via {base_url} (completion accepted)",
             impact="",
         )
-    except Exception as exc:
-        return CheckResult(
-            name=f"LLM ({provider})",
-            status="error",
-            message=f"{type(exc).__name__}: {exc}",
-            impact="agent cannot function",
-            critical=True,
-        )
+    return CheckResult(
+        name=f"LLM ({provider})",
+        status="not_configured" if health.status == "not_configured" else "error",
+        message=describe(health),
+        impact=(
+            "runs will retry against an error that cannot resolve"
+            if not health.retryable
+            else "runs may succeed once the limit clears"
+        ),
+        critical=not health.retryable,
+    )
 
 
 def _check_okx() -> CheckResult:
