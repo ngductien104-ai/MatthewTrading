@@ -648,3 +648,103 @@ def completion_rate(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "sum of every token counter, dominated by cache reads; a size, not a spend"
         ),
     }
+
+
+def cost_per_conclusion(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Return what a conclusion has cost, overall and month by month.
+
+    :func:`completion_rate` says how much was wasted. This says how much a
+    finished piece of work costs, which is the number a decision is made
+    against: whether to launch another run of this shape, and -- the reason the
+    plan puts this before any scheduler -- whether an unattended loop would be
+    buying anything at that price.
+
+    Two rules, both learned from the records this reads.
+
+    **A period with no conclusion has no cost per conclusion.** It is reported
+    as ``None``, never as zero and never as a very large number. Zero would say
+    the period was free; a large number would imply an upper bound the data
+    cannot supply. The honest statement is that the denominator is empty.
+
+    **Every figure carries its coverage.** ``token_usage`` was added to
+    ``ProcessRecord`` only recently, so older records carry no generated-token
+    counter at all. Summing them produces a month that appears to have cost
+    nothing -- which on this ledger is exactly what July 2026 looks like, two
+    runs and zero tokens, because neither record has the counter. Each row
+    therefore reports ``records_with_counter`` beside its total, and a row whose
+    coverage is zero means "not measured", not "free".
+
+    The dimension is time, not preset. Every process record on this ledger has
+    an empty ``preset`` -- they come from Claude Code sessions rather than swarm
+    runs -- and a breakdown by a field that is empty everywhere is a table of
+    one row wearing a disguise.
+
+    Args:
+        records: ProcessRecord payloads, newest or oldest first, either way.
+
+    Returns:
+        ``{"overall": {...}, "by_month": [...]}``. Each entry carries ``runs``,
+        ``completed``, ``output_tokens``, ``records_with_counter``,
+        ``wall_hours`` and ``output_tokens_per_conclusion``.
+    """
+
+    def work(record: Mapping[str, Any]) -> int:
+        return int((record.get("token_usage") or {}).get(WORK_COUNTER, 0) or 0)
+
+    def summarise(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        done = sum(1 for row in rows if row.get("completed"))
+        tokens = sum(work(row) for row in rows)
+        measured = sum(1 for row in rows if work(row) > 0)
+        wall = sum(float(row.get("wall_time_sec") or 0.0) for row in rows)
+        return {
+            "runs": len(rows),
+            "completed": done,
+            "output_tokens": tokens,
+            "records_with_counter": measured,
+            "wall_hours": round(wall / 3600.0, 1),
+            # None, not zero and not infinity: with nothing finished there is
+            # no cost per conclusion to report.
+            "output_tokens_per_conclusion": (tokens / done) if done and tokens else None,
+        }
+
+    months: dict[str, list[Mapping[str, Any]]] = {}
+    for record in records:
+        stamp = str(record.get("known_at") or "")
+        months.setdefault(stamp[:7] or "unknown", []).append(record)
+
+    return {
+        "overall": summarise(list(records)),
+        "by_month": [
+            {"month": month, **summarise(months[month])} for month in sorted(months)
+        ],
+    }
+
+
+def render_cost_surface(surface: Mapping[str, Any]) -> str:
+    """Render :func:`cost_per_conclusion` as a table meant to be read.
+
+    A row with no conclusions prints ``-`` in the cost column, and a row with
+    no counter coverage says so, because both are absences and neither is a
+    number.
+    """
+    overall = surface["overall"]
+    lines = [
+        "cost per conclusion (generated tokens; cache reads excluded)",
+        f"{'month':<9}{'runs':>5}{'done':>5}{'out tokens':>13}"
+        f"{'per conclusion':>16}{'wall h':>8}  coverage",
+    ]
+    for row in list(surface["by_month"]) + [{**overall, "month": "ALL"}]:
+        per = row["output_tokens_per_conclusion"]
+        per_text = f"{per:,.0f}" if per else "-"
+        coverage = (
+            f"{row['records_with_counter']}/{row['runs']}"
+            if row["records_with_counter"]
+            else f"0/{row['runs']} not measured"
+        )
+        lines.append(
+            f"{row['month']:<9}{row['runs']:>5}{row['completed']:>5}"
+            f"{row['output_tokens']:>13,}{per_text:>16}{row['wall_hours']:>8.1f}  {coverage}"
+        )
+    if not overall["completed"]:
+        lines.append("no run has reached a conclusion; there is no cost per conclusion yet")
+    return "\n".join(lines)

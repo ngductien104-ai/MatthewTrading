@@ -51,6 +51,7 @@ from src.learning.extract import (
 )
 from src.learning.records import utc_now
 from src.learning.report import build_scorecard
+from src.learning.process_score import cost_per_conclusion, render_cost_surface
 from src.learning.resolve import resolve_ledger
 from src.learning.session import capture_session, scan_transcripts, summarize
 from src.learning.store import LearningStore, default_db_path
@@ -139,6 +140,20 @@ def _run_resolve(ticker: str | None, today: str | None, dry_run: bool) -> str:
     return "\n".join(lines)
 
 
+def _run_cost() -> str:
+    """Return what a conclusion has cost, read straight off the ledger.
+
+    Offline like the scorecard: no model, no network. The number this prints is
+    the one the plan wants read before any run is scheduled unattended, because
+    a loop that launches runs is buying conclusions at whatever this says.
+    """
+    with LearningStore(default_db_path()) as store:
+        records = [record.to_dict() for record in store.all_process_records()]
+    if not records:
+        return "no process records on the ledger yet"
+    return render_cost_surface(cost_per_conclusion(records))
+
+
 def _run_report(checkpoint: int) -> str:
     """Render the scorecard. Reads the ledger only -- no model, no network."""
     with LearningStore(default_db_path()) as store:
@@ -171,6 +186,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     resolve.add_argument(
         "--dry-run", action="store_true", help="score and report without writing outcomes"
     )
+    sub.add_parser("cost", help="print what a conclusion has cost, by month")
     report = sub.add_parser("report", help="print the scorecard for one checkpoint")
     report.add_argument(
         "--checkpoint", type=int, default=21, help="checkpoint in trading sessions"
@@ -187,6 +203,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         elif args.command == "report":
             print(_run_report(args.checkpoint))
+        elif args.command == "cost":
+            print(_run_cost())
             return 0
         elif args.command == "resolve":
             message = _run_resolve(args.ticker, args.today, args.dry_run)

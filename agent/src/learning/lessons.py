@@ -318,17 +318,7 @@ def derive(store: LearningStore, *, checkpoint: int = 21) -> list[Candidate]:
             if outcome.checkpoint_sessions == checkpoint
         )
 
-    rows = store._conn.execute(
-        "SELECT process_id FROM process_records GROUP BY process_id"
-    ).fetchall()
-    processes = [
-        payload
-        for payload in (
-            store._latest_payload("process_records", "process_id", row["process_id"])
-            for row in rows
-        )
-        if payload
-    ]
+    processes = [record.to_dict() for record in store.all_process_records()]
 
     found: list[Candidate] = []
     found.extend(calibration_rules(outcomes, calls))

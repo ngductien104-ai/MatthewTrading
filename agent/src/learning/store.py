@@ -544,6 +544,29 @@ class LearningStore:
         return ProcessRecord.from_dict(payload) if payload else None
 
     @_synchronized
+    def all_process_records(self) -> list[ProcessRecord]:
+        """Return the current version of every process record, oldest first.
+
+        One row per ``process_id``. The table holds a revision per capture, so
+        a plain ``SELECT *`` returns the same session several times and any
+        rate computed from it is wrong by however often that session was
+        re-read.
+
+        Two callers already reached through ``_conn`` and ``_latest_payload``
+        to do exactly this; one place to be wrong is better than two.
+        """
+        rows = self._conn.execute(
+            "SELECT process_id FROM process_records GROUP BY process_id "
+            "ORDER BY MIN(known_at), MIN(seq)"
+        ).fetchall()
+        records = []
+        for row in rows:
+            payload = self._latest_payload("process_records", "process_id", row["process_id"])
+            if payload:
+                records.append(ProcessRecord.from_dict(payload))
+        return records
+
+    @_synchronized
     def process_for_session(self, session_id: str) -> ProcessRecord | None:
         """Return the current process record for a Claude Code session.
 
