@@ -10,11 +10,48 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 03/09/2026 (`resolve.py` + `report.py` — sổ cái đọc ngược lại được)
+## 🔖 ĐIỂM DỪNG — 03/09/2026 (Giai đoạn 1 ĐÓNG: chấm + bảng điểm + quy kết)
 
-**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch. **5 commit chưa push.**
-**Full suite `11 failed, 3568 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
-suốt 21 mục; passed đi từ **3131 (baseline) → 3568**.
+> **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
+> Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
+
+**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch. **8 commit chưa push.**
+**Full suite `11 failed, 3597 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
+suốt 24 mục; passed đi từ **3131 (baseline) → 3597**.
+
+### Đã xong trong phiên 03/09 (8 commit)
+| Commit | Mục |
+|---|---|
+| `edb0fa8` | **1.6** `resolve.py` — bộ chấm. `outcomes` 0 → 15 |
+| `d82c809` | **1.6b** sửa lỗi lưới giá qua sự kiện DN (PET đảo dấu) · **1.7** `report.py` |
+| `2d0a335` | **1.8** hợp đồng `ref_price` (không phải giá đóng cửa như đã hứa) |
+| `a583a8b` | **0.7** `universe: VN30` **hỏng hoàn toàn** với nguồn thật — xem dưới |
+| `fe98e2b` | **1.9** `attribution.py` — regime + phân vị chéo |
+
+- [x] **0.7 `universe: VN30` raise với nguồn thật** *(tìm ra khi làm 1.9)* —
+  `_materialize_named_universe` đòi `DataFrame` có cột `symbol`, nhưng
+  `vndata.reference.symbols_by_group` trả **`Series`** tên `symbol`. Tức **mọi config
+  `universe: VN30` đều raise `UniverseResolutionError`** kể từ lúc viết (Q6). Test không bắt được
+  vì stub tự viết là `pd.DataFrame({"symbol": [...]})` — **lần thứ 3 trong nhánh này** một stub
+  tự viết đặt hợp đồng dễ hơn hợp đồng thật. Nay nhận cả hai dạng + có test hỏi **nguồn sống**.
+
+- [x] **1.9 `attribution.py`** — `regime` + `base_rate_pctile`. **18 test xanh.**
+  - **`regime` phản bác chính điều em viết ở commit trước.** Bảng điểm nói "cả 16 call trong
+    MỘT chế độ". **Sai:** 8 call vào tape 63 phiên **tăng**, 7 call vào tape **giảm**; dd252 trải
+    từ −3,5% tới −12,5%. Nay báo cáo **tính** dòng đó chứ không khẳng định, và nói rõ mỗi nửa
+    không đủ call để chấm riêng.
+  - **Phân vị chéo ĐỔI CÂU TRẢ LỜI.** Hit rate so **chỉ số** = 4/8. Hit rate so **cổ phiếu điển
+    hình (VN30)** = **2/8**. Lệch nhau ở **BSR và PHP — cả hai đều là `wait`**: BSR "tránh được"
+    1,2% kém hiệu suất so chỉ số → chấm hit, nhưng thực tế nó **vượt 62% rổ VN30** → chờ là
+    **mất hàng**. VNI là chỉ số **vốn hoá**, vài mã lớn kéo nó xuống dưới mã trung vị.
+  - **In CẢ HAI cạnh nhau, KHÔNG đổi quy tắc verdict.** Chọn thước đo nào có lợi sau khi biết
+    kết quả chính là thất bại mà sổ cái này sinh ra để chặn.
+  - **Từ chối `calibration.json` làm base rate, có lý do:** file đó phân phối lợi suất forward
+    **của VN-Index**; xếp hạng một cổ phiếu trong phân phối lợi suất chỉ số = đọc biến động
+    gấp đôi của cổ phiếu thành kỹ năng. Đúng file cho câu hỏi "chỉ số đi đâu tiếp", sai mẫu số
+    cho câu hỏi này.
+  - Giới hạn đã nói rõ: rổ peer là **VN30 hiện tại, không point-in-time**; mã bị loại khỏi rổ
+    vì giảm giá nên phân phối peer hơi cao → mọi phân vị ở đây hơi thấp.
 
 **Sổ cái `~/.vibe-trading/learning.db`: `calls=16`, `outcomes=15`, `evidence=142`,
 `process_records=23`.** `lessons=0` — nay đó là khoảng trống lớn nhất còn lại.
@@ -55,24 +92,30 @@ và mạng tới `vnstocks.com:443` đã thông.
 **GIAI ĐOẠN 2.1 ĐÓNG** (R1–R8): đổi tên hàm hứa sai · purge+embargo · CPCV · PSR+DSR · PBO ·
 block bootstrap · `risk_free` · `walkforward.py`.
 
-### Việc kế tiếp
-1. **`base_rate_pctile` bằng phân vị CHÉO, không phải bằng `calibration.json`.**
-   ⚠️ **Đính chính kế hoạch gốc.** Kế hoạch viết dùng `_risk_committee_202608/out/calibration.json`
-   (n=147) làm base rate. **Dùng thẳng là sai về phương pháp:** file đó phân phối **lợi suất
-   forward của VN-Index**, còn thứ cần xếp hạng là lợi suất **một cổ phiếu**. Cổ phiếu có
-   biến động ~2× chỉ số nên sẽ rơi vào đuôi phân phối vì lý do chẳng liên quan gì tới chất
-   lượng call — đọc biến động thành kỹ năng. Hơn nữa bộ chấm **đã** so với VN-Index **thực tế
-   cùng cửa sổ** (alpha), là biến kiểm soát mạnh hơn hẳn một phân phối lịch sử.
-   Bản đúng: **phân vị chéo so với rổ (VN30/HOSE) trên đúng cửa sổ đó** — trả lời "alpha
-   +6,69% của HDB là giỏi, hay hôm đó cái gì cũng tăng". Cần `vndata.reference.symbols_by_group`
-   + fetch ~30 mã/cửa sổ (DataPro cục bộ, rẻ). `regime` thì vẫn gán nhãn được từ VN-Index
-   (dd252/mom63/mom21/rvpct) để nói rõ "cả 16 call đều nằm trong MỘT chế độ thị trường".
-2. **Sửa `ref_price` ở khâu trích xuất.** Bộ chấm vừa lộ ra 3/16 call ghi **giá vào lệnh** vào
-   ô giá đóng cửa (PHR +1,61%, MWG −1,45%, VRE +2,06%). Hoặc tách hai trường, hoặc siết prompt.
-3. **Nối bộ chống overfit vào `run_validation`** — DSR/PBO/CPCV hiện gọi được nhưng
+### Việc kế tiếp — THỨ TỰ NÀY, mỗi mục một commit
+1. **[G2.1] Nối bộ chống overfit vào `run_validation`** — DSR/PBO/CPCV gọi được nhưng
    `run_validation` mới dispatch `monte_carlo`/`bootstrap`/`equity_consistency`. Cần khoá config +
    ghi vào run card, nếu không cả Giai đoạn 2.1 chỉ là thư viện không ai gọi.
-4. **Một chiến lược CÓ THAM SỐ ĐƯỢC KHỚP** để bộ công cụ này có việc thật mà làm — xem bài học dưới.
+2. **[G2.1] Một chiến lược CÓ THAM SỐ ĐƯỢC KHỚP** để bộ công cụ đó có việc thật mà làm.
+   Không có nó thì CPCV cho 5 đường OOS giống hệt nhau (sd=0) và walk-forward cho OOS ≈ IS —
+   xem "Bài học lớn nhất của Giai đoạn 2.1" bên dưới.
+3. **[G2.4] `bench_runner_strict` → `Hypothesis.status`** — bộ đánh giá factor tốt nhất repo,
+   kết quả đang trả cho LLM rồi **vứt**. Nối verdict đẩy trạng thái hypothesis (hiện `validated`
+   đặt tay được với 0 backtest). Mục nhỏ, giá trị cao.
+4. **[G2.3] `process_score.py`** — rubric **xác định**, LLM chỉ được trả trích dẫn, **điểm do
+   code cộng**. Nguồn: transcript Claude Code (23 `ProcessRecord` đã có). Kế hoạch gọi đây là
+   phần học nhanh nhất.
+5. **[G3.4] 4 trường tái lập cho `SwarmRun`** (`git_commit`, `seed`, `temperature`,
+   `playbook_version`). Nhỏ, và là tiền đề để quy trách nhiệm nhân quả.
+6. **[G3.1] `lessons` + playbook ACE** — `lessons=0` là khoảng trống lớn nhất còn lại.
+7. **[G3.2] Nạp playbook lại vào phân tích sau** (swarm `{upstream_context}` + skill).
+8. **[G3.5 → G3.3] Độ tin cậy rồi mới tới scheduler.** Kế hoạch nói thẳng: **cấm** bật lịch tự
+   động trên runtime 3/18. Làm van trước (preflight, phân loại lỗi retry, trần ngân sách,
+   resume, failover), scheduler sau. Phần provider có thể bị chặn bởi môi trường (OpenRouter 401,
+   DeepSeek $0) — làm phần code được, ghi rõ phần không.
+
+**Việc đã xong, giữ lại để khỏi làm lại:** `ref_price` (commit `2d0a335`) · `base_rate_pctile`
+phân vị chéo + `regime` (commit `fe98e2b`).
 
 ### Ba việc môi trường, không phải việc code
 - **5 thư mục pytest rỗng KẸT VĨNH VIỄN** trong `_upgrade/` (`q4_pytest_tmp`, `q5_pytest_tmp`,
