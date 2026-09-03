@@ -59,9 +59,34 @@ def test_explicit_codes_are_preserved_without_membership_warning(monkeypatch) ->
     assert "_run_card_warnings" not in resolved
 
 
+def test_vn30_universe_accepts_the_series_the_real_source_returns(monkeypatch) -> None:
+    """``symbols_by_group`` returns a Series, not a frame.
+
+    Requiring a frame -- which is only what the stub above looks like -- made
+    every ``universe: VN30`` config raise ``UniverseResolutionError`` against
+    the live source.
+    """
+    members = pd.Series(["VCB", "FPT", "HPG"], name="symbol")
+    monkeypatch.setattr("vndata.reference.symbols_by_group", lambda group: members)
+
+    config = _materialize_named_universe({"universe": "VN30"}, as_of=date(2026, 8, 30))
+    assert config["codes"] == ["VCB.VN", "FPT.VN", "HPG.VN"]
+
+
+def test_vn30_universe_resolves_against_the_live_membership_source() -> None:
+    """Ask the real source for its shape instead of asserting our stub's."""
+    pytest.importorskip("vnstock_data")
+    try:
+        config = _materialize_named_universe({"universe": "VN30"}, as_of=date(2026, 8, 30))
+    except UniverseResolutionError as exc:
+        pytest.skip(f"VN30 membership unavailable: {exc}")
+    assert len(config["codes"]) == 30
+    assert all(code.endswith(".VN") for code in config["codes"])
+
+
 @pytest.mark.parametrize(
     "result",
-    [pd.DataFrame({"symbol": []}), pd.DataFrame({"ticker": ["VCB"]})],
+    [pd.DataFrame({"symbol": []}), pd.DataFrame({"ticker": ["VCB"]}), pd.Series([], dtype=object)],
 )
 def test_vn30_membership_empty_or_wrong_schema_fails_loudly(monkeypatch, result) -> None:
     monkeypatch.setattr("vndata.reference.symbols_by_group", lambda group: result)

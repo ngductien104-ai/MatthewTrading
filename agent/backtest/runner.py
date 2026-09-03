@@ -82,14 +82,22 @@ def _materialize_named_universe(config: dict, *, as_of: date | None = None) -> d
             f"Could not resolve {universe} membership from vndata.reference: {exc}"
         ) from exc
 
-    if not isinstance(members, pd.DataFrame) or "symbol" not in members.columns:
+    # vndata.reference.symbols_by_group returns a Series named "symbol", not a
+    # frame; the frame is only what a hand-written test stub looked like, and
+    # requiring one made every `universe: VN30` config raise. Both shapes are
+    # accepted, and anything else still fails loudly rather than guessing.
+    if isinstance(members, pd.Series):
+        column = members
+    elif isinstance(members, pd.DataFrame) and "symbol" in members.columns:
+        column = members["symbol"]
+    else:
         raise UniverseResolutionError(
             f"{universe} membership source returned no 'symbol' column"
         )
 
     symbols = [
         str(value).strip().upper()
-        for value in members["symbol"].tolist()
+        for value in column.tolist()
         if not pd.isna(value) and str(value).strip()
     ]
     symbols = list(dict.fromkeys(symbols))
