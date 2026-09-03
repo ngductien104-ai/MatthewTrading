@@ -49,6 +49,16 @@ from src.learning.records import (
     resolve_deadline,
     sessions_between,
 )
+from src.learning.attribution import (
+    MIN_PEERS,
+    REGIME_LOOKBACK,
+    cross_sectional_percentile,
+    load_universe,
+    market_state,
+    parse_state,
+    peer_returns,
+    vn30_symbols,
+)
 from src.learning.report import (
     GRADED,
     Row,
@@ -101,6 +111,14 @@ from src.learning.transcript import (
 )
 
 __all__ = [
+    "MIN_PEERS",
+    "REGIME_LOOKBACK",
+    "cross_sectional_percentile",
+    "load_universe",
+    "market_state",
+    "parse_state",
+    "peer_returns",
+    "vn30_symbols",
     "GRADED",
     "Row",
     "Scorecard",

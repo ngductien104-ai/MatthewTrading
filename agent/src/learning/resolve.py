@@ -57,10 +57,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Mapping, Sequence
 
 import pandas as pd
 
+from src.learning.attribution import (
+    REGIME_LOOKBACK,
+    cross_sectional_percentile,
+    load_universe,
+    market_state,
+    peer_returns,
+    vn30_symbols,
+)
 from src.learning.records import (
     CHECKPOINT_SESSIONS,
     CallRecord,
@@ -292,6 +300,7 @@ def score_call(
     prices: pd.DataFrame,
     benchmark: pd.DataFrame,
     vn30: pd.DataFrame | None = None,
+    peers: Mapping[str, pd.DataFrame] | None = None,
     siblings: Sequence[CallRecord] = (),
     checkpoints: Iterable[int] = CHECKPOINT_SESSIONS,
 ) -> ResolveReport:
@@ -300,8 +309,11 @@ def score_call(
     Args:
         call: The revision to score, on its own clock from its own ``as_of``.
         prices: VND bars for the ticker, covering ``as_of`` onward.
-        benchmark: VN-Index bars; also the trading calendar.
+        benchmark: VN-Index bars; also the trading calendar. Carrying
+            :data:`~src.learning.attribution.REGIME_LOOKBACK` sessions of
+            history before ``as_of`` additionally fills in the regime.
         vn30: VN30 bars, recorded but never used for the verdict.
+        peers: Universe frames for the cross-sectional base rate.
         siblings: Other revisions of the same episode, for supersession.
         checkpoints: Checkpoints in trading sessions.
 
@@ -394,7 +406,20 @@ def score_call(
         unchecked = len(call.invalidation_triggers) - (1 if breach is not None else 0)
         if unchecked > 0:
             notes.append(f"{unchecked} free-text trigger(s) not machine-checked")
-        notes.append("regime and base rate not attributed")
+
+        regime = market_state(benchmark, entry)
+        if not regime:
+            notes.append(f"regime needs {REGIME_LOOKBACK} sessions of index history")
+        percentile = None
+        if peers:
+            ranked = peer_returns(peers, entry, landing, exclude=call.ticker)
+            percentile = cross_sectional_percentile(realized, ranked)
+            if percentile is None:
+                notes.append(f"only {len(ranked)} peer(s) priced; no base rate")
+            else:
+                notes.append(f"base rate vs {len(ranked)} peers (current membership)")
+        else:
+            notes.append("no peer universe; base rate not attributed")
 
         evidences = [
             _price_evidence(
@@ -434,6 +459,8 @@ def score_call(
                 alpha=alpha,
                 target_error=target_error,
                 trigger_fired=breach is not None,
+                regime=regime,
+                base_rate_pctile=percentile,
                 evidence_ids=[item.evidence_id for item in evidences],
                 notes="; ".join(notes),
             )
@@ -448,6 +475,7 @@ def resolve_ledger(
     today: str | None = None,
     ticker: str | None = None,
     checkpoints: Iterable[int] = CHECKPOINT_SESSIONS,
+    universe: Sequence[str] | None = None,
     write: bool = True,
 ) -> ResolveReport:
     """Score every call on the ledger the calendar has caught up with.
@@ -458,6 +486,8 @@ def resolve_ledger(
         today: Last session to consider; defaults to the current UTC date.
         ticker: Restrict to one symbol.
         checkpoints: Checkpoints in trading sessions.
+        universe: Peer symbols for the cross-sectional base rate. Defaults to
+            current VN30 membership; pass an empty sequence to skip it.
         write: Append the outcomes. ``False`` makes the pass a dry run.
 
     Returns:
@@ -470,18 +500,38 @@ def resolve_ledger(
 
     end = today or datetime.now(timezone.utc).date().isoformat()
     start = min(call.as_of for call in calls)
-    benchmark = fetch(BENCHMARK_SYMBOL, start, end)
+    # The index is fetched from well before the first call so the regime has a
+    # trailing year to measure against. Calendar days, generously: 252 sessions
+    # is roughly 366 days, and asking for too much history costs one request
+    # while asking for too little silently blanks the regime column.
+    history_start = (
+        pd.Timestamp(start) - pd.Timedelta(days=int(REGIME_LOOKBACK * 1.65))
+    ).date().isoformat()
+    benchmark = fetch(BENCHMARK_SYMBOL, history_start, end)
     try:
         vn30 = fetch(VN30_SYMBOL, start, end)
     except Exception as exc:  # noqa: BLE001 - VN30 is recorded, never decisive
         report.warnings.append(f"{VN30_SYMBOL} unavailable, vn30_ret left empty: {exc}")
         vn30 = None
 
+    peers: dict[str, pd.DataFrame] = {}
+    if universe is None:
+        try:
+            universe = vn30_symbols()
+        except Exception as exc:  # noqa: BLE001 - the base rate is not the verdict
+            report.warnings.append(f"VN30 membership unavailable, no base rate: {exc}")
+            universe = []
+    if universe:
+        peers, problems = load_universe(fetch, universe, start, end)
+        report.warnings.extend(f"peer {problem}" for problem in problems)
+
     by_episode: dict[str, list[CallRecord]] = {}
     for call in calls:
         by_episode.setdefault(call.episode_id, []).append(call)
 
-    frames: dict[str, pd.DataFrame] = {}
+    # The peer frames cover the same span, so a call on a VN30 name is already
+    # priced and need not be fetched twice.
+    frames: dict[str, pd.DataFrame] = dict(peers)
     for call in calls:
         if call.ticker not in frames:
             try:
@@ -497,6 +547,7 @@ def resolve_ledger(
             prices=prices,
             benchmark=benchmark,
             vn30=vn30,
+            peers=peers,
             siblings=by_episode[call.episode_id],
             checkpoints=checkpoints,
         )

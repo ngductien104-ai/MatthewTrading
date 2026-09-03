@@ -31,6 +31,7 @@ from math import sqrt
 from statistics import fmean, median
 
 from src.learning.records import CallRecord, Outcome
+from src.learning.attribution import parse_state
 from src.learning.resolve import ACTION_DIRECTION
 from src.learning.store import LearningStore
 
@@ -96,6 +97,23 @@ class Row:
         return self.outcome.verdict in GRADED
 
     @property
+    def cross_verdict(self) -> str | None:
+        """The same verdict, judged against the typical stock instead of the index.
+
+        VN-Index is capitalisation-weighted and a handful of large caps move it,
+        so "beat the index" and "beat the median name" are different questions,
+        and on this ledger they give different answers. Reported beside the
+        index verdict rather than instead of it: switching benchmarks quietly
+        would be choosing the flattering one.
+        """
+        percentile = self.outcome.base_rate_pctile
+        if not self.graded or percentile is None:
+            return None
+        direction = ACTION_DIRECTION[self.call.action]
+        beat_the_field = percentile > 0.5
+        return "hit" if (beat_the_field == (direction > 0)) else "miss"
+
+    @property
     def entry_printed(self) -> bool | None:
         """Whether the entry a stay-away call named was ever actually reached.
 
@@ -145,6 +163,8 @@ class Scorecard:
             if row.call.confidence is not None
         ]
         base_rate = fmean(actual for _, actual in stated) if stated else None
+        cross = [row for row in graded if row.cross_verdict is not None]
+        cross_hits = sum(1 for row in cross if row.cross_verdict == "hit")
         return {
             "checkpoint_sessions": self.checkpoint_sessions,
             "ledger": self.counts,
@@ -165,6 +185,12 @@ class Scorecard:
             # confidence over seven calls against a hit rate over eight would be
             # the kind of mismatched denominator this report exists to catch.
             "confidence_hit_rate": base_rate,
+            "cross_graded": len(cross),
+            "cross_hits": cross_hits,
+            "cross_hit_rate": cross_hits / len(cross) if cross else None,
+            "cross_disagreements": sum(
+                1 for row in graded if row.cross_verdict not in (None, row.outcome.verdict)
+            ),
         }
 
     def to_text(self) -> str:
@@ -181,18 +207,23 @@ class Scorecard:
         out.append("CALLS")
         out.append(
             f"  {'ticker':<6} {'as_of':<11} {'action':<11} {'verdict':<11} "
-            f"{'ret':>8} {'vni':>8} {'alpha':>8} {'tgt err':>8} {'conf':>5}"
+            f"{'ret':>8} {'vni':>8} {'alpha':>8} {'tgt err':>8} {'pctile':>7} {'conf':>5}"
         )
         for row in self.rows:
             call, outcome = row.call, row.outcome
             target_error = (
                 f"{outcome.target_error:+7.2%}" if outcome.target_error is not None else "      --"
             )
+            percentile = (
+                f"{outcome.base_rate_pctile:.2f}"
+                if outcome.base_rate_pctile is not None
+                else "--"
+            )
             confidence = f"{call.confidence:.2f}" if call.confidence is not None else "   --"
             out.append(
                 f"  {call.ticker:<6} {call.as_of:<11} {call.action:<11} {outcome.verdict:<11} "
                 f"{outcome.realized_ret:+7.2%} {outcome.vni_ret:+7.2%} {outcome.alpha:+7.2%} "
-                f"{target_error} {confidence:>5}"
+                f"{target_error} {percentile:>7} {confidence:>5}"
             )
         out.append("")
 
@@ -213,6 +244,28 @@ class Scorecard:
                 f"  the interval spans {high - low:.0%} of the range: at n={stats['graded']} "
                 "this separates almost nothing from chance"
             )
+            if stats["cross_graded"]:
+                out.append("")
+                out.append(
+                    f"  vs the typical VN30 stock instead of the index: "
+                    f"{stats['cross_hits']}/{stats['cross_graded']} = "
+                    f"{stats['cross_hit_rate']:.1%}"
+                )
+                if stats["cross_disagreements"]:
+                    flipped = ", ".join(
+                        f"{row.call.ticker} ({row.outcome.verdict}->{row.cross_verdict})"
+                        for row in graded
+                        if row.cross_verdict not in (None, row.outcome.verdict)
+                    )
+                    out.append(
+                        f"  the two benchmarks disagree on {stats['cross_disagreements']} "
+                        f"call(s): {flipped}"
+                    )
+                    out.append(
+                        "  VN-Index is cap-weighted, so a few large caps can drag it below "
+                        "the median name; both are shown because picking the flattering one "
+                        "after the fact is the whole failure this ledger exists to prevent"
+                    )
         else:
             out.append("  nothing graded yet")
         out.append("")
@@ -266,16 +319,45 @@ class Scorecard:
                 )
             out.append("")
 
-        out.append("NOT ATTRIBUTED")
+        states = [parse_state(row.outcome.regime) for row in self.rows if row.outcome.regime]
+        out.append("MARKET THE CALLS WERE MADE IN")
+        if states:
+            rising = sum(1 for state in states if state.get("mom63", 0.0) > 0)
+            for key, label in (
+                ("dd252", "drawdown from the year's high"),
+                ("mom63", "63-session momentum"),
+                ("rv_pct", "realised vol, percentile of its own year"),
+            ):
+                values = [state[key] for state in states if key in state]
+                if not values:
+                    continue
+                fmt = ".2f" if key == "rv_pct" else "+.1%"
+                out.append(
+                    f"  {label:<44} {min(values):{fmt}} to {max(values):{fmt}}"
+                )
+            out.append(
+                f"  {rising} call(s) made into a rising 63-session tape, "
+                f"{len(states) - rising} into a falling one -- so these are NOT one market, "
+                "and neither half holds enough graded calls to be scored on its own"
+            )
+        else:
+            out.append("  no call carries a regime; the index history did not reach back far enough")
+        out.append("")
+
+        out.append("LIMITS")
         out.append(
-            "  regime, base rate: the calibration file distributes VN-Index forward returns, "
-            "so ranking one stock's return inside it would read the stock's higher volatility "
-            "as skill. A cross-sectional percentile against the universe over the same window "
-            "is the honest version, and is not built yet."
+            f"  n={stats['graded']} graded, at one checkpoint "
+            f"({self.checkpoint_sessions} sessions) that none of the calls named."
         )
         out.append(
-            "  every call above was made between June and August 2026, in one regime, and "
-            "scored at one checkpoint that none of them named."
+            "  the peer universe is CURRENT VN30 membership, not point-in-time: names dropped "
+            "from the index during a window are absent, and names are dropped for falling, so "
+            "every percentile here sits a little low."
+        )
+        out.append(
+            "  the base rate is NOT taken from calibration.json -- that file distributes "
+            "VN-Index forward returns, and ranking one stock inside it reads the stock's "
+            "roughly doubled volatility as skill."
         )
         return "\n".join(out)
 

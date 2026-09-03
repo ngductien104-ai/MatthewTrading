@@ -344,6 +344,7 @@ class TestLedgerPass:
                 fetch=self._fetch(frame([100.0] * 21 + [120.0] * 9)),
                 today="2026-07-31",
                 checkpoints=(21,),
+                universe=[],
             )
             assert store.counts()["outcomes"] == 1
             stored = store.outcomes_for(report.outcomes[0].call_id)
@@ -358,6 +359,7 @@ class TestLedgerPass:
                 fetch=self._fetch(frame([100.0] * 30)),
                 today="2026-07-31",
                 checkpoints=(21,),
+                universe=[],
                 write=False,
             )
             assert len(report.outcomes) == 1
@@ -368,7 +370,7 @@ class TestLedgerPass:
         with LearningStore(tmp_path / "learning.db") as store:
             self._seed(store, call())
             for _ in range(2):
-                resolve_ledger(store, fetch=fetch, today="2026-07-31", checkpoints=(21,))
+                resolve_ledger(store, fetch=fetch, today="2026-07-31", checkpoints=(21,), universe=[])
             assert store.counts()["outcomes"] == 1
 
     def test_a_dead_symbol_is_reported_and_the_rest_still_score(self, tmp_path):
@@ -384,7 +386,7 @@ class TestLedgerPass:
         with LearningStore(tmp_path / "learning.db") as store:
             self._seed(store, call())
             self._seed(store, call(ticker="DED", source_event_sha256="dead01"))
-            report = resolve_ledger(store, fetch=fetch, today="2026-07-31", checkpoints=(21,))
+            report = resolve_ledger(store, fetch=fetch, today="2026-07-31", checkpoints=(21,), universe=[])
             assert len(report.outcomes) == 1
             assert any("DED" in text for text in report.warnings)
 
@@ -400,7 +402,7 @@ class TestLedgerPass:
 
         with LearningStore(tmp_path / "learning.db") as store:
             self._seed(store, call())
-            report = resolve_ledger(store, fetch=fetch, today="2026-07-31", checkpoints=(21,))
+            report = resolve_ledger(store, fetch=fetch, today="2026-07-31", checkpoints=(21,), universe=[])
             assert report.outcomes[0].verdict == "hit"
             assert report.outcomes[0].vn30_ret is None
             assert any(VN30_SYMBOL in text for text in report.warnings)

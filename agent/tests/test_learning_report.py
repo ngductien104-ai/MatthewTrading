@@ -158,8 +158,73 @@ class TestScorecard:
             _outcome(store, _call(store, "BBB", "accumulate"), "miss")
             text = build_scorecard(store).to_text()
         assert "95% CI" in text
-        assert "NOT ATTRIBUTED" in text
-        assert "one regime" in text
+        assert "LIMITS" in text
+        assert "not point-in-time" in text
+
+
+class TestCrossSection:
+    """The index and the median stock are different benchmarks.
+
+    VN-Index is cap-weighted, so on this ledger they disagree: BSR and PHP were
+    hits against the index and misses against the field.
+    """
+
+    def test_a_long_call_beating_the_field_is_a_cross_sectional_hit(self, tmp_path):
+        with LearningStore(tmp_path / "l.db") as store:
+            _outcome(store, _call(store, "AAA", "accumulate"), "hit", base_rate_pctile=0.79)
+            row = build_scorecard(store).rows[0]
+        assert row.cross_verdict == "hit"
+
+    def test_a_stay_away_call_is_wrong_when_the_stock_beat_the_field(self, tmp_path):
+        with LearningStore(tmp_path / "l.db") as store:
+            _outcome(store, _call(store, "AAA", "wait"), "hit", base_rate_pctile=0.62)
+            row = build_scorecard(store).rows[0]
+        assert row.cross_verdict == "miss"
+
+    def test_a_row_with_no_percentile_gets_no_second_opinion(self, tmp_path):
+        with LearningStore(tmp_path / "l.db") as store:
+            _outcome(store, _call(store, "AAA", "accumulate"), "hit")
+            row = build_scorecard(store).rows[0]
+        assert row.cross_verdict is None
+
+    def test_an_ungraded_row_is_not_given_a_cross_sectional_verdict(self, tmp_path):
+        with LearningStore(tmp_path / "l.db") as store:
+            _outcome(store, _call(store, "AAA", "hold"), "no_claim", base_rate_pctile=0.9)
+            row = build_scorecard(store).rows[0]
+        assert row.cross_verdict is None
+
+    def test_the_disagreement_is_counted_and_named_rather_than_averaged_away(self, tmp_path):
+        with LearningStore(tmp_path / "l.db") as store:
+            _outcome(store, _call(store, "AAA", "wait"), "hit", base_rate_pctile=0.62)
+            _outcome(store, _call(store, "BBB", "accumulate"), "hit", base_rate_pctile=0.80)
+            card = build_scorecard(store)
+        stats = card.to_dict()
+        assert stats["hit_rate"] == pytest.approx(1.0)
+        assert stats["cross_hit_rate"] == pytest.approx(0.5)
+        assert stats["cross_disagreements"] == 1
+        assert "AAA (hit->miss)" in card.to_text()
+
+
+class TestRegimeBlock:
+    def test_two_different_markets_are_reported_as_two(self, tmp_path):
+        with LearningStore(tmp_path / "l.db") as store:
+            _outcome(
+                store, _call(store, "AAA", "accumulate"), "hit",
+                regime="dd252=-3.8% mom63=+10.9% mom21=-0.5% rv_pct=0.22",
+            )
+            _outcome(
+                store, _call(store, "BBB", "accumulate"), "miss",
+                regime="dd252=-12.5% mom63=-9.9% mom21=-9.5% rv_pct=0.50",
+            )
+            text = build_scorecard(store).to_text()
+        assert "1 call(s) made into a rising 63-session tape, 1 into a falling one" in text
+        assert "NOT one market" in text
+
+    def test_a_ledger_with_no_regime_says_so_instead_of_printing_a_blank_range(self, tmp_path):
+        with LearningStore(tmp_path / "l.db") as store:
+            _outcome(store, _call(store, "AAA", "accumulate"), "hit")
+            text = build_scorecard(store).to_text()
+        assert "did not reach back far enough" in text
 
 
 class TestEntryPrinted:
