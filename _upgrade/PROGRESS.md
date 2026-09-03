@@ -10,20 +10,22 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (HÀNG ĐỢI ĐÃ HẾT: van tin cậy + scheduler đã xong)
+## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (hàng đợi hết; đợt 3 sửa hai lỗi ĐO SAI)
 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
 > Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
 
-**Nhánh:** `upgrade/learning-loop`. **22 commit chưa push** so với `origin/upgrade/learning-loop` (chưa ai bảo push).
+**Nhánh:** `upgrade/learning-loop`. Đã push tới `7e481f8`; sau đó có thêm commit —
+đếm bằng `git log @{u}..HEAD`, đừng tin con số chép tay ở đây.
 **Mục 1–8 trong hàng đợi ĐÃ XONG HẾT.** Việc còn lại không nằm trong kế hoạch cũ nữa —
 xem khối **"Còn nợ gì"** ngay dưới phần hàng đợi.
-**Full suite `12 failed, 3852 passed, 1 skipped, 9 errors`** — **11/12 fail + 9 error khớp**
+**Full suite `12 failed, 3885 passed, 1 skipped, 9 errors`** — **11/12 fail + 9 error khớp**
 baseline từng cái; cái thứ 12 là test lung lay của `rich` (xem mục riêng bên dưới, đã kiểm trên
-cây sạch tại HEAD). Passed đi từ **3131 (baseline) → 3852**.
+cây sạch tại HEAD). Passed đi từ **3131 (baseline) → 3885**.
 
 **Sổ cái `~/.vibe-trading/learning.db` — đếm THEO ID, không đếm dòng:**
-`calls=16` · `outcomes=15` · `evidence=142` · `lessons=5` · `process_records=25`.
+`calls=16` · `outcomes=15` · `evidence=142` · `lessons=6 (khoá theo rule)` · `process_records=25`.
+Swarm run trên đĩa: **18, xong 3**. Đây là **hai quần thể khác nhau** — xem đợt 3.
 > ⚠️ **BẪY ĐẾM.** `SELECT count(*) FROM outcomes` trả **45**, không phải 15. Sổ cái
 > append-only **ghi bản sửa chứ không ghi đè**: 3 lần chạy `resolve` = 3 revision cho cùng
 > một `outcome_id`. Diff giữa chúng là thật (`target_error` của PET đổi dấu, thêm
@@ -298,6 +300,61 @@ block bootstrap · `risk_free` · `walkforward.py`.
 **Việc đã xong, giữ lại để khỏi làm lại:** `ref_price` (commit `2d0a335`) · `base_rate_pctile`
 phân vị chéo + `regime` (commit `fe98e2b`).
 
+### Phiên 04/09 — đợt 3: hai lỗi ĐO SAI, tìm ra khi làm "Còn nợ gì"
+
+| Commit | Mục |
+|---|---|
+| `9588d48` | `lesson_id` theo **rule**, không theo câu chữ — delta update trước đây tự phá chính nó |
+| `8109f25` | Cổng `reliability` **đếm nhầm bảng**; kèm bộ phân loại nguyên nhân run hỏng |
+
+**1. Cổng `reliability` đọc SAI QUẦN THỂ.** Nó đọc `ProcessRecord` — tức **phiên Claude Code**,
+không phải swarm run. Không một record nào trong 25 cái có `run_id` hay `preset`, và `completed`
+ở đó nghĩa là hook kết thúc phiên đã chạy. Tức là câu hỏi "có được tiêu tiền tự động không" đang
+được trả lời bằng "phiên editor của ai đó có đóng sạch không".
+**Lọt được vì hai con số gần bằng nhau**: 4/25 phiên (16%) vs 3/18 run (17%). Phép đo sai mà ra
+số hợp lý là loại sống lâu nhất.
+
+**Hỏi thẳng các run thì trả lời được câu thứ hai — và nó đổi nghĩa của tỷ lệ:**
+
+```
+15/15 run hỏng là chết vì PROVIDER.
+52 task hỏng: 35 lỗi provider, 17 bị chặn phía sau một lỗi provider.
+KHÔNG có cái nào hỏng vì nghiên cứu sai, timeout, hay dữ liệu xấu.
+
+  7  provider_no_balance          31  provider_no_balance
+  3  provider_unavailable         17  blocked_by_upstream
+  3  provider_bad_credentials      8  provider_unavailable
+  1  provider_rate_limited         8  provider_bad_credentials
+  1  provider_not_logged_in        3  provider_not_logged_in
+                                   2  provider_rate_limited
+```
+
+31 task `no_balance` đó **chính là 31 task** mà `provider_errors.py` được viết ra vì nó.
+Nên **tỷ lệ hoàn thành trên máy này là phát biểu về một tài khoản chưa nạp tiền**, không phải
+về việc nghiên cứu có hội tụ hay không. Lời từ chối nay nói rõ điều đó — "nạp tiền" và "cải
+thiện nghiên cứu" là hai việc khác nhau, và thông báo cũ chỉ vào việc thứ hai.
+
+> ⚠️ **KHÔNG hiệu chỉnh tỷ lệ theo nguyên nhân.** Loại lỗi provider ra thì 3/18 thành **3/3** và
+> cổng mở toang. Một kết luận **không tự xuất hiện** vì lỗi được phân loại lại. Chu kỳ tự động
+> trên máy có provider chết thì không sản xuất được gì, bất kể lỗi của ai.
+
+**2. `lesson_id` băm theo CÂU CHỮ ⇒ delta update tự phá chính nó.** `ab713d5` khẳng định suất
+lại cùng phát hiện sẽ rơi vào cùng id và **cộng dồn**. Cơ chế có thật, khẳng định thì sai: luật
+đếm **tự viết số của nó vào câu của nó**, nên "3 of 24" và "4 of 25" băm ra hai id. Mỗi lần suất
+lại đẻ thêm một bản gần trùng. ACE cảnh báo playbook **xói mòn**; cái này **phình ra**, cùng một
+bệnh. Sổ cái đã có **3 lesson process** nói chồng nhau, một trong đó là câu sai nghĩa ở trên.
+- Nay `Lesson.rule` là **danh tính**; lesson viết tay không có rule thì vẫn băm theo câu chữ.
+- `curate` **cho nghỉ** (retired) dòng cũ mà một rule thay thế.
+- Một test **đặt tên theo hành vi sai** (`test_a_reworded_finding_is_a_different_lesson`) — tức
+  con bug đã từng được viết xuống thành yêu cầu và được đồng ý một lần.
+- Dọn sổ cái: 7 lesson cũ (có trước trường `rule`) đã cho nghỉ bằng `retire_lesson`; còn **6
+  lesson khoá theo rule**, suất lại 2 lần nữa vẫn là 6.
+
+**Lỗi tự gây, bị test bắt:** bản đầu của luật swarm gọi thẳng `summarise()` bên trong, nên suất
+lesson cho một **sổ cái test rỗng** lại đi đọc thư mục run thật của máy. Nay truyền summary vào —
+luật đọc trạng thái môi trường thì không phải là hàm của dữ liệu nó nhận. **Cùng hình dạng** với
+lỗi test cộng vào bộ đếm PR thật ở commit trước đó.
+
 ### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
 
 Hàng đợi 1–8 hết. Ba thứ dưới đây **không phải mục kế hoạch chưa làm**, mà là **giới hạn đã
@@ -310,10 +367,12 @@ biết** của thứ vừa làm xong. Ghi ra để phiên sau không phải tự
    nó; **không có** đường nối sẵn sang `SwarmRuntime.start_run`, vì máy này không completion
    nổi (402) nên không chạy thử được. Khi provider sống lại: viết launcher, và **chạy thử thật
    trước khi nói là xong**.
-3. **Cổng `reliability` sẽ còn từ chối rất lâu.** 4/25 = 16% so với sàn 50%. Nó **đúng** khi từ
-   chối — đừng hạ sàn cho qua. Muốn mở cổng thì phải làm run **về đích** nhiều hơn, mà đó chính
-   là thứ các van (b) và (c) sinh ra để giúp. Đọc `learning cost` trước, không đọc completion
-   rate suông.
+3. **Cổng `reliability` sẽ còn từ chối rất lâu — và nay đã biết TẠI SAO.** 3/18 = 17% so với
+   sàn 50%, và **15/15 run hỏng là vì provider**, không cái nào vì nghiên cứu (xem đợt 3 ở trên).
+   Nghĩa là **cách mở cổng không phải sửa nghiên cứu mà là có một provider chạy được** — cùng
+   một việc với mục 1 và 2. Vẫn **đừng hạ sàn cho qua**, và **đừng loại lỗi provider khỏi mẫu
+   số**: cả hai đều là mở cổng bằng cách đổi thước đo. Chạy `learning cost` và
+   `learning scheduler` để đọc, đừng đọc completion rate suông.
 
 **Đừng bật scheduler.** Không phải vì code chưa xong mà vì **số chưa đủ**, và chính nó đang nói
 ra điều đó mỗi lần chạy.
