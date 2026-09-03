@@ -171,6 +171,113 @@ class SwarmRuntime:
 
         return run
 
+    def resume_run(
+        self,
+        run_id: str,
+        live_callback: Callable | None = None,
+        include_shell_tools: bool = False,
+        private_context: str = "",
+    ) -> SwarmRun:
+        """Re-execute only the tasks a previous attempt did not complete.
+
+        Three of twenty-four runs on this machine reached a conclusion, and a
+        failure in the last layer threw away every layer before it. Re-running
+        the whole preset pays a second time for work that already succeeded and
+        replaces answers that were fine with whatever the retry happens to say.
+
+        Completed tasks keep their status, their summary and their artifacts.
+        Everything else -- failed, blocked, cancelled, or left ``in_progress``
+        by a host that died -- is returned to ``pending`` with its error and
+        blockers cleared, so the dependency gate re-evaluates from the current
+        state of disk rather than from the state that stopped the first run.
+
+        The token counters carry over deliberately. A resumed run that has
+        already passed its ceiling stops at the first layer boundary, because
+        the alternative is a budget that any failure resets.
+
+        Args:
+            run_id: Identifier of the run to resume.
+            live_callback: Optional callback invoked for each event.
+            include_shell_tools: Whether workers may register shell tools.
+            private_context: Extra context appended to the grounding block.
+
+        Returns:
+            The run, with execution restarted in the background. When every
+            task already completed the run is returned untouched: a resume with
+            nothing to do is a no-op, not an error.
+
+        Raises:
+            FileNotFoundError: If the run does not exist.
+            ValueError: If the run is currently executing. Two executors on one
+                run directory would interleave writes to the same task files.
+        """
+        run = self._store.load_run(run_id)
+        if run is None:
+            raise FileNotFoundError(f"swarm run not found: {run_id}")
+
+        with self._lock:
+            already_live = run_id in self._cancel_events
+        if already_live or run.status == RunStatus.running:
+            raise ValueError(
+                f"run {run_id} is still executing; cancel it before resuming"
+            )
+
+        run_dir = self._store.run_dir(run_id)
+        task_store = TaskStore(run_dir)
+        tasks = task_store.load_all()
+        if not tasks:
+            raise FileNotFoundError(f"run {run_id} has no tasks on disk to resume")
+
+        completed = [t for t in tasks if t.status == TaskStatus.completed]
+        if len(completed) == len(tasks):
+            logger.info("Run %s already complete; nothing to resume", run_id)
+            return run
+
+        for task in tasks:
+            if task.status == TaskStatus.completed:
+                continue
+            task_store.update_status(
+                task.id,
+                TaskStatus.pending,
+                error=None,
+                blocked_by=[],
+                completed_at=None,
+                started_at=None,
+            )
+
+        run.tasks = task_store.load_all()
+        run.status = RunStatus.pending
+        run.completed_at = None
+        self._store.update_run(run)
+
+        cancel_event = threading.Event()
+        with self._lock:
+            self._cancel_events[run_id] = cancel_event
+            if live_callback is not None:
+                self._live_callbacks[run_id] = live_callback
+
+        self._emit_event(
+            run_id,
+            self._make_event(
+                "run_resumed",
+                data={
+                    "completed_tasks": len(completed),
+                    "pending_tasks": len(tasks) - len(completed),
+                    "spent_output_tokens": run.total_output_tokens,
+                },
+            ),
+        )
+
+        thread = threading.Thread(
+            target=self._execute_run,
+            args=(run, cancel_event, include_shell_tools, private_context, True),
+            name=f"swarm-resume-{run_id}",
+            daemon=True,
+        )
+        thread.start()
+
+        return run
+
     def cancel_run(self, run_id: str) -> bool:
         """Signal cancellation for a running swarm.
 
@@ -238,6 +345,7 @@ class SwarmRuntime:
         cancel_event: threading.Event,
         include_shell_tools: bool = False,
         private_context: str = "",
+        resume: bool = False,
     ) -> None:
         """Core orchestration loop (runs in background thread).
 
@@ -255,6 +363,10 @@ class SwarmRuntime:
             run: SwarmRun to execute.
             cancel_event: Threading event for cancellation signalling.
             include_shell_tools: Whether workers may register shell tools.
+            resume: Whether the tasks already on disk are the source of truth.
+                On a resume the initial task write is skipped, completed tasks
+                are not dispatched again, and their summaries seed the
+                upstream context downstream tasks read.
         """
         run_id = run.id
         run_dir = self._store.run_dir(run_id)
@@ -266,10 +378,14 @@ class SwarmRuntime:
 
         self._prefetch_grounding_data(run)
 
-        # Initialize task store
+        # Initialize task store. On a resume the files on disk carry the
+        # statuses and summaries of everything that already succeeded, and
+        # writing run.tasks over them would erase exactly the work being
+        # resumed. resume_run has already reconciled the two.
         task_store = TaskStore(run_dir)
-        for task in run.tasks:
-            task_store.save_task(task)
+        if not resume:
+            for task in run.tasks:
+                task_store.save_task(task)
 
         # Build agent lookup
         agent_map: dict[str, SwarmAgentSpec] = {a.id: a for a in run.agents}
@@ -285,6 +401,16 @@ class SwarmRuntime:
         layers = topological_layers(run.tasks)
         task_summaries: dict[str, str] = {}
         all_succeeded = True
+
+        # A resumed run's downstream tasks need the upstream text that the
+        # first attempt produced. Without this the second attempt re-runs a
+        # dependent task with an empty upstream section -- which is the same
+        # failure the dependency gate in _execute_layer exists to prevent,
+        # arriving by a different door.
+        if resume:
+            for task in task_store.load_all():
+                if task.status == TaskStatus.completed and task.summary:
+                    task_summaries[task.id] = task.summary
 
         try:
             for layer_idx, layer_task_ids in enumerate(layers):
@@ -319,11 +445,31 @@ class SwarmRuntime:
                     all_succeeded = False
                     break
 
+                # A resumed run pays only for what the first attempt did not
+                # finish. Completed tasks keep their status and their summary;
+                # re-dispatching them would spend the run's budget reproducing
+                # work already on disk, and would overwrite a good answer with
+                # whatever the second attempt happened to say.
+                pending_task_ids = [
+                    tid
+                    for tid in layer_task_ids
+                    if task_store.load_task(tid).status != TaskStatus.completed
+                ]
+                if not pending_task_ids:
+                    self._emit_event(
+                        run_id,
+                        self._make_event(
+                            "layer_skipped",
+                            data={"layer": layer_idx, "reason": "all tasks already completed"},
+                        ),
+                    )
+                    continue
+
                 self._emit_event(
                     run_id,
                     self._make_event(
                         "layer_started",
-                        data={"layer": layer_idx, "tasks": layer_task_ids},
+                        data={"layer": layer_idx, "tasks": pending_task_ids},
                     ),
                 )
 
@@ -332,7 +478,7 @@ class SwarmRuntime:
                     run=run,
                     task_store=task_store,
                     agent_map=agent_map,
-                    layer_task_ids=layer_task_ids,
+                    layer_task_ids=pending_task_ids,
                     task_summaries=task_summaries,
                     run_dir=run_dir,
                     cancel_event=cancel_event,
@@ -399,7 +545,7 @@ class SwarmRuntime:
                 # marked TaskStatus.blocked in _execute_layer and emitted
                 # task_blocked. Account for them in run-level status so the
                 # run is marked failed, not silently completed.
-                for tid in layer_task_ids:
+                for tid in pending_task_ids:
                     if tid not in layer_results:
                         all_succeeded = False
 

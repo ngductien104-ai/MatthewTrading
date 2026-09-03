@@ -1646,6 +1646,7 @@ def _print_help() -> None:
         ("/swarm list", "List team run history"),
         ("/swarm show <run_id>", "Show a team run"),
         ("/swarm cancel <run_id>", "Cancel a team run"),
+        ("/swarm resume <run_id>", "Re-run only the tasks that did not finish"),
         ("/sessions", "List chat sessions"),
         ("/settings", "Show provider, model, timeout, and credentials"),
         ("/stop", "How to gracefully cancel a running agent"),
@@ -1811,6 +1812,11 @@ def _handle_swarm_command(arg: str) -> None:
             cmd_swarm_cancel(sub_arg)
         else:
             console.print("[red]Usage: /swarm cancel <run_id>[/red]")
+    elif sub == "resume":
+        if sub_arg:
+            cmd_swarm_resume(sub_arg)
+        else:
+            console.print("[red]Usage: /swarm resume <run_id>[/red]")
     else:
         console.print(f"[red]Unknown swarm command: {sub}[/red]")
 
@@ -2546,6 +2552,36 @@ def cmd_swarm_cancel(run_id: str) -> None:
         console.print(f"[yellow]Cancel signal sent: {run_id}[/yellow]")
     else:
         console.print(f"[red]Run {run_id} not found or already finished[/red]")
+
+
+def cmd_swarm_resume(run_id: str) -> None:
+    """Re-run only the tasks a previous attempt of this run did not finish."""
+    from src.swarm.models import TaskStatus
+    from src.swarm.runtime import SwarmRuntime
+    from src.swarm.store import SwarmStore
+
+    store = SwarmStore(base_dir=SWARM_DIR)
+    runtime = SwarmRuntime(store=store)
+
+    try:
+        run = runtime.resume_run(run_id)
+    except FileNotFoundError:
+        console.print(f"[red]Run {run_id} not found[/red]")
+        return
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return
+
+    pending = [t for t in run.tasks if t.status != TaskStatus.completed]
+    if not pending:
+        console.print(f"[green]Run {run_id} is already complete; nothing to resume[/green]")
+        return
+    done = len(run.tasks) - len(pending)
+    console.print(
+        f"[yellow]Resuming {run_id}: keeping {done} completed task(s), "
+        f"re-running {len(pending)}[/yellow]"
+    )
+    console.print(f"[dim]  /swarm show {run_id} to follow it[/dim]")
 
 
 # ---------------------------------------------------------------------------
