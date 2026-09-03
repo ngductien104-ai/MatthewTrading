@@ -23,6 +23,21 @@ from src.learning.extract import (
     store_result,
     validate_candidate,
 )
+from src.learning.process_score import (
+    MAX_SCORE,
+    RUBRIC,
+    RUBRIC_BY_CODE,
+    ItemResult,
+    ProcessScore,
+    RubricItem,
+    build_error_prompt,
+    classify_errors,
+    completion_rate,
+    disagreement,
+    recurrence,
+    score_document,
+    stalls,
+)
 from src.learning.records import (
     ACTIONS,
     CHECKPOINT_SESSIONS,
@@ -111,6 +126,19 @@ from src.learning.transcript import (
 )
 
 __all__ = [
+    "MAX_SCORE",
+    "RUBRIC",
+    "RUBRIC_BY_CODE",
+    "ItemResult",
+    "ProcessScore",
+    "RubricItem",
+    "build_error_prompt",
+    "classify_errors",
+    "completion_rate",
+    "disagreement",
+    "recurrence",
+    "score_document",
+    "stalls",
     "MIN_PEERS",
     "REGIME_LOOKBACK",
     "cross_sectional_percentile",

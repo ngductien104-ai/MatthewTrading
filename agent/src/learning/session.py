@@ -160,6 +160,7 @@ def build_process_record(transcript: Transcript, *, completed: bool = False) -> 
         source_uuid=root.uuid,
         source_event_sha256=root.sha256,
         tokens=sum(int(value) for value in usage.values()),
+        token_usage={str(k): int(v) for k, v in usage.items()},
         wall_time_sec=_wall_time_sec(transcript),
         rework_count=rework_count(transcript),
         completed=completed,

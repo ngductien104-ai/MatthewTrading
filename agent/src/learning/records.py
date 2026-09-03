@@ -13,8 +13,10 @@ Four decisions are baked into this module and are not re-litigated downstream:
    :class:`CallRecord` revision inside the same episode; the scoring point is
    the last revision still in force at the cutoff, and the earlier revisions are
    kept only to measure calibration drift.
-2. **``ref_price`` is the close of the day the call is made** -- not the next
-   session's open, and not the price at the moment the sentence was written.
+2. **``ref_price`` is the level the note quotes**, which the resolver has since
+   shown is often an entry level rather than the close -- so nothing scores from
+   it, and returns are taken from the close the resolver fetches. See
+   :class:`CallRecord`.
 3. **Horizons count trading sessions, not calendar days.** ``known_at + 90
    days`` lands on a weekend or inside Tet often enough to matter, so the
    authoritative field is :attr:`CallRecord.horizon_sessions` (default 63, about
@@ -603,7 +605,15 @@ class ProcessRecord:
         data_violations: Breaches of the data rules (invented numbers, missing
             cross-check, wrong source).
         rework_count: How many times a conclusion was rewritten.
-        tokens: Total tokens spent reaching the conclusion.
+        tokens: Sum of every token counter the transcript reported. **Not a
+            cost.** ``cache_read_input_tokens`` dominates it by thirty to a
+            hundred times -- one real session reads 308M cached tokens against
+            1,2M generated -- so this number is a size, not a spend. Use
+            :attr:`token_usage` for anything that has to mean money.
+        token_usage: The counters kept apart: ``input_tokens``,
+            ``output_tokens``, ``cache_creation_input_tokens``,
+            ``cache_read_input_tokens``. They are priced differently enough
+            that adding them together answers no question anyone has.
         wall_time_sec: Wall-clock seconds spent.
         cost_usd: Money spent, when the provider reports it.
         git_commit: Repository state the run executed against.
@@ -626,6 +636,7 @@ class ProcessRecord:
     data_violations: list[str] = field(default_factory=list)
     rework_count: int = 0
     tokens: int = 0
+    token_usage: dict[str, int] = field(default_factory=dict)
     wall_time_sec: float = 0.0
     cost_usd: float | None = None
     git_commit: str = ""
@@ -673,6 +684,11 @@ class ProcessRecord:
             )
         self.errors_caught = normalized
         self.data_violations = _coerce_str_list(self.data_violations)
+        self.token_usage = {
+            str(key): int(value)
+            for key, value in dict(self.token_usage or {}).items()
+            if str(value).lstrip("-").isdigit()
+        }
 
         for name in ("rounds", "rework_count", "tokens"):
             value = int(getattr(self, name))
