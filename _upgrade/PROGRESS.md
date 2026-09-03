@@ -15,9 +15,9 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
 > Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
 
-**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch. **8 commit chưa push.**
-**Full suite `11 failed, 3597 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
-suốt 24 mục; passed đi từ **3131 (baseline) → 3597**.
+**Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch. **13 commit chưa push.**
+**Full suite `11 failed, 3646 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
+suốt 27 mục; passed đi từ **3131 (baseline) → 3646**.
 
 ### Đã xong trong phiên 03/09 (8 commit)
 | Commit | Mục |
@@ -93,15 +93,34 @@ và mạng tới `vnstocks.com:443` đã thông.
 block bootstrap · `risk_free` · `walkforward.py`.
 
 ### Việc kế tiếp — THỨ TỰ NÀY, mỗi mục một commit
-1. **[G2.1] Nối bộ chống overfit vào `run_validation`** — DSR/PBO/CPCV gọi được nhưng
-   `run_validation` mới dispatch `monte_carlo`/`bootstrap`/`equity_consistency`. Cần khoá config +
-   ghi vào run card, nếu không cả Giai đoạn 2.1 chỉ là thư viện không ai gọi.
-2. **[G2.1] Một chiến lược CÓ THAM SỐ ĐƯỢC KHỚP** để bộ công cụ đó có việc thật mà làm.
-   Không có nó thì CPCV cho 5 đường OOS giống hệt nhau (sd=0) và walk-forward cho OOS ≈ IS —
-   xem "Bài học lớn nhất của Giai đoạn 2.1" bên dưới.
-3. **[G2.4] `bench_runner_strict` → `Hypothesis.status`** — bộ đánh giá factor tốt nhất repo,
-   kết quả đang trả cho LLM rồi **vứt**. Nối verdict đẩy trạng thái hypothesis (hiện `validated`
-   đặt tay được với 0 backtest). Mục nhỏ, giá trị cao.
+
+- [x] **G2.1-a Nối bộ chống overfit vào `run_validation`** *(commit `71b44a4`)* — `psr` chạy từ
+  đường equity; `deflated_sharpe`/`pbo` **BẮT BUỘC khai search** (`trial_sharpes` /
+  `variant_returns`) và **raise** nếu thiếu — mặc định 1 trial là khử nhiễu cho một cuộc tìm
+  kiếm chưa từng xảy ra, chỉ có thể tâng bốc. `cpcv` bị **từ chối có tên** kèm lý do (nó refit
+  từng split → cần engine, không phải đường equity đã xong). **Từ vựng config nay ĐÓNG:**
+  `deflated_sharp` viết sai trước đây chạy không gì và **báo không gì** — trông y hệt một
+  chiến lược đã kiểm định. Kiểm trên đường equity thật 499 bar của `runs/test_datapro`.
+- [x] **G2.1-b `FittedSMA` — chiến lược có tham số được khớp** *(commit `49ba6b0`)*.
+  Chạy thật: DataPro, 5 mã, 2022–2025, 5 fold, embargo 5 bar. **Mỗi fold chọn tham số KHÁC
+  nhau** (fold 0: SMA(5,30); fold 1–4: SMA(30,200)), best IS Sharpe leo 0,118 → 0,998.
+  **IS trung bình 0,5566 vs OOS ghép 0,5345 → suy giảm 0,022.** Có benchmark ghép: chiến lược
+  +58,5% vs rổ +52,7%, **vượt 5,8đ% với IR 0,12** trong 3,5 năm — gần như không có gì, và đây là
+  lần đầu bộ máy này nói được câu đó.
+  - **Vá lỗ hổng khiến việc này bất khả thi:** docstring walkforward đòi signal engine tôn trọng
+    `train_end`, nhưng `BaseEngine` gọi `generate(data_map)` **không truyền config** → engine khớp
+    tham số không có đường nào biết ranh giới. Nay `signal_engine_factory(fold_config)`.
+  - **Số 0 thứ hai đọc thành phép đo:** `oos_metrics` báo `information_ratio: 0.0` vì không ghép
+    benchmark. Không ai đọc IR 0,0 là "chưa đo". Nay ghép benchmark từng fold; fold nào thiếu thì
+    **xoá trường**, không để 0.
+- [x] **G2.4 `bench_runner_strict` → `Hypothesis.status`** *(commit `280fa4d`)* — 4 nhãn của bench
+  nay đẩy trạng thái. **Chỉ `confirmed_alive` được lên `validated`**; `train_only` là **hình dạng
+  của overfit** nên **rejected**, không phải "quay lại testing". Bench lỗi / alpha bị skip / nhãn
+  lạ đều **từ chối có tên** — mọi mặc định đều là khẳng định về phép đo không ai làm.
+  **`validated` nay đòi bằng chứng:** phải có verdict `confirmed_alive` gắn kèm, hoặc
+  `evidence_override` có **ghi lý do vào hồ sơ**. `create()` cũng chặn — hypothesis mới không có
+  run_card nào nên đó là cánh cửa duy nhất mà bằng chứng không thể đi qua.
+
 4. **[G2.3] `process_score.py`** — rubric **xác định**, LLM chỉ được trả trích dẫn, **điểm do
    code cộng**. Nguồn: transcript Claude Code (23 `ProcessRecord` đã có). Kế hoạch gọi đây là
    phần học nhanh nhất.
