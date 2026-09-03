@@ -94,6 +94,14 @@ class UpdateHypothesisTool(BaseTool):
             "data_sources": {"type": "array", "items": {"type": "string"}},
             "skills": {"type": "array", "items": {"type": "string"}},
             "invalidation_notes": {"type": "string"},
+            "evidence_override": {
+                "type": "string",
+                "description": (
+                    "Required to set status 'validated' when no bench verdict of "
+                    "'confirmed_alive' is linked. State what the claim rests on; "
+                    "the reason is written onto the hypothesis."
+                ),
+            },
         },
         "required": ["hypothesis_id"],
     }

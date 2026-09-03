@@ -123,12 +123,24 @@ def test_tool_wrappers_use_env_isolated_storage(storage_path: Path) -> None:
     assert created["status"] == "ok"
     hypothesis_id = created["hypothesis"]["hypothesis_id"]
 
-    updated = json.loads(UpdateHypothesisTool().execute(
+    # Claiming validated with nothing behind it is refused through the tool
+    # surface too, which is where a model would have reached for it.
+    refused = json.loads(UpdateHypothesisTool().execute(
         hypothesis_id=hypothesis_id,
         status="validated",
         invalidation_notes="Monitor decay after costs.",
     ))
+    assert refused["status"] == "error"
+    assert "cannot be set to 'validated'" in refused["error"]
+
+    updated = json.loads(UpdateHypothesisTool().execute(
+        hypothesis_id=hypothesis_id,
+        status="validated",
+        evidence_override="tool-wrapper fixture, no bench run",
+        invalidation_notes="Monitor decay after costs.",
+    ))
     assert updated["hypothesis"]["status"] == "validated"
+    assert "validated by override" in updated["hypothesis"]["invalidation_notes"]
 
     linked = json.loads(LinkBacktestTool().execute(
         hypothesis_id=hypothesis_id,

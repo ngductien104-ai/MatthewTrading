@@ -23,6 +23,14 @@ HYPOTHESIS_STATUSES = (
     "monitoring",
 )
 _STATUS_SET = set(HYPOTHESIS_STATUSES)
+
+#: The one status that is a claim about evidence rather than about intent.
+#: ``exploring`` and ``testing`` describe what someone means to do; ``validated``
+#: asserts that something was checked, and until this guard existed it could be
+#: typed in with no backtest behind it at all. A hypothesis reaches it either
+#: with a bench verdict attached or with a written override that is recorded,
+#: never by assertion alone.
+EVIDENCE_BACKED_STATUS = "validated"
 _ENV_PATH = "VIBE_TRADING_HYPOTHESES_PATH"
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9]{2,}|[\u4e00-\u9fff]")
 
@@ -67,6 +75,19 @@ def _new_hypothesis_id(title: str, created_at: str, existing_ids: set[str]) -> s
     while f"{base}_{idx}" in existing_ids:
         idx += 1
     return f"{base}_{idx}"
+
+
+def _with_override(notes: str, evidence_override: str, stamped_at: str) -> str:
+    """Return *notes* with an evidence-override justification appended.
+
+    A ``validated`` status that skipped the bench must carry the reason it
+    skipped it, in the record itself rather than in someone's memory.
+    """
+    reason = evidence_override.strip()
+    if not reason:
+        return notes
+    stamp = f"[{stamped_at}] validated by override: {reason}"
+    return "\n".join([notes, stamp]).strip() if notes else stamp
 
 
 def _validate_status(status: str) -> str:
@@ -164,6 +185,7 @@ class HypothesisRegistry:
         data_sources: list[str] | None = None,
         skills: list[str] | None = None,
         invalidation_notes: str = "",
+        evidence_override: str = "",
     ) -> Hypothesis:
         """Create and persist a new hypothesis.
 
@@ -189,6 +211,16 @@ class HypothesisRegistry:
             raise ValueError("title is required")
         if not thesis:
             raise ValueError("thesis is required")
+        if _validate_status(status) == EVIDENCE_BACKED_STATUS and not evidence_override.strip():
+            # A brand-new hypothesis has no run cards by construction, so this
+            # is the one door into `validated` that no evidence could ever have
+            # come through. Guarding only `update` would leave it wide open.
+            raise ValueError(
+                f"a new hypothesis cannot start at {EVIDENCE_BACKED_STATUS!r} with no "
+                "evidence: nothing has been tested yet. Create it as 'exploring' or "
+                "'testing' and let a bench verdict move it, or pass evidence_override "
+                "with the reason, which is recorded on the hypothesis."
+            )
 
         records = self.list()
         now = _utc_now()
@@ -201,7 +233,7 @@ class HypothesisRegistry:
             signal_definition=signal_definition.strip(),
             data_sources=_coerce_str_list(data_sources),
             skills=_coerce_str_list(skills),
-            invalidation_notes=invalidation_notes.strip(),
+            invalidation_notes=_with_override(invalidation_notes.strip(), evidence_override, now),
             created_at=now,
             updated_at=now,
         )
@@ -221,6 +253,7 @@ class HypothesisRegistry:
         data_sources: list[str] | None = None,
         skills: list[str] | None = None,
         invalidation_notes: str | None = None,
+        evidence_override: str = "",
     ) -> Hypothesis:
         """Update an existing hypothesis.
 
@@ -234,16 +267,36 @@ class HypothesisRegistry:
             data_sources: Optional replacement source list.
             skills: Optional replacement skill list.
             invalidation_notes: Optional replacement invalidation notes.
+            evidence_override: Reason for marking a hypothesis
+                :data:`EVIDENCE_BACKED_STATUS` without a linked verdict. It is
+                appended to ``invalidation_notes`` so the claim carries its own
+                justification; there is no silent path to ``validated``.
 
         Returns:
             Updated hypothesis.
 
         Raises:
             KeyError: If the hypothesis does not exist.
-            ValueError: If status is unknown.
+            ValueError: If status is unknown, or ``validated`` was requested
+                with neither a linked bench verdict nor an override.
         """
         records = self.list()
         hyp = self._find_required(records, hypothesis_id)
+        override_stamp = ""
+        if status is not None and _validate_status(status) == EVIDENCE_BACKED_STATUS:
+            has_verdict = any(
+                (card.get("metrics") or {}).get("bench_category") == "confirmed_alive"
+                for card in hyp.run_cards
+            )
+            if not has_verdict and not evidence_override.strip():
+                raise ValueError(
+                    f"{hypothesis_id} cannot be set to {EVIDENCE_BACKED_STATUS!r} with no "
+                    "evidence: link a bench verdict of 'confirmed_alive' "
+                    "(src.hypotheses.bench_verdict.apply_bench_verdict), or pass "
+                    "evidence_override with the reason, which is recorded."
+                )
+            if not has_verdict:
+                override_stamp = evidence_override.strip()
         if title is not None:
             hyp.title = title.strip()
         if thesis is not None:
@@ -260,6 +313,13 @@ class HypothesisRegistry:
             hyp.skills = _coerce_str_list(skills)
         if invalidation_notes is not None:
             hyp.invalidation_notes = invalidation_notes.strip()
+        # Applied last so an override survives a same-call note replacement:
+        # the justification for a validated status must not be overwritable by
+        # the very update that claimed it.
+        if override_stamp:
+            hyp.invalidation_notes = _with_override(
+                hyp.invalidation_notes, override_stamp, _utc_now()
+            )
         hyp.updated_at = _utc_now()
         self._save(records)
         return hyp

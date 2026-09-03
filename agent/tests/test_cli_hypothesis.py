@@ -39,6 +39,9 @@ def _seed(reg: HypothesisRegistry) -> list[str]:
         title="BTC funding skew",
         thesis="Perp funding extremes mean-revert.",
         status="validated",
+        # A fixture, not a measurement -- and now it has to say so, which is
+        # the whole point of the guard.
+        evidence_override="list/filter fixture",
         universe="btc-usdt",
     )
     return [a.hypothesis_id, b.hypothesis_id, c.hypothesis_id]
