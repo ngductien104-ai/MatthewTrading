@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Callable
 
 from src.config.schema import AgentConfig
+from src.core.provenance import current_git_commit
 from src.swarm import grounding
 from src.swarm.models import (
     RunStatus,
@@ -169,6 +170,21 @@ class SwarmRuntime:
         # remain visible on SwarmAgentSpec.model_name.
         run.provider = (os.getenv("LANGCHAIN_PROVIDER") or "").strip().lower() or None
         run.model = (os.getenv("LANGCHAIN_MODEL_NAME") or "").strip() or None
+
+        # Reproducibility. Provider and model alone cannot separate two runs a
+        # commit apart, so a change in output quality has nothing to be
+        # attributed to. Each of these stays empty or None when it is genuinely
+        # unknown: a temperature defaulted to 0.0 would claim the run was
+        # deterministic when nobody said it was.
+        run.git_commit = current_git_commit()
+        seed = (os.getenv("LANGCHAIN_SEED") or "").strip()
+        run.seed = int(seed) if seed.lstrip("-").isdigit() else None
+        temperature = (os.getenv("LANGCHAIN_TEMPERATURE") or "").strip()
+        try:
+            run.temperature = float(temperature) if temperature else None
+        except ValueError:
+            run.temperature = None
+        run.playbook_version = (os.getenv("VIBE_TRADING_PLAYBOOK_VERSION") or "").strip()
 
         self._store.create_run(run)
 

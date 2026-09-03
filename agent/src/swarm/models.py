@@ -168,6 +168,20 @@ class SwarmRun(BaseModel):
             field is the run-level default.
         model: LLM model name in effect when the run started, captured from
             ``LANGCHAIN_MODEL_NAME``. Same scoping rules as :attr:`provider`.
+        git_commit: Repository HEAD when the run started, with ``-dirty``
+            appended when the working tree was modified. Without it two runs a
+            commit apart are indistinguishable in the record, so a change in
+            output quality cannot be attributed to the change that caused it --
+            which is the whole premise of measuring process quality over time.
+            Empty when the repository could not be read.
+        seed: Sampling seed, when one was set. ``None`` means sampling was not
+            pinned, which is the honest reading: it does not mean zero.
+        temperature: Sampling temperature in effect at run start. ``None`` when
+            unset, for the same reason -- a default of 0.0 would claim the run
+            was deterministic when nobody said so.
+        playbook_version: Revision of the playbook loaded into the run, so a
+            quality change can be attributed to a lesson landing rather than to
+            the weather. Empty until the playbook exists.
         grounding_data: Pre-fetched OHLCV bars for any suffixed stock or
             crypto symbols mentioned in :attr:`user_vars`. Captured once at
             run-creation time by :mod:`src.swarm.grounding` so workers see
@@ -190,6 +204,10 @@ class SwarmRun(BaseModel):
     total_output_tokens: int = 0
     provider: str | None = None
     model: str | None = None
+    git_commit: str = ""
+    seed: int | None = None
+    temperature: float | None = None
+    playbook_version: str = ""
     grounding_data: dict[str, list[dict]] | None = None
 
 
