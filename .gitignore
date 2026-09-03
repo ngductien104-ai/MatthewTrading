@@ -94,3 +94,18 @@ AGENTS.md
 # Alpha Zoo wiki artifacts (generated, not source)
 wiki/alpha-library/manifest.json
 wiki/alpha-library/content/
+
+# ── Private data. This repository is PUBLIC. ───────────────────────────────
+# None of the following was ever tracked, but nothing was stopping a stray
+# `git add -A` either, and the vault alone is 287 files of client research.
+# Ignoring them makes the accident impossible rather than merely unlikely.
+#
+# NOTE: this deliberately reverses plan item 0.4, which proposed putting the
+# Obsidian vault under version control to stop research being overwritten.
+# That was written before the repository was public. Losing a note is
+# recoverable; publishing a client portfolio is not.
+Obsidian/
+Database/
+VNDIRECT/
+BCCL2026/
+DichVuSSE/

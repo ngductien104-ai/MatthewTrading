@@ -23,6 +23,16 @@ from src.learning.extract import (
     store_result,
     validate_candidate,
 )
+from src.learning.lessons import (
+    CONFIRM_OBSERVATIONS,
+    DOMAINS,
+    MIN_OBSERVATIONS,
+    Candidate,
+    curate,
+    derive,
+    render_playbook,
+    write_playbook,
+)
 from src.learning.process_score import (
     MAX_SCORE,
     RUBRIC,
@@ -126,6 +136,14 @@ from src.learning.transcript import (
 )
 
 __all__ = [
+    "CONFIRM_OBSERVATIONS",
+    "DOMAINS",
+    "MIN_OBSERVATIONS",
+    "Candidate",
+    "curate",
+    "derive",
+    "render_playbook",
+    "write_playbook",
     "MAX_SCORE",
     "RUBRIC",
     "RUBRIC_BY_CODE",
