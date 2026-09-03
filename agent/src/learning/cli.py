@@ -187,6 +187,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--dry-run", action="store_true", help="score and report without writing outcomes"
     )
     sub.add_parser("cost", help="print what a conclusion has cost, by month")
+    scheduler = sub.add_parser(
+        "scheduler", help="print whether an unattended cycle would be allowed, and why"
+    )
+    scheduler.add_argument(
+        "--universe",
+        default="",
+        help="comma-separated tickers the cycle may consider",
+    )
     report = sub.add_parser("report", help="print the scorecard for one checkpoint")
     report.add_argument(
         "--checkpoint", type=int, default=21, help="checkpoint in trading sessions"
@@ -205,6 +213,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(_run_report(args.checkpoint))
         elif args.command == "cost":
             print(_run_cost())
+        elif args.command == "scheduler":
+            from src.scheduler.loop import status as scheduler_status
+
+            universe = [t.strip().upper() for t in args.universe.split(",") if t.strip()]
+            print(scheduler_status(universe=universe))
             return 0
         elif args.command == "resolve":
             message = _run_resolve(args.ticker, args.today, args.dry_run)
