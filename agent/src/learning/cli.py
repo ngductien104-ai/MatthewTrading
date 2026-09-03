@@ -14,9 +14,14 @@ difference between a backfill and a one-off: the same input can be re-run
 against an improved parser, and the store recognises it as the same
 observation rather than a second one.
 
-The verbs the plan also lists (``resolve``, ``report``, ``retro``) wait for the
-phases that give them something to do, because a subcommand that prints an
-empty scorecard is worse than one that does not exist yet.
+``resolve`` is the third pair on its own: it needs no model at all, only
+DataPro, and it is the verb that turns a ledger of opinions into a ledger of
+results. It refuses to run on the sponsored fallback, so a day when DataPro is
+down produces an error rather than a scorecard nobody can reproduce.
+
+The verbs the plan also lists (``report``, ``retro``) wait for the phases that
+give them something to do, because a subcommand that prints an empty scorecard
+is worse than one that does not exist yet.
 
 A hook that throws is a hook that gets deleted, so every failure here is caught,
 written to ``~/.vibe-trading/hook.log`` with a timestamp, and reported through
@@ -40,6 +45,7 @@ from src.learning.extract import (
     store_result,
 )
 from src.learning.records import utc_now
+from src.learning.resolve import resolve_ledger
 from src.learning.session import capture_session, scan_transcripts, summarize
 from src.learning.store import LearningStore, default_db_path
 
@@ -113,6 +119,20 @@ def _run_extract(doc: str, reply: str) -> str:
     )
 
 
+def _run_resolve(ticker: str | None, today: str | None, dry_run: bool) -> str:
+    """Score every call the calendar has caught up with.
+
+    The warnings are printed rather than logged away: a ``ref_price`` that is an
+    entry level instead of a close is a defect in the *extraction*, and it is
+    only visible from here, where the stated number meets the traded one.
+    """
+    with LearningStore(default_db_path()) as store:
+        report = resolve_ledger(store, ticker=ticker, today=today, write=not dry_run)
+    lines = [("dry run: " if dry_run else "") + "resolve " + report.summary()]
+    lines.extend(f"  ! {warning}" for warning in report.warnings)
+    return "\n".join(lines)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI.
 
@@ -133,6 +153,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     extract = sub.add_parser("extract", help="validate a recorded reply and store the calls")
     extract.add_argument("--doc", required=True, help="document the reply was produced from")
     extract.add_argument("--reply", required=True, help="file holding the model's JSON reply")
+    resolve = sub.add_parser("resolve", help="score the calls the calendar has caught up with")
+    resolve.add_argument("--ticker", default=None, help="restrict to one symbol")
+    resolve.add_argument("--today", default=None, help="last session to consider, YYYY-MM-DD")
+    resolve.add_argument(
+        "--dry-run", action="store_true", help="score and report without writing outcomes"
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -143,6 +169,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "prompt":
             print(_run_prompt(args.doc))
             return 0
+        elif args.command == "resolve":
+            message = _run_resolve(args.ticker, args.today, args.dry_run)
         else:
             message = _run_extract(args.doc, args.reply)
     except Exception as exc:  # noqa: BLE001 - a hook must not raise into the harness

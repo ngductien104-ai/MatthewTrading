@@ -105,7 +105,13 @@ ACTION_ALIASES = {
     "đứng ngoài": "wait",
 }
 
-VERDICTS = ("hit", "miss", "open", "invalidated")
+#: ``no_claim`` is not a weaker ``open``. ``open`` means the checkpoint has not
+#: been reached or the data would not support a verdict; ``no_claim`` means the
+#: checkpoint *was* resolved against real prices and the action -- ``hold``,
+#: ``neutral`` -- asserted no direction to be right or wrong about. Keeping them
+#: apart is what stops a hit rate being computed over calls that never entered
+#: the contest.
+VERDICTS = ("hit", "miss", "open", "invalidated", "no_claim")
 
 LESSON_STATUSES = ("provisional", "confirmed", "retired")
 
@@ -712,14 +718,23 @@ class Outcome:
         outcome_id: Deterministic identifier, derived when omitted.
         episode_id: The call's episode, so scores aggregate at the observation
             unit rather than per revision.
-        resolved_price: Close on ``resolved_at``.
-        realized_ret: Return from ``ref_price`` to ``resolved_price``.
+        resolved_price: Close on ``resolved_at``, on the traded grid -- the
+            number a screen showed that day, so it can be compared with a
+            quoted ``target`` or ``stop``.
+        realized_ret: Return over the window, taken close-to-close on the
+            *back-adjusted* series. Deliberately not measured from
+            ``ref_price``: that field holds an entry level as often as a close
+            on this ledger, and the adjusted series is the only one where a
+            return is dividend-consistent. See ``learning.resolve``.
         vni_ret: VN-Index return over the same window.
         vn30_ret: VN30 return over the same window.
         sector_ret: Sector return over the same window.
         alpha: Excess over the stated benchmark.
         target_error: ``resolved_price / target - 1``, the price-accuracy term.
-        trigger_fired: Whether an invalidation trigger fired inside the window.
+        trigger_fired: Whether a *machine-checkable* trigger fired inside the
+            window -- in practice the ``stop`` level. ``False`` therefore means
+            "no checkable trigger fired", not "no trigger fired"; the resolver
+            says in ``notes`` how many free-text triggers it could not check.
         regime: Market regime label, so results are never read as absolutes.
         base_rate_pctile: Percentile of ``realized_ret`` within the regime base
             rate. Beating zero is not the bar; beating the regime is.

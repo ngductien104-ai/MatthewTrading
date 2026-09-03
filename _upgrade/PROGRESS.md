@@ -10,14 +10,26 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 01/09/2026 (Giai đoạn 2.2 VÀ 2.1 ĐÓNG)
+## 🔖 ĐIỂM DỪNG — 03/09/2026 (`resolve.py` xong — sổ cái có kết quả, không chỉ có ý kiến)
 
 **Nhánh:** `upgrade/learning-loop`. Cây làm việc sạch.
-**Full suite `11 failed, 3514 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
-suốt 19 mục; passed đi từ **3131 (baseline) → 3514**.
+**Full suite `11 failed, 3547 passed, 1 skipped, 9 errors`** — fail/error khớp baseline từng cái
+suốt 20 mục; passed đi từ **3131 (baseline) → 3547**.
 
-**Sổ cái `~/.vibe-trading/learning.db`: `calls=16`, `evidence=104`, `process_records=23`.**
-`outcomes=0`, `lessons=0` — **đây là khoảng trống lớn nhất còn lại**, và `resolve.py` là thứ lấp nó.
+**Sổ cái `~/.vibe-trading/learning.db`: `calls=16`, `outcomes=15`, `evidence=127`,
+`process_records=23`.** `lessons=0` — nay đó là khoảng trống lớn nhất còn lại.
+
+**Bảng điểm đầu tiên (checkpoint 21 phiên, chốt 03/09/2026):**
+
+| Verdict | n | Ghi chú |
+|---|---:|---|
+| hit | 4 | BSR, PHP (wait, giảm nhiều hơn chỉ số) · TPB (reduce) · HDB (accumulate, +6,69% alpha) |
+| miss | 4 | SBT, PET (wait nhưng alpha dương) · STB, VRE (avoid nhưng chạy tiếp) |
+| invalidated | 2 | **MWG** (thủng stop 63.000 ngày 28/07 rồi mới lên 75.100) · **PHR** (chạm 54.400 vs stop 56.000) |
+| no_claim | 5 | HAH neutral · VCB/ACB/MBB/HDB hold — không khẳng định chiều nào |
+
+**n=8 call có thể chấm chiều. Chưa kết luận được gì về kỹ năng** — khoảng tin cậy rộng hơn
+mọi con số ở trên. Checkpoint 63 phiên chưa call nào chạm tới (33 mục `pending`).
 
 **GIAI ĐOẠN 2.2 ĐÓNG** (Q1–Q11). Q9 — mục cuối, hôm 30/08 ghi *"bị chặn bởi môi trường"* — làm được
 vì môi trường **tự mở**: đầu phiên 01/09 `datapro_available()` còn `False`, vài phút sau lên `True`,
@@ -27,13 +39,18 @@ và mạng tới `vnstocks.com:443` đã thông.
 block bootstrap · `risk_free` · `walkforward.py`.
 
 ### Việc kế tiếp
-1. **`resolve.py`** — sổ có 16 call mà `outcomes=0`. **Ba câu hỏi thiết kế đã treo sẵn chờ nó:**
-   chấm một call `avoid` bằng gì (VRE); chấm một call **không có `horizon_sessions`** bằng gì (MWG);
-   và `_DISCLOSURE_LAG_DAYS` từ Q8 là định nghĩa "khi nào một kỳ trở nên nhìn thấy được" mà nó phải dùng.
-2. **Nối bộ chống overfit vào `run_validation`** — DSR/PBO/CPCV hiện gọi được nhưng
+1. **`report.py` — scorecard + đường cong hiệu chỉnh độ tin cậy.** Nay đã có 15 outcome để đọc.
+   Hai việc bộ chấm cố ý để trống và tầng report phải lấp: **`regime` + `base_rate_pctile`**
+   (đối chiếu `_risk_committee_202608/out/calibration.json`, n=147 — mốc đúng để chấm một call
+   định hướng, **không phải so với 0%**), và **câu hỏi sắc hơn cho `wait`**: giá vào lệnh đã hứa
+   có bao giờ in ra thật không — trả lời được từ `traded_low`/`traded_high` đã ghi trong evidence.
+   Kèm Brier score cho 8 call có `confidence`, và ghi rõ **n=8 là chưa đủ kết luận**.
+2. **Sửa `ref_price` ở khâu trích xuất.** Bộ chấm vừa lộ ra 3/16 call ghi **giá vào lệnh** vào
+   ô giá đóng cửa (PHR +1,61%, MWG −1,45%, VRE +2,06%). Hoặc tách hai trường, hoặc siết prompt.
+3. **Nối bộ chống overfit vào `run_validation`** — DSR/PBO/CPCV hiện gọi được nhưng
    `run_validation` mới dispatch `monte_carlo`/`bootstrap`/`equity_consistency`. Cần khoá config +
    ghi vào run card, nếu không cả Giai đoạn 2.1 chỉ là thư viện không ai gọi.
-3. **Một chiến lược CÓ THAM SỐ ĐƯỢC KHỚP** để bộ công cụ này có việc thật mà làm — xem bài học dưới.
+4. **Một chiến lược CÓ THAM SỐ ĐƯỢC KHỚP** để bộ công cụ này có việc thật mà làm — xem bài học dưới.
 
 ### Ba việc môi trường, không phải việc code
 - **5 thư mục pytest rỗng KẸT VĨNH VIỄN** trong `_upgrade/` (`q4_pytest_tmp`, `q5_pytest_tmp`,
@@ -1077,9 +1094,48 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
        append-only) — hàm trả về record mới.
   - Một tài liệu hỏng **không** làm gãy backfill: reply không phải JSON → một `Rejection`
     mã `bad_json`, không raise. 10 mã từ chối là từ vựng đóng, đếm được như `ERROR_TAXONOMY`.
-- [ ] ~~`resolve.py`~~ — **hoãn sang Giai đoạn 2** (Codex đúng): resolver kéo theo lịch giao dịch,
-  sự kiện doanh nghiệp, phiên bản dữ liệu, và dễ che lỗi dataset bằng một outcome đẹp mắt.
-  Làm xong capture/backfill/dedupe/audit rồi mới chấm điểm.
+- [x] **1.6 `resolve.py`** *(hoãn từ Giai đoạn 1, làm 03/09/2026)* — bộ chấm.
+  **33 test xanh**, trong đó **một test chạy thẳng DataPro thật** (skip nếu app tắt).
+  **Sổ cái: `outcomes` 0 → 15** (`hit=4, miss=4, invalidated=2, no_claim=5`), `evidence` 104 → 127.
+  Chạy lại lần hai vẫn 15 — không nhân bản.
+  - **Ba câu hỏi treo đã trả lời bằng chính nội dung sổ cái, không phải bằng giả định:**
+    1. **Chấm `avoid` bằng gì?** VRE 31/07 là `avoid` tại 24.300 với target 26.200 — target
+       nằm **trên** giá tham chiếu. Đó là ghi chú giá trị hợp lý, không phải dự báo để hành
+       động. Nên **target không bao giờ quyết định verdict**. Mọi call chấm bằng đúng thứ mọi
+       action đều khẳng định: **ticker rơi về phía nào của chỉ số**. Bên mua đúng khi alpha
+       dương, bên đứng-ngoài đúng khi alpha âm.
+    2. **Chấm call không có `horizon_sessions`?** Cả 16 call đều mang 63 vì đó là **mặc định**,
+       không phải vì có ai nói ba tháng. Vì horizon không còn chọn verdict nên không phải bịa
+       gì: chấm ở **mọi** checkpoint đã trôi qua, horizon để tầng report dùng làm tiêu đề.
+    3. **`_DISCLOSURE_LAG_DAYS` (Q8) vào đâu?** **Không vào đây.** Giá nhìn thấy ngay ngày nó
+       in ra; độ trễ công bố chặn các **trigger cơ bản** ("gate Q2") mà resolver **cố ý không**
+       đánh giá — đọc văn bản tự do để phán trigger có kích hoạt không đúng là phán đoán mà sổ
+       cái sinh ra để cấm model làm. Chỉ `stop` (một mức giá đọc được bằng máy) được kiểm.
+       Phần còn lại **khai báo là chưa kiểm**, không lặng lẽ ghi `False`.
+  - **`hold`/`neutral` không phải claim yếu, mà là KHÔNG có claim.** Thêm verdict thứ năm
+    `no_claim`: đã chốt bằng giá thật, nhưng action không khẳng định chiều nào. Nếu gộp vào
+    `open` thì truy vấn "còn treo" hỏng; nếu gộp vào hit/miss thì hit-rate tính trên 5 call
+    chưa từng dự thi. 5/15 outcome rơi vào đây — không phải trường hợp hiếm.
+  - **Bẫy look-ahead phía giá là thứ khác với BCTC, và nó có thật.** DataPro trả giá đã điều
+    chỉnh hồi tố: BSR 17/06 hôm nay đọc ra 26.056 nhưng **đã khớp ở 26.350** — chênh 1,1% là
+    cổ tức trả sau đó. Nên: **lợi suất lấy trên chuỗi điều chỉnh** (chuỗi duy nhất mà lợi suất
+    có nghĩa), còn **target/stop/ref so trên `traded_price()`** — lưới giá người thật nhìn thấy.
+  - **Phát hiện: `ref_price` trong sổ cái thường KHÔNG phải giá đóng cửa** như docstring hứa,
+    mà là **mức giá vào lệnh** hội đồng ghi. PHR ghi 62.000 / đóng 63.000 (+1,61%); MWG
+    69.000 / 68.000 (−1,45%); VRE 24.300 / 24.800 (+2,06%). Chấm từ nó sẽ nhét chênh lệch tới
+    2% vào mọi lợi suất. Nay lợi suất chạy từ **giá đóng cửa**, còn chênh lệch **báo ra dạng
+    cảnh báo** — đây là lỗi ở khâu *trích xuất*, chỉ nhìn thấy được từ chỗ này.
+  - **MWG là ca chứng minh bộ chấm có giá trị.** Đóng cửa +12,16% sau 21 phiên → nhìn như
+    `hit`. Nhưng giá **đã khớp 62.500 ngày 28/07**, thủng stop 63.000 bốn phiên sau khi ra
+    khuyến nghị. Verdict đúng là `invalidated`: chấm bằng giá đóng cửa sẽ ghi công cho một vị
+    thế không ai còn cầm. PHR tương tự (chạm 54.400 vs stop 56.000).
+  - **Stop trên call `wait`/`avoid` KHÔNG kiểm** — BSR chờ ở 26.350 để mua 24.000 với "stop"
+    24.900, nằm **giữa** hai mức. Mức đó canh phía nào là không quyết định được bằng máy; đoán
+    là bịa ý định của người viết.
+  - `regime` + `base_rate_pctile` (đối chiếu `calibration.json`) **để trống có chủ ý** và nói
+    rõ trong `notes` — đó là việc kế tiếp, không phải việc này. Cực trị trong cửa sổ
+    (`traded_low`/`traded_high`) **ghi vào evidence** để sau còn trả lời được câu hỏi sắc hơn
+    cho `wait`: giá vào lệnh đã hứa có bao giờ in ra thật không.
 - [x] **1.5 Hook cuối phiên Claude Code** — `session.py` + `cli.py` +
   `.claude/hooks/learning-capture.sh`. **25 test xanh**, gồm một test chạy **thẳng script
   hook thật** qua `bash` (không mô phỏng), và một test đọc `.claude/settings.json` để chắc
