@@ -160,6 +160,7 @@ def build_worker_prompt(
     upstream_summaries: dict[str, str],
     skill_descriptions: str,
     grounding_block: str = "",
+    playbook_block: str = "",
 ) -> str:
     """Build the worker's system prompt with role, upstream context, and skills.
 
@@ -172,6 +173,13 @@ def build_worker_prompt(
             ahead of the Execution Rules section so the worker sees real
             recent prices before any tool decision. Empty string skips the
             section entirely.
+        playbook_block: Optional block of derived lessons from
+            :func:`src.learning.recall.playbook_block`. It is spliced in as its
+            own section rather than through ``{upstream_context}``: a preset
+            that declares ``input_from:`` without placing that placeholder in
+            its ``system_prompt`` drops the content silently, and a playbook
+            that is sometimes absent with no signal is worse than one that is
+            always absent. Empty string skips the section.
 
     Returns:
         Complete system prompt string for the worker LLM.
@@ -201,6 +209,11 @@ def build_worker_prompt(
         # plans its first tool call. The block already contains an explicit
         # instruction to prefer these prices over training data.
         prompt_parts.append(grounding_block)
+
+    if playbook_block:
+        # After grounding, before the rules: what this desk has measured about
+        # its own past work is context for the plan, not part of the contract.
+        prompt_parts.append(playbook_block)
 
     # Universal anti-fabrication rule. The grounding_block carries a similar
     # instruction but only renders when user_vars supplies explicit symbols.
@@ -322,8 +335,17 @@ def run_worker(
     # 3. Build system prompt with filtered skills
     skills_loader = SkillsLoader()
     skill_desc = _filter_skill_descriptions(skills_loader, agent_spec.skills)
+    # Recall is best-effort by construction: playbook_block swallows its own
+    # failures and returns "". A run that would have worked without a playbook
+    # must not die because the ledger is locked or missing.
+    from src.learning.recall import playbook_block as _playbook_block
+
     system_prompt = build_worker_prompt(
-        agent_spec, upstream_summaries, skill_desc, grounding_block=grounding_block,
+        agent_spec,
+        upstream_summaries,
+        skill_desc,
+        grounding_block=grounding_block,
+        playbook_block=_playbook_block(),
     )
 
     # 4. Resolve prompt template with user vars (missing vars → LLM infers)

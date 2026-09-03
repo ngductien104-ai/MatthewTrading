@@ -23,6 +23,12 @@ from src.learning.extract import (
     store_result,
     validate_candidate,
 )
+from src.learning.recall import (
+    MAX_CHARS,
+    MAX_LESSONS,
+    playbook_block,
+    render_block,
+)
 from src.learning.lessons import (
     CONFIRM_OBSERVATIONS,
     DOMAINS,
@@ -136,6 +142,10 @@ from src.learning.transcript import (
 )
 
 __all__ = [
+    "MAX_CHARS",
+    "MAX_LESSONS",
+    "playbook_block",
+    "render_block",
     "CONFIRM_OBSERVATIONS",
     "DOMAINS",
     "MIN_OBSERVATIONS",
