@@ -10,15 +10,17 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (Giai đoạn 3: hồi tiếp đã xong · đang làm van tin cậy)
+## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (HÀNG ĐỢI ĐÃ HẾT: van tin cậy + scheduler đã xong)
 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
 > Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
 
-**Nhánh:** `upgrade/learning-loop`. **20 commit chưa push** (chưa ai bảo push).
-**Full suite `12 failed, 3779 passed, 1 skipped, 9 errors`** — **11/12 fail + 9 error khớp**
+**Nhánh:** `upgrade/learning-loop`. **24 commit chưa push** (chưa ai bảo push).
+**Mục 1–8 trong hàng đợi ĐÃ XONG HẾT.** Việc còn lại không nằm trong kế hoạch cũ nữa —
+xem khối **"Còn nợ gì"** ngay dưới phần hàng đợi.
+**Full suite `12 failed, 3852 passed, 1 skipped, 9 errors`** — **11/12 fail + 9 error khớp**
 baseline từng cái; cái thứ 12 là test lung lay của `rich` (xem mục riêng bên dưới, đã kiểm trên
-cây sạch tại HEAD). Passed đi từ **3131 (baseline) → 3779**.
+cây sạch tại HEAD). Passed đi từ **3131 (baseline) → 3852**.
 
 **Sổ cái `~/.vibe-trading/learning.db` — đếm THEO ID, không đếm dòng:**
 `calls=16` · `outcomes=15` · `evidence=142` · `lessons=5` · `process_records=25`.
@@ -29,9 +31,13 @@ cây sạch tại HEAD). Passed đi từ **3131 (baseline) → 3779**.
 > outcome sẽ **thổi phồng mẫu số gấp 3** và làm KTC Wilson hẹp giả. Đường đọc đúng là
 > `outcomes_for()` — đã `GROUP BY outcome_id` lấy revision mới nhất.
 
-### Đã xong trong phiên 03–04/09 — đợt 2 (7 commit, mới nhất trước)
+### Đã xong trong phiên 03–04/09 — đợt 2 (11 commit, mới nhất trước)
 | Commit | Mục |
 |---|---|
+| `7b3107b` | **G3.3-f** scheduler — 5 cổng, và **lời từ chối của chính nó hôm nay** |
+| `43cf6f7` | **G3.5-d** failover provider (nhánh từ chối đã kiểm sống) |
+| `5d04429` | **G3.5-e** `learning cost` — chi phí mỗi kết luận, giữ nguyên các khoảng trống |
+| `7dc2132` | ghi lại tiến độ 7 commit trước đó vào chính file này |
 | `66e635e` | **G3.5-c** `resume_run` — chạy lại **phần chưa xong**, không chạy lại cả run |
 | `67ed4cc` | **G3.5-b** trần token mỗi run (`VIBE_TRADING_RUN_TOKEN_BUDGET`) |
 | `6a7cfa7` | **G3.5-a** preflight: tích xanh trước một tài khoản **hết tiền** |
@@ -218,17 +224,99 @@ block bootstrap · `risk_free` · `walkforward.py`.
      **Test dựng trên run THẬT** `swarm-20260827-064250-5c3d38f8` (2/4 xong, 1 failed, 1 blocked)
      chứ không trên stub tự viết — và có một test chạy **`_execute_layer` thật** để cổng phụ
      thuộc thực sự bị hỏi, vì recorder giả sẽ đi vòng qua đúng cái cổng cần kiểm.
-   - [ ] **d. Failover provider** — `_PROVIDER_MAP` có 13 provider; `ollama` **đủ code nhưng chưa
-     cấu hình**. Việc: khi probe nói `no_balance`/`bad_credentials` (**không retryable**) thì
-     chuyển sang provider khác thay vì retry vào tường.
-   - [ ] **e. Chi phí mỗi kết luận thành mặt điều khiển** — đã có mẫu số (`completion_rate`,
-     `token_usage`); còn thiếu bề mặt đọc được.
-   - [ ] **f. Scheduler (G3.3) — CHỈ SAU (d) và (e).** Bốn van: ngưỡng novelty, ngưỡng bằng
-     chứng, trần token mỗi chu kỳ, trần số PR mỗi tháng. **Mở PR, KHÔNG tự commit.**
-     ⛔ **Không bật trên runtime 3/24** — kế hoạch nói thẳng, và 3/24 vẫn là con số hiện tại.
+   - [x] **d. Failover provider** *(commit `43cf6f7`)* — `VIBE_TRADING_PROVIDER_FALLBACKS`,
+     dạng `provider:model`. **Chỉ đổi khi chờ KHÔNG cứu được** (401/402/403 — cùng bộ phân loại
+     mà vòng retry đã tin); rate limit là tạm thời, bỏ provider vì nó là bỏ một tài khoản sắp
+     chạy lại được. **Probe ứng viên TRƯỚC khi chuyển** (probe kết thúc bằng completion thật),
+     nếu không thì chỉ là đổi một endpoint chết đã biết lấy một endpoint chưa biết. **Bắt buộc
+     khai model**: `deepseek-v4-pro` không tồn tại trên Groq; mang tên model cũ sang sẽ ra 404
+     trông y như ứng viên hỏng. Mỗi lần đổi **phát event** vì `run.json` ghi provider **lúc bắt
+     đầu** — run đổi provider giữa chừng mà không ghi thì trường đó nói dối, phá đúng phần quy
+     trách nhiệm vừa thêm ở `79aa7ae`.
+     - **ĐÃ KIỂM SỐNG (nhánh từ chối):** probe trả `no_balance` HTTP 402 Insufficient Balance;
+       failover bỏ qua deepseek vì nó là chính nó, thấy ollama `not_configured`, **không đổi**,
+       giữ nguyên provider. **CHƯA KIỂM (nhánh thành công):** máy này **không có provider thứ
+       hai** — mọi mục khác trong `.env` đều bị comment. Không có chuyện bàn giao thật nào đã
+       xảy ra; test và file này đều nói thẳng như vậy.
+     - ⚠️ **`agent/.env` BỊ CHE.** `_ENV_CANDIDATES` đọc `~/.vibe-trading/.env` **trước**, nên
+       provider hiệu lực là `deepseek` từ file home, **không phải** `openai-codex` mà
+       `agent/.env` ghi. Sửa file trong repo không có tác dụng gì.
+   - [x] **e. Chi phí mỗi kết luận thành mặt điều khiển** *(commit `5d04429`)* —
+     `learning cost`, đọc thẳng sổ cái, hoàn toàn offline.
+
+     ```
+     month     runs done   out tokens  per conclusion  wall h  coverage
+     2026-06      2    0    2,149,758               -    17.4  2/2
+     2026-07      2    0            0               -    21.8  0/2 not measured
+     2026-08     18    2    3,093,975       1,546,988    57.4  15/18
+     2026-09      3    2    1,527,751         763,876     7.4  3/3
+     ALL         25    4    6,771,484       1,692,871   104.0  20/25
+     ```
+
+     Hai cột sinh ra vì thứ mà các hàng kia suýt khẳng định. **Kỳ không có kết luận nào thì
+     KHÔNG có chi phí mỗi kết luận** — in dấu `-`, không in 0 (0 nói kỳ đó miễn phí) và không
+     in số rất lớn (ngụ ý một cận trên mà dữ liệu không cấp được). **Mọi con số đi kèm độ phủ**:
+     `token_usage` mới có gần đây nên T7/2026 là 2 run **không có bộ đếm nào** — cộng lại ra một
+     tháng trông như không tốn gì. Nay hàng đó ghi "not measured".
+     Chiều là **thời gian, không phải preset**: mọi `ProcessRecord` ở đây có `preset` rỗng (chúng
+     đến từ phiên Claude Code chứ không phải swarm run), nên bảng theo preset là một hàng đội lốt.
+     **Không đặt ngưỡng, không tự từ chối gì cả** — 4 kết luận không đỡ nổi một con số quyết định
+     khi nào ngừng chạy, và bịa ra một cái ở đây là lặp lại đúng điều trần token đã cố tình không làm.
+   - [x] **f. Scheduler (G3.3)** *(commit `7b3107b`)* — **5 cổng**, mỗi cổng tự từ chối được, và
+     **cổng nào cũng được chấm dù cổng trước đã từ chối** (ngắt mạch sẽ biến một máy có 4 vấn đề
+     thành 4 lần phát hiện liên tiếp). Chạy thật hôm nay:
+
+     ```
+     scheduler: cycle REFUSED
+       [STOP] enabled      VIBE_TRADING_SCHEDULER_ENABLED chưa đặt
+       [STOP] reliability  4/25 run ra kết luận (16%); sàn 50% -- lịch tự động trên tỷ lệ này
+                           là tự động hoá cái sai
+       [ok  ] novelty      4/4 ứng viên chưa có call kể từ 2026-06-05
+       [ok  ] evidence     1 confirmed / 5 lesson
+       [ok  ] budget       0/4 PR tháng này; trần 200.000 token sinh
+       nothing was launched
+     ```
+
+     - **`reliability` chính là ràng buộc của kế hoạch viết thành code**, không phải viết thành
+       chú thích. Nó **đo** completion rate từ sổ cái chứ không khẳng định, và **từ chối khi
+       không có hồ sơ nào**: tỷ lệ trên 0 run không phải số cao, nó **không phải số**. Sàn 50%
+       là **một phán đoán và được ghi rõ là phán đoán**.
+     - `novelty` hỏi sổ cái chứ không hỏi một danh sách; ngày không đọc được thì tính là **mới
+       đây** (đoán nó cũ = nghiên cứu lại một mã dựa trên trường mà code không đọc nổi).
+     - `evidence` đòi ít nhất 1 lesson `confirmed`; lái theo lesson provisional là khuếch đại
+       phỏng đoán của chính vòng lặp.
+     - Bước PR **chỉ stage đúng path được đưa** — `git add -A` ở repo này sẽ quét cả vault
+       nghiên cứu khách hàng lên remote **public** — và **mở PR chứ không commit**.
+     - **KHÔNG có launcher tự động.** `run_cycle` nhận launcher từ caller. Máy này không provider
+       nào completion nổi (402), nên launcher viết ở đây **không thể chạy thử**, mà code chưa
+       chạy thử đem trình bày như đã chạy chính là con bug ở `6a7cfa7`.
+     - **Lỗi tự gây, tìm ra bằng cách chạy nó:** bản test đầu **cộng 2 vào bộ đếm PR thật** ở
+       `~/.vibe-trading` trước khi có bất kỳ PR nào. Nay `open_pull_request` nhận `root`, và
+       class ghi dữ liệu có fixture đổi hướng `Path.home()` để chỗ nào quên vẫn không chạm vào
+       bộ đếm thật.
 
 **Việc đã xong, giữ lại để khỏi làm lại:** `ref_price` (commit `2d0a335`) · `base_rate_pctile`
 phân vị chéo + `regime` (commit `fe98e2b`).
+
+### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
+
+Hàng đợi 1–8 hết. Ba thứ dưới đây **không phải mục kế hoạch chưa làm**, mà là **giới hạn đã
+biết** của thứ vừa làm xong. Ghi ra để phiên sau không phải tự phát hiện lại.
+
+1. **Không có provider thứ hai ⇒ failover chưa từng bàn giao thật.** Nhánh từ chối đã kiểm
+   sống; nhánh thành công thì chưa. Muốn kiểm: cấu hình một provider chạy được (ollama local là
+   rẻ nhất) rồi đặt `VIBE_TRADING_PROVIDER_FALLBACKS=ollama:<model>`.
+2. **Scheduler không có launcher.** `run_cycle(..., launcher=...)` nhận hàm từ caller và gọi
+   nó; **không có** đường nối sẵn sang `SwarmRuntime.start_run`, vì máy này không completion
+   nổi (402) nên không chạy thử được. Khi provider sống lại: viết launcher, và **chạy thử thật
+   trước khi nói là xong**.
+3. **Cổng `reliability` sẽ còn từ chối rất lâu.** 4/25 = 16% so với sàn 50%. Nó **đúng** khi từ
+   chối — đừng hạ sàn cho qua. Muốn mở cổng thì phải làm run **về đích** nhiều hơn, mà đó chính
+   là thứ các van (b) và (c) sinh ra để giúp. Đọc `learning cost` trước, không đọc completion
+   rate suông.
+
+**Đừng bật scheduler.** Không phải vì code chưa xong mà vì **số chưa đủ**, và chính nó đang nói
+ra điều đó mỗi lần chạy.
 
 ### Một test HAY LUNG LAY, đừng đuổi theo nó
 
