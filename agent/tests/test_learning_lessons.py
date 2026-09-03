@@ -138,7 +138,30 @@ class TestProcessRules:
         records += [{"completed": True, "tokens": 10}]
         rule = next(i for i in process_rules(records) if i.rule == "process.completion_rate")
         assert "1 of 10" in rule.statement
-        assert "before scheduling anything unattended" in rule.statement
+        # It must name its population. ProcessRecord describes editor sessions,
+        # and a lesson that says "runs" gets read as a verdict on swarm runs --
+        # a different population with a different failure mode.
+        assert "Claude Code sessions" in rule.statement
+
+    def test_it_says_nothing_about_swarm_runs_without_being_given_any(self):
+        """Reading the disk here made an empty test ledger derive a real lesson."""
+        records = [{"completed": False, "tokens": 10} for _ in range(9)]
+        assert not [
+            i for i in process_rules(records) if i.rule == "process.swarm_completion_cause"
+        ]
+
+    def test_a_supplied_summary_produces_a_lesson_that_names_the_repair(self):
+        from src.scheduler.reliability import RunReliability
+
+        records = [{"completed": False, "tokens": 10} for _ in range(9)]
+        summary = RunReliability(18, 3, {"provider_no_balance": 15}, {}, 15)
+        rule = next(
+            i
+            for i in process_rules(records, summary)
+            if i.rule == "process.swarm_completion_cause"
+        )
+        assert "3 of 18 swarm runs" in rule.statement
+        assert "billing problem" in rule.statement
 
     def test_a_healthy_completion_rate_produces_nothing(self):
         records = [{"completed": True, "tokens": 10} for _ in range(10)]

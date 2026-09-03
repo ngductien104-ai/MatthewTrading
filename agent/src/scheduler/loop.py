@@ -12,7 +12,9 @@ lands on main, arriving more politely. The research itself runs through the
 existing swarm runtime, under the per-cycle token ceiling the valves computed.
 
 On this machine today it does not get that far. ``status`` prints the refusal:
-4 of 25 runs have reached a conclusion, and the reliability gate stops there.
+3 of 18 swarm runs have reached a conclusion, and the reliability gate stops
+there -- naming, because it now can, that every one of the fifteen failures was
+the provider's rather than the research's.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from src.learning.store import LearningStore, default_db_path
+from src.scheduler.reliability import summarise
 from src.scheduler.valves import (
     CycleDecision,
     decide,
@@ -78,11 +81,10 @@ def read_decision(
         so this is safe to call from a status command or a cron probe.
     """
     with LearningStore(db_path or default_db_path()) as store:
-        process_records = [record.to_dict() for record in store.all_process_records()]
         calls = [call.to_dict() for call in store.list_calls()]
         lessons = [lesson.to_dict() for lesson in store.live_lessons()]
     return decide(
-        process_records=process_records,
+        run_reliability=summarise(),
         calls=calls,
         lessons=lessons,
         universe=universe,

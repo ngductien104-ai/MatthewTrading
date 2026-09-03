@@ -41,7 +41,9 @@ class TestRunCycle:
         assert isinstance(result, CycleResult)
         assert result.launched is False
         assert "refused" in result.detail
-        assert "automates the failing" in result.detail
+        # The refusal names the repair. It used to imply the research was at
+        # fault; every failure on this machine has been the provider's.
+        assert "died on the provider" in result.detail
 
     def test_a_refused_cycle_never_calls_the_launcher(self):
         called = []

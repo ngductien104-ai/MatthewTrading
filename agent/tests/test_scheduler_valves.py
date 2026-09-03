@@ -48,35 +48,64 @@ class TestEnabled:
         assert enabled_valve("0").passed is False
 
 
+def _runs(completed: int, failed: int, *, cause="provider_no_balance", provider=None):
+    """Build a RunReliability without touching disk."""
+    from src.scheduler.reliability import RunReliability
+
+    return RunReliability(
+        runs=completed + failed,
+        completed=completed,
+        failed_runs_by_cause={cause: failed} if failed else {},
+        failed_tasks_by_cause={cause: failed} if failed else {},
+        provider_failed_runs=failed if provider is None else provider,
+    )
+
+
 class TestReliability:
     def test_it_refuses_below_the_floor(self):
-        records = [{"completed": False}] * 21 + [{"completed": True}] * 4
-        valve = reliability_valve(records, floor=0.5)
+        valve = reliability_valve(_runs(3, 15), floor=0.5)
         assert valve.passed is False
-        assert "16%" in valve.detail
-        assert "automates the failing" in valve.detail
+        assert "17%" in valve.detail
+
+    def test_a_refusal_names_what_has_been_stopping_runs(self):
+        """"Top up the account" and "improve the research" are different jobs."""
+        valve = reliability_valve(_runs(3, 15), floor=0.5)
+        assert "died on the provider" in valve.detail
+        assert "none failed for a research reason" in valve.detail
+
+    def test_a_refusal_that_is_not_the_providers_fault_says_so(self):
+        valve = reliability_valve(
+            _runs(1, 4, cause="other", provider=0), floor=0.5
+        )
+        assert "0/4 failed runs died on the provider" in valve.detail
 
     def test_it_allows_at_or_above_the_floor(self):
-        records = [{"completed": True}] * 5 + [{"completed": False}] * 5
-        assert reliability_valve(records, floor=0.5).passed is True
+        assert reliability_valve(_runs(5, 5), floor=0.5).passed is True
 
-    def test_no_records_is_a_refusal_not_a_pass(self):
+    def test_no_runs_is_a_refusal_not_a_pass(self):
         """A rate over zero runs is not a high number, it is no number."""
-        valve = reliability_valve([], floor=0.5)
+        valve = reliability_valve(_runs(0, 0), floor=0.5)
         assert valve.passed is False
         assert "unmeasured" in valve.detail
 
     def test_the_floor_comes_from_the_environment(self, monkeypatch):
         monkeypatch.setenv(FLOOR_ENV, "0.1")
-        records = [{"completed": True}] + [{"completed": False}] * 4
-        assert reliability_valve(records).passed is True
+        assert reliability_valve(_runs(1, 4)).passed is True
 
     def test_a_malformed_floor_falls_back_rather_than_disabling_the_gate(
         self, monkeypatch
     ):
         monkeypatch.setenv(FLOOR_ENV, "banana")
-        records = [{"completed": True}] + [{"completed": False}] * 9
-        assert reliability_valve(records).passed is False
+        assert reliability_valve(_runs(1, 9)).passed is False
+
+    def test_the_rate_is_not_adjusted_for_cause(self):
+        """Excluding provider failures would take 3/18 to 3/3 and open the gate.
+
+        A conclusion does not appear because the failure was reclassified.
+        """
+        valve = reliability_valve(_runs(3, 15), floor=0.5)
+        assert "3/18" in valve.detail
+        assert "3/3" not in valve.detail
 
 
 class TestNovelty:
@@ -187,7 +216,7 @@ class TestMonthlyAccounting:
 class TestDecide:
     def _inputs(self, **overrides):
         base = dict(
-            process_records=[{"completed": True}] * 8 + [{"completed": False}] * 2,
+            run_reliability=_runs(8, 2),
             calls=[{"ticker": "FPT", "as_of": "2026-08-27"}],
             lessons=[{"status": "confirmed"}],
             universe=["VNM", "GAS"],
@@ -213,7 +242,7 @@ class TestDecide:
         decision = decide(
             **self._inputs(
                 enabled="",
-                process_records=[{"completed": False}] * 10,
+                run_reliability=_runs(0, 10),
                 lessons=[],
                 universe=["FPT"],
             )
@@ -242,7 +271,30 @@ class TestAgainstTheRealLedger:
         )
         reliability = next(v for v in decision.valves if v.name == "reliability")
         assert reliability.passed is False
-        assert "automates the failing" in reliability.detail
+        assert "died on the provider" in reliability.detail
+
+    def test_the_gate_counts_swarm_runs_and_not_claude_code_sessions(self):
+        """The first version counted the wrong table; the numbers nearly matched.
+
+        ProcessRecord rows describe editor sessions -- none carries a run_id --
+        so a swarm scheduler gated on them was measuring a different population
+        on a different event.
+        """
+        from src.learning.store import LearningStore, default_db_path
+        from src.scheduler.loop import read_decision
+        from src.scheduler.reliability import summarise
+
+        with LearningStore(default_db_path()) as store:
+            sessions = store.all_process_records()
+        if not sessions:
+            pytest.skip("no process records on this machine")
+        assert all(not record.run_id for record in sessions)
+
+        runs = summarise()
+        decision = read_decision(universe=["VNM"])
+        reliability = next(v for v in decision.valves if v.name == "reliability")
+        assert f"{runs.completed}/{runs.runs}" in reliability.detail
+        assert f"/{len(sessions)}" not in reliability.detail
 
     def test_the_status_line_is_readable_and_offline(self):
         import socket

@@ -13,11 +13,14 @@ Five gates, each answering a different question, each able to refuse alone.
     scheduler nobody decided to run.
 
 ``reliability``
-    The completion rate, measured off the ledger rather than asserted. This is
-    the gate the plan actually asks for, and at the time of writing it fails:
-    4 of 25 runs reached a conclusion, 16%. An unattended run cannot be more
-    reliable than an attended one, so scheduling on this number automates
-    spending without producing.
+    The completion rate of **swarm runs**, measured off the runs themselves
+    rather than asserted. This is the gate the plan actually asks for, and at
+    the time of writing it fails: 3 of 18 runs reached a conclusion, 17%. An
+    unattended run cannot be more reliable than an attended one, so scheduling
+    on this number automates spending without producing. It also names the
+    cause -- every failure on this machine so far has been the provider's, and
+    a refusal that implied the research was at fault would point the reader at
+    the wrong repair.
 
 ``novelty``
     Do not re-research what the ledger already covers. A candidate is novel
@@ -51,7 +54,10 @@ import os
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle at runtime, types only
+    from src.scheduler.reliability import RunReliability
 
 #: Explicit opt-in. Anything but "1"/"true"/"yes" leaves the scheduler off.
 ENABLED_ENV = "VIBE_TRADING_SCHEDULER_ENABLED"
@@ -168,32 +174,52 @@ def enabled_valve(raw: str | None = None) -> Valve:
 
 
 def reliability_valve(
-    process_records: Sequence[Mapping[str, Any]], *, floor: float | None = None
+    summary: "RunReliability | None" = None, *, floor: float | None = None
 ) -> Valve:
-    """Refuse while too few runs reach a conclusion.
+    """Refuse while too few *swarm runs* reach a conclusion.
+
+    The first version of this gate counted ``ProcessRecord`` rows, which
+    describe Claude Code **sessions** -- none of them carries a ``run_id`` or a
+    ``preset``, and ``completed`` there means an editor session closed cleanly.
+    Gating an unattended swarm scheduler on that is not a loose proxy, it is a
+    different population measured on a different event. It went unnoticed
+    because the two numbers happen to sit a percentage point apart: 4/25 of the
+    sessions, 3/18 of the runs.
+
+    The refusal now names what has actually been stopping runs. On this machine
+    every failed run died on the provider, so the fix is a billing one, and a
+    message implying the research is unreliable would send the reader to the
+    wrong job.
+
+    The rate itself is **not** adjusted for cause. Excluding provider failures
+    would take it to 3 of 3 and open the gate, and that would be wrong: an
+    unattended cycle on a machine whose provider is dead produces nothing
+    regardless of whose fault it is.
 
     Args:
-        process_records: ProcessRecord payloads.
+        summary: Run reliability. Read from disk when omitted.
         floor: Minimum completion share. Defaults to the configured one.
 
     Returns:
-        The valve. With no records at all it refuses: a completion rate over
-        zero runs is not a high number, it is no number, and treating an
-        unmeasured machine as a reliable one is precisely the mistake.
+        The valve. With no runs at all it refuses: a completion rate over zero
+        runs is not a high number, it is no number, and treating an unmeasured
+        machine as a reliable one is precisely the mistake.
     """
+    from src.scheduler.reliability import summarise
+
     limit = floor if floor is not None else _fraction(os.getenv(FLOOR_ENV), DEFAULT_COMPLETION_FLOOR)
-    total = len(process_records)
-    if not total:
-        return Valve("reliability", False, "no process records; completion rate is unmeasured")
-    done = sum(1 for record in process_records if record.get("completed"))
-    rate = done / total
+    stats = summary if summary is not None else summarise()
+    if not stats.runs:
+        return Valve("reliability", False, "no swarm runs on disk; completion rate is unmeasured")
+    rate = stats.completion_rate or 0.0
     passed = rate >= limit
-    return Valve(
-        "reliability",
-        passed,
-        f"{done}/{total} runs reached a conclusion ({rate:.0%}); floor is {limit:.0%}"
-        + ("" if passed else " -- scheduling on this rate automates the failing"),
+    detail = (
+        f"{stats.completed}/{stats.runs} runs reached a conclusion ({rate:.0%}); "
+        f"floor is {limit:.0%}"
     )
+    if not passed:
+        detail += f" -- {stats.blame()}"
+    return Valve("reliability", passed, detail)
 
 
 def novelty_valve(
@@ -305,7 +331,7 @@ def budget_valve(
 
 def decide(
     *,
-    process_records: Sequence[Mapping[str, Any]],
+    run_reliability: "RunReliability | None" = None,
     calls: Sequence[Mapping[str, Any]],
     lessons: Sequence[Mapping[str, Any]],
     universe: Sequence[str],
@@ -323,7 +349,7 @@ def decide(
     budget, ceiling = budget_valve(prs_this_month)
     valves = (
         enabled_valve(enabled),
-        reliability_valve(process_records),
+        reliability_valve(run_reliability),
         novelty,
         evidence_valve(lessons),
         budget,

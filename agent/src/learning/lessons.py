@@ -35,10 +35,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from statistics import fmean
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence
 
 from src.learning.records import Lesson
 from src.learning.store import LearningStore
+
+if TYPE_CHECKING:  # pragma: no cover - types only
+    from src.scheduler.reliability import RunReliability
 
 #: Playbook domains. The sector files the plan names are listed so the layout
 #: exists, and stay empty until sector-level evidence does.
@@ -243,8 +246,21 @@ def action_rules(
     return found
 
 
-def process_rules(records: Sequence[Mapping[str, Any]]) -> list[Candidate]:
-    """Rules about how the work ran, rather than how it turned out."""
+def process_rules(
+    records: Sequence[Mapping[str, Any]],
+    run_reliability: "RunReliability | None" = None,
+) -> list[Candidate]:
+    """Rules about how the work ran, rather than how it turned out.
+
+    Args:
+        records: ProcessRecord payloads -- Claude Code sessions.
+        run_reliability: Swarm-run statistics, when the caller has them. Passed
+            in rather than read from disk: the first version called
+            ``summarise()`` here, which meant deriving lessons for an empty test
+            ledger picked up this machine's real run directories and returned a
+            lesson about them. A rule that reads ambient state is not a function
+            of the records it claims to be about.
+    """
     from src.learning.process_score import completion_rate, recurrence
 
     found: list[Candidate] = []
@@ -258,16 +274,27 @@ def process_rules(records: Sequence[Mapping[str, Any]]) -> list[Candidate]:
                 Candidate(
                     domain="process",
                     statement=(
-                        f"{stats['completed']} of {stats['runs']} runs reached a conclusion "
-                        f"({rate:.0%}){wasted_text} went to runs that finished nothing. "
-                        "Budget a run's cost as its expected cost divided by this rate, and "
-                        "fix the failure mode before scheduling anything unattended."
+                        f"{stats['completed']} of {stats['runs']} Claude Code sessions "
+                        f"ended with a conclusion ({rate:.0%}){wasted_text} went to "
+                        "sessions that finished nothing. Budget a session's cost as its "
+                        "expected cost divided by this rate."
                     ),
                     evidence_ids=[],
                     observations=stats["runs"],
                     rule="process.completion_rate",
                 )
             )
+
+    # The rule above counts Claude Code sessions, which is what ProcessRecord
+    # describes. Swarm runs are a different population with a different failure
+    # mode, and reading one as the other is what put an unattended scheduler
+    # behind a gate measuring whether somebody's editor closed cleanly. Worse,
+    # the sessions rule reads as a verdict on how the research is done -- so
+    # when the runs are dying on an unpaid account, the playbook tells a worker
+    # to improve its process while the actual repair is a billing one.
+    runs = _swarm_run_rule(run_reliability)
+    if runs is not None:
+        found.append(runs)
 
     repeats = recurrence(records)
     for code, counts in repeats["per_code"].items():
@@ -290,6 +317,34 @@ def process_rules(records: Sequence[Mapping[str, Any]]) -> list[Candidate]:
     return found
 
 
+def _swarm_run_rule(summary: "RunReliability | None") -> "Candidate | None":
+    """Return a lesson about swarm runs, naming what actually stopped them.
+
+    Returns ``None`` when no summary was supplied, when there are too few runs
+    to say anything, or when the runs are finishing.
+    """
+    if summary is None:
+        return None
+
+    rate = summary.completion_rate
+    if summary.runs < MIN_OBSERVATIONS or rate is None or rate >= 0.5:
+        return None
+
+    return Candidate(
+        domain="process",
+        statement=(
+            f"{summary.completed} of {summary.runs} swarm runs reached a conclusion "
+            f"({rate:.0%}), and {summary.blame()}. Read the cause before reading the "
+            "rate: a low completion rate caused by the provider is a billing "
+            "problem, and treating it as a research problem sends the work to the "
+            "wrong repair."
+        ),
+        evidence_ids=[],
+        observations=summary.runs,
+        rule="process.swarm_completion_cause",
+    )
+
+
 #: Every rule family, in the order the playbook lists them.
 RULES: tuple[Callable[..., list[Candidate]], ...] = (
     calibration_rules,
@@ -298,7 +353,12 @@ RULES: tuple[Callable[..., list[Candidate]], ...] = (
 )
 
 
-def derive(store: LearningStore, *, checkpoint: int = 21) -> list[Candidate]:
+def derive(
+    store: LearningStore,
+    *,
+    checkpoint: int = 21,
+    run_reliability: "RunReliability | None" = None,
+) -> list[Candidate]:
     """Run every rule over the ledger and return what fired.
 
     Args:
@@ -323,7 +383,7 @@ def derive(store: LearningStore, *, checkpoint: int = 21) -> list[Candidate]:
     found: list[Candidate] = []
     found.extend(calibration_rules(outcomes, calls))
     found.extend(action_rules(outcomes, calls))
-    found.extend(process_rules(processes))
+    found.extend(process_rules(processes, run_reliability))
     return found
 
 
