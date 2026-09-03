@@ -15,7 +15,7 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
 > Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
 
-**Nhánh:** `upgrade/learning-loop`. **24 commit chưa push** (chưa ai bảo push).
+**Nhánh:** `upgrade/learning-loop`. **22 commit chưa push** so với `origin/upgrade/learning-loop` (chưa ai bảo push).
 **Mục 1–8 trong hàng đợi ĐÃ XONG HẾT.** Việc còn lại không nằm trong kế hoạch cũ nữa —
 xem khối **"Còn nợ gì"** ngay dưới phần hàng đợi.
 **Full suite `12 failed, 3852 passed, 1 skipped, 9 errors`** — **11/12 fail + 9 error khớp**
