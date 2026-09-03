@@ -98,6 +98,7 @@ class Candidate:
             evidence_ids=self.evidence_ids,
             support_count=self.observations,
             status="confirmed" if confirmed else "provisional",
+            rule=self.rule,
         )
 
 
@@ -390,15 +391,25 @@ def derive(
 def curate(store: LearningStore, candidates: Iterable[Candidate]) -> list[Lesson]:
     """Store candidates as lessons, incrementing rather than rewriting.
 
-    A candidate whose wording matches a lesson already on the ledger lands on
-    the same ``lesson_id``, so its counts move and its history is kept. That is
+    A candidate from a rule lands on that rule's ``lesson_id``, so re-deriving
+    moves the counts on the lesson already there and keeps its history. That is
     the delta update ACE calls for, and the reason the playbook does not erode
     each time it is regenerated.
+
+    It used to key on the *wording*, which defeated itself: a counting rule
+    writes its numbers into its own statement, so every derivation hashed to a
+    new id and the playbook accumulated near-duplicates of the same finding --
+    growth rather than erosion, but equally a playbook nobody can read.
+
+    A lesson left behind by a rule that has been reworded is **retired**, not
+    left live. Two lines making the same claim with different numbers is worse
+    than one, because the reader has to work out which is current.
 
     Returns:
         The lessons as stored.
     """
-    existing = {lesson.lesson_id: lesson for lesson in store.live_lessons()}
+    live = store.live_lessons()
+    existing = {lesson.lesson_id: lesson for lesson in live}
     stored: list[Lesson] = []
     for candidate in candidates:
         lesson = candidate.to_lesson()
@@ -408,7 +419,41 @@ def curate(store: LearningStore, candidates: Iterable[Candidate]) -> list[Lesson
             lesson.contradicted_count = previous.contradicted_count
         store.append_lesson(lesson)
         stored.append(lesson)
+
+        # Retire any other live lesson the same rule produced under an older
+        # identity. Matching is on the rule, so a hand-written lesson -- which
+        # carries none -- is never retired by a deriver.
+        if not candidate.rule:
+            continue
+        for other in live:
+            if other.rule == candidate.rule and other.lesson_id != lesson.lesson_id:
+                superseded = Lesson.from_dict(other.to_dict())
+                superseded.status = "retired"
+                superseded.superseded_by = lesson.lesson_id
+                store.append_lesson(superseded)
     return stored
+
+
+def retire_lesson(store: LearningStore, lesson_id: str, superseded_by: str = "") -> bool:
+    """Retire one lesson by id, for cleaning up what predates a rule.
+
+    Lessons written before :attr:`Lesson.rule` existed cannot be matched to the
+    rule that would now replace them, so the few of them are retired by hand.
+    Kept as a named function rather than a script because it edits an
+    append-only ledger and should be readable next to what reads it.
+
+    Returns:
+        Whether a live lesson was found and retired.
+    """
+    for lesson in store.live_lessons():
+        if lesson.lesson_id != lesson_id:
+            continue
+        superseded = Lesson.from_dict(lesson.to_dict())
+        superseded.status = "retired"
+        superseded.superseded_by = superseded_by
+        store.append_lesson(superseded)
+        return True
+    return False
 
 
 def render_playbook(lessons: Sequence[Lesson], domain: str) -> str:

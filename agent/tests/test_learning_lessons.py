@@ -214,9 +214,23 @@ class TestCurate:
         assert len(live) == 1
         assert live[0].support_count == 9
 
-    def test_a_reworded_finding_is_a_different_lesson(self, store):
+    def test_rewording_one_rule_replaces_its_line_rather_than_adding_one(self, store):
+        """This test used to assert the opposite, and the opposite was the bug.
+
+        Keying a lesson on its wording meant a counting rule -- which writes
+        its own numbers into its statement -- produced a fresh lesson on every
+        derivation. Two live lines making the same claim with different numbers
+        is not a richer playbook, it is one the reader has to disambiguate.
+        """
         curate(store, [Candidate("calibration", "One thing.", [], 5, "r")])
         curate(store, [Candidate("calibration", "Another thing.", [], 5, "r")])
+        live = store.live_lessons(domain="calibration")
+        assert len(live) == 1
+        assert live[0].statement == "Another thing."
+
+    def test_two_different_rules_still_get_two_lessons(self, store):
+        curate(store, [Candidate("calibration", "One thing.", [], 5, "r1")])
+        curate(store, [Candidate("calibration", "Another thing.", [], 5, "r2")])
         assert len(store.live_lessons(domain="calibration")) == 2
 
     def test_the_first_write_date_survives_a_re_derivation(self, store):
@@ -306,3 +320,99 @@ class TestDeriveOnAStore:
                 )
             assert any(c.rule == "calibration.overconfidence" for c in derive(store))
             assert derive(store, checkpoint=63) == []
+
+
+class TestLessonIdentityIsTheRuleNotTheWording:
+    """The delta update was defeating itself.
+
+    A counting rule writes its own numbers into its statement, so hashing the
+    statement gave "4 of 25" and "3 of 24" different ids and every derivation
+    appended a near-duplicate instead of moving the counts on the one already
+    there. The ledger reached three live process lessons saying overlapping
+    things before anyone noticed.
+    """
+
+    def test_the_same_rule_keeps_its_id_when_its_numbers_move(self):
+        from src.learning.records import Lesson
+
+        first = Lesson(
+            domain="process", statement="3 of 24 runs", rule="process.completion_rate"
+        )
+        later = Lesson(
+            domain="process", statement="4 of 25 runs", rule="process.completion_rate"
+        )
+        assert first.lesson_id == later.lesson_id
+
+    def test_different_rules_stay_apart(self):
+        from src.learning.records import Lesson
+
+        one = Lesson(domain="process", statement="x", rule="process.completion_rate")
+        two = Lesson(domain="process", statement="x", rule="process.swarm_completion_cause")
+        assert one.lesson_id != two.lesson_id
+
+    def test_a_lesson_with_no_rule_is_still_identified_by_its_wording(self):
+        """For a hand-written line the wording really is the identity."""
+        from src.learning.records import Lesson
+
+        one = Lesson(domain="process", statement="written by hand", support_count=1)
+        two = Lesson(domain="process", statement="written by hand", support_count=9)
+        three = Lesson(domain="process", statement="something else", support_count=1)
+        assert one.lesson_id == two.lesson_id
+        assert one.lesson_id != three.lesson_id
+
+    def test_re_deriving_updates_in_place_instead_of_accumulating(self, tmp_path):
+        from src.learning.lessons import Candidate, curate
+        from src.learning.store import LearningStore
+
+        with LearningStore(tmp_path / "l.db") as store:
+            curate(store, [Candidate("process", "3 of 24 runs", [], 24, "process.completion_rate")])
+            curate(store, [Candidate("process", "4 of 25 runs", [], 25, "process.completion_rate")])
+            live = store.live_lessons()
+        assert len(live) == 1
+        assert "4 of 25" in live[0].statement
+
+    def test_a_rule_reworded_under_a_new_id_retires_the_old_line(self, tmp_path):
+        """Two lines making the same claim with different numbers is worse than one."""
+        from src.learning.lessons import Candidate, curate
+        from src.learning.records import Lesson
+        from src.learning.store import LearningStore
+
+        with LearningStore(tmp_path / "l.db") as store:
+            stale = Lesson(domain="process", statement="3 of 24 runs", support_count=24)
+            stale.rule = "process.completion_rate"
+            stale.lesson_id = "les_legacyid0001"
+            store.append_lesson(stale)
+            assert len(store.live_lessons()) == 1
+
+            curate(
+                store,
+                [Candidate("process", "4 of 25 runs", [], 25, "process.completion_rate")],
+            )
+            live = store.live_lessons()
+        assert len(live) == 1
+        assert "4 of 25" in live[0].statement
+
+    def test_a_hand_written_lesson_is_never_retired_by_a_deriver(self, tmp_path):
+        from src.learning.lessons import Candidate, curate
+        from src.learning.records import Lesson
+        from src.learning.store import LearningStore
+
+        with LearningStore(tmp_path / "l.db") as store:
+            store.append_lesson(
+                Lesson(domain="process", statement="a human wrote this", support_count=1)
+            )
+            curate(store, [Candidate("process", "derived", [], 5, "process.completion_rate")])
+            statements = {lesson.statement for lesson in store.live_lessons()}
+        assert "a human wrote this" in statements
+
+    def test_retire_lesson_reports_whether_it_found_anything(self, tmp_path):
+        from src.learning.lessons import retire_lesson
+        from src.learning.records import Lesson
+        from src.learning.store import LearningStore
+
+        with LearningStore(tmp_path / "l.db") as store:
+            lesson = Lesson(domain="process", statement="stale", support_count=1)
+            store.append_lesson(lesson)
+            assert retire_lesson(store, lesson.lesson_id, "les_new") is True
+            assert retire_lesson(store, "les_nothere") is False
+            assert store.live_lessons() == []

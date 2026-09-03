@@ -861,6 +861,8 @@ class Lesson:
         created_at: UTC instant the line was first written.
         expires_at: ISO date after which a provisional line is dropped.
         superseded_by: Lesson that replaced this one.
+        rule: Which deriving rule produced this lesson. It is also the lesson's
+            identity: see the id derivation below.
         parser_version: Curator version that produced this line.
     """
 
@@ -874,6 +876,7 @@ class Lesson:
     created_at: str = ""
     expires_at: str = ""
     superseded_by: str = ""
+    rule: str = ""
     parser_version: str = PARSER_VERSION
 
     def __post_init__(self) -> None:
@@ -911,7 +914,19 @@ class Lesson:
             self.expires_at = parse_date(self.expires_at, "expires_at").isoformat()
 
         if not self.lesson_id:
-            seed = f"{self.domain}|{_fold(self.statement)}"
+            # A rule is the lesson's identity when there is one. Hashing the
+            # statement was the original design and it silently defeated the
+            # delta update it was written for: every counting rule embeds live
+            # numbers in its wording, so "4 of 25" and "3 of 24" hash apart and
+            # each derivation appended a near-duplicate instead of moving the
+            # counts on the one already there. Hand-written lessons carry no
+            # rule and keep the statement hash, because for those the wording
+            # really is the identity.
+            seed = (
+                f"{self.domain}|rule:{self.rule}"
+                if self.rule
+                else f"{self.domain}|{_fold(self.statement)}"
+            )
             self.lesson_id = "les_" + sha256_text(seed)[:12]
 
     def is_expired(self, as_of: Any = None) -> bool:
