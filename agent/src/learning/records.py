@@ -426,7 +426,7 @@ class CallRecord:
 
     Attributes:
         ticker: Upper-case symbol, unsuffixed (``FPT``, not ``FPT.VN``).
-        as_of: Trading date of the call; ``ref_price`` is this day's close.
+        as_of: Trading date of the call.
         action: Canonical action from :data:`ACTIONS`.
         known_at: UTC instant the call became known. Evidence observed after
             this is hindsight.
@@ -435,7 +435,14 @@ class CallRecord:
         revision: 1-based position within the episode.
         thesis_episode: Slug distinguishing two live theses on one ticker in one
             session. ``default`` collapses them into a single episode.
-        ref_price: Close on ``as_of``.
+        ref_price: The price the document quotes as its reference. **Not
+            reliably the close on ``as_of``**, whatever an earlier version of
+            this contract claimed: a committee writes the level it is talking
+            about, and on this ledger three of sixteen calls quote an entry
+            level instead -- PHR 62.000 against a 63.000 close, MWG 69.000
+            against 68.000, VRE 24.300 against 24.800. Nothing scores from this
+            field for that reason; ``learning.resolve`` takes returns from the
+            close it fetches and reports the gap as a warning.
         target: Stated target price.
         bull: Bull-case price.
         bear: Bear-case price.

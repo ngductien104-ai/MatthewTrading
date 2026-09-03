@@ -364,6 +364,19 @@ def test_the_prompt_carries_the_document_and_its_wall(document):
     assert FPT_CALL in prompt
 
 
+def test_the_prompt_does_not_ask_the_extractor_for_a_price_it_cannot_see(document):
+    """``ref_price`` is the level the note quotes, not the session close.
+
+    Three of sixteen calls on the ledger quote an entry level -- PHR 62.000
+    against a 63.000 close -- and an extractor told to report "the close" would
+    either guess it or silently report the quoted level under a name that
+    promises something else. The close is looked up from price data instead.
+    """
+    prompt = build_prompt(document)
+    assert "the price the document quotes as its reference" in prompt
+    assert "Do NOT try to supply the day's close" in prompt
+
+
 # -- document level -----------------------------------------------------------
 
 

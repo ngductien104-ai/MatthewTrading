@@ -587,7 +587,12 @@ Return JSON only, shaped as {{"calls": [...]}}, where each call has:
               states the call in a sentence, put the sentence in `quotes` and only its
               recommendation phrase here. A sentence is refused.
   quotes      required, a list of verbatim excerpts from the document
-  ref_price / target / bull / bear / stop   numbers, omit any that is not stated
+  ref_price   the price the document quotes as its reference, exactly as written.
+              Do NOT try to supply the day's close: if the note says "do not chase
+              at 69" or "accumulate 61,5-62,5", that quoted level IS the answer.
+              The close is looked up later from price data, and the two are
+              compared there.
+  target / bull / bear / stop   numbers, omit any that is not stated
   confidence  a fraction in [0, 1]; a stated 61% is 0.61
   horizon_sessions, thesis_episode, thesis_bullets, invalidation_triggers, notes
 
