@@ -10,7 +10,134 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG MỚI NHẤT — 04/09/2026 chiều: Giai đoạn 1 KHÉP + mục `episode_id` XONG kèm di trú
+## 🔖 ĐIỂM DỪNG MỚI NHẤT — 05/09/2026: 5 commit vào nhánh, cây làm việc SẠCH
+
+> **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Dừng vì **hết token phiên**, không phải bế tắc kỹ thuật.
+> Chữ ký của việc hết token là `learning extract failed: claude exited 1:` với **stderr rỗng** —
+> đã gặp lần thứ hai, xem đợt 04/09. Không phải lỗi hạ tầng.
+>
+> **Cây sạch phần việc này, 5 commit đã vào nhánh, CHƯA push** — quyết định push để anh gọi.
+> Việc dở duy nhất là **backfill**, và nó không để lại trạng thái nửa vời: mỗi tài liệu là một
+> lần chạy độc lập, đọc lại cùng một tài liệu không sinh quan sát thứ hai.
+
+### Full suite trên cây ĐÃ COMMIT
+
+`11 failed, 3982 passed, 1 skipped, 9 errors` trong **429s (7:09)**. Fail và error khớp baseline
+từng cái: dividend ×3 · loader_retry ×5 · oauth ×3 · `factors/test_registry` ×9 error. Passed đi
+từ 3957 (đầu phiên) → **3982**; chênh 25 đúng bằng số test phiên này thêm.
+Log: `_upgrade/full_suite_20260905_{locate,switch,withdraw,episode}.txt` — ngoài git, xoá được.
+
+### Năm commit đã vào nhánh
+
+| Commit | Mục |
+|---|---|
+| `3d9187d` | **docs(upgrade)** Giai đoạn 2 đã đóng trước đó bốn ngày mà header vẫn ghi "chưa bắt đầu" |
+| `fa971b8` | **fix(learning)** hai dấu sao làm mất trọn một call |
+| `d1732c8` | **fix(learning)** `switch` không phải action của một mã, và `trim` nay đã được đo |
+| `74f091b` | **fix(learning)** dẫn lại không phải call, và một dòng nay rời được sổ cái |
+| `7f45f8e` | **fix(learning)** một episode là một call, dù bao nhiêu tài liệu nói về nó |
+
+### Sổ cái `~/.vibe-trading/learning.db` lúc dừng
+
+`calls = 23 dòng / 21 id / **20 episode**` · `evidence = 201` · `outcomes = 45 dòng / 15 id` ·
+`lessons = 20/13` · `process_records = 57/32`.
+
+**Đọc con số nào?** Sau commit `7f45f8e`, `list_calls()` trả **20** — một bản ghi mỗi episode.
+21 id là vì `_HAH_research` có hai tài liệu của cùng một call; cả hai vẫn nằm trong sổ, chỉ
+không được đếm hai lần. Đường lùi của lần rút bản ghi: `learning.db.bak-20260904-171136Z`.
+
+### Đã làm gì trong phiên này
+
+**1. Header Giai đoạn 2 nói dối, và nó đã gây thiệt hại thật.** Phiên này mở đầu bằng việc em đề
+xuất "làm 2.2" — mục đã đóng từ 01/09 (Q4–Q10) — vì đọc file kế hoạch trong `~/.claude/plans/`
+cộng với header. **Trạng thái thật nằm ở hàng đợi Q1–Q11 và các khối ĐIỂM DỪNG, không ở header.**
+Đã sửa kèm bảng đối chiếu từng mục con, và gạch bỏ dòng "Sang Giai đoạn 2, làm 2.2 trước 2.1".
+
+**2. Cổng trích dẫn từ chối oan vì markdown.** PET chạy lại trả **0 call**: 8/9 trích dẫn đúng
+nguyên văn, cái thứ 9 hỏng vì model bỏ hai dấu `**` quanh `**64–66**`. `_locate` nay khớp bỏ qua
+ký tự nhấn (`*` và backtick) ở **cả hai vế**, ánh xạ ngược qua bảng chỉ số ký tự nên dòng vẫn là
+*sự thật tìm được* chứ không phải lời khai; excerpt lưu vào sổ nay là **lát thô của tài liệu**.
+Prompt sửa kèm. Chỉ bỏ ký tự định dạng, không bỏ chữ — đổi một chữ, đổi một số, hay chuỗi toàn
+dấu sao đều vẫn bị từ chối (4 ca đối kháng).
+
+**3. Cổng thứ hai lộ ra ngay sau đó.** Hết `quote_not_found` thì PET dính `scale_ambiguous`: model
+chọn toàn số trần (`54.8`, `48,5`) nên không có gì neo thang giá. Prompt nay đòi **ít nhất một
+trích dẫn mang đơn vị** (`53k`, `72.200 đ`). Chạy lại sống: **1 call, 8 evidence, không từ chối**,
+giữ đúng `call_6a46a8c4de89`, đủ `ref 54.800 · target 48.000 · bull 64.000 · bear 40.000 ·
+stop 48.500 · conf 0,70`.
+
+**4. Lỗi của em, và full suite là thứ bắt được nó.** Đổi arity `_locate` mà chỉ grep trong
+`extract.py`, bỏ sót hai call site ở `process_score.py`. Suite trả **25 failed** so baseline 11 —
+chênh đúng 14, bằng số test của file đó. **Đây là lý do luật "chạy full suite trước khi commit"
+tồn tại.** Bài học hẹp hơn: đổi chữ ký một helper thì grep **toàn repo**, không grep trong file.
+
+**5. `switch` không vào từ vựng (anh chốt).** Một bản ghi = một mã, chấm bằng chuỗi giá của mã đó;
+`switch` là quan hệ **hai mã** nên resolver không có gì để chấm. Alias còn tệ hơn vì bản thân chữ
+đó không nói được vế nào. Lý do đã ghi thành khối chú thích trên `ACTIONS`; 4 biến thể bị khoá
+phải `raise`. Muốn đo "call hoán đổi" thật thì phải **nối hai bản ghi** — đó là sửa hợp đồng đã
+đóng băng, là một mục riêng.
+
+**6. `trim` giữ nguyên, nhưng nay đã được ĐO (anh chốt).** Ba ca sai là assert có ghi lý do từng
+ca, không còn là lỗ hổng vô danh: `trim into 27.8 if it arrives without a confirming Q2` vẫn
+chứng nhận được `reduce` ở hiện tại dù call HDB thật là `accumulate`. Kiểm phủ định vững cả tiếng
+Việt có dấu lẫn tiếng Anh; chỉ thủng khi tác giả gõ `khong` không dấu — đánh đổi có chủ ý.
+
+**7. Dẫn lại ≠ call, và nay có đường rút một dòng (anh chốt).** Biên bản VRE nhắc *"repo đã có
+khung phân tích PET (kết luận: chờ, fair 44–48)"* và câu đó thành một call PET thứ hai, ngày
+31/07 thay vì 18/06, không giá nào, không bao giờ chấm được. Prompt nay nói rõ điều đó **không**
+phải call. `rebuild_ledger` nhận `withdrawn={call_id: lý do}` — **lý do bắt buộc**, vì một dòng
+rời sổ mà không có lý do thì không phân biệt được với một dòng bị mất. Outcome đi theo call;
+evidence ở lại (trích dẫn là sự thật về tài liệu, chỉ cách đọc là sai). Rút call sổ không có thì
+**raise**, không im lặng. Chạy thật: `calls` 22→21 dòng, 20→19 id, **bốn bảng còn lại y nguyên**.
+
+**8. Cũng tìm ra khi kiểm mục 7: `learning report` in xong rồi mới sập.** `report` và `cost` in
+thẳng nhưng **không `return 0`** như mọi nhánh khác, nên rơi xuống `_log(message)` với `message`
+chưa gán — và dòng đó nằm **ngoài** `try` nên ném thẳng ra ngoài. Ai đọc exit code (hook,
+scheduler, shell) đều thấy một lệnh vừa chạy đúng là *thất bại*. Đã sửa + test cả hai lệnh.
+
+**9. Bảng điểm và bộ chấm bất đồng về cách ĐẾM (anh chốt, commit `7f45f8e`).** Một *episode* =
+(thư mục, mã). `scoring_point` xưa nay gộp theo episode; `list_calls` lại nhóm theo `call_id`, nên
+đọc một episode ra từ **tài liệu thứ hai** là mẫu số phình lên. `_HAH_research` có
+`HAH_BaoCao.md` và `report.md` — hai bản thảo của một báo cáo, một quyết định, hai `call_id`.
+`list_calls` nay trả **một bản ghi mỗi episode, bản đang có hiệu lực**, dùng chính
+`latest_revision`. Ca đối kháng khoá chiều ngược lại: **cùng mã ở hai thư mục khác nhau thì KHÔNG
+gộp** (HPG được gọi bởi cả `_hpg_research` lẫn bảng thực thi của `_vre_committee` — hai quyết
+định, hai ngày).
+
+### Việc kế tiếp, theo thứ tự
+
+1. **Backfill nốt.** Đã xong HPG (`wait`, ref 24.000, tgt 27.000, 6 evidence) và HAH (`neutral`,
+   ref 54.500, tgt 57.400, 7 evidence). Còn lại, **nay đã an toàn** vì episode gộp đúng:
+   - `_portfolio_review/00_CIO_decision.md` — **chạy dở, `claude exited 1` do hết token.** Chạy lại.
+   - `_sbt_committee/report.md` · `_switch_tpb_hdb/client_report.md`
+   - `_vre_committee/BAO_CAO_TONG_HOP_VRE.md` · `_vre_committee/PM_DECISION_v2_LaiSuat.md` (80KB)
+2. **Hai tài liệu TA bị từ chối — đọc kỹ trước khi coi là lỗi:**
+   - `_dig_ta/report_aggregate.md` → `scale_ambiguous`
+   - `_sbt_ta/report_AGGREGATE.md` → `unknown_action`
+
+   Rất có thể **từ chối đúng**: báo cáo kỹ thuật thường nêu vùng giá không đơn vị và dùng từ ngoài
+   từ vựng đóng. **Đọc reply đã lưu ở `~/.vibe-trading/proposals/` trước**, đừng nới cổng để cho qua.
+3. Chỉ nên backfill **tài liệu quyết định**, không backfill đầu vào. Kho có 166 file `.md` khớp
+   từ khoá khuyến nghị, nhưng phần lớn là bản crawl (`raw_*.md`) và các vế tranh biện
+   (`BULL.md`/`BEAR.md`/`RISK.md`). Nhét chúng vào sổ là ghi *lập trường của một vai*, không phải
+   call của bàn — cùng họ với lỗi PET dẫn lại ở mục 7.
+
+### Hai điều đã sửa lại về chính mình, đừng tin bản cũ
+
+- Con số "**11 tài liệu quyết định** chưa backfill" em nói giữa phiên là **sai**; đúng là **9**
+  (danh sách 18 dòng = 9 DONE + 9 TODO).
+- Em từng báo động "HAH bị đếm hai lần" rồi rút lại, rồi xác nhận lại. Kết luận cuối: **đúng là
+  đếm trùng, nhưng chỉ ở đường `list_calls`**; đường `scoring_point` xưa nay vẫn gộp đúng.
+
+### Một lỗi quy trình của em, ghi ra để phiên sau không lặp
+
+Em **sửa `cli.py` trong lúc full suite đang chạy** — đúng cái bẫy đã ghi ở khối 04/09. Lần đo đó
+phải bỏ và chạy lại từ đầu (mất ~9 phút). Luật: **suite chạy thì không đụng file `.py`.** Backfill
+thì chạy song song được, vì nó chỉ ghi vào sổ cái và test đều dùng `tmp_path`.
+
+---
+
+## 🔖 ĐIỂM DỪNG — 04/09/2026 chiều: Giai đoạn 1 KHÉP + mục `episode_id` XONG kèm di trú
 
 > **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Ba commit đã vào nhánh, cây làm việc sạch phần việc này.
 > **Chưa push** — quyết định push để anh gọi.
