@@ -535,6 +535,63 @@ chúng tự gọi tool của chúng rồi trả **văn bản**. Mà `src/provide
 không liên quan model mạnh hay yếu. Muốn dùng thì phải bọc ở **tầng worker**: giao nguyên task,
 để nó tự dùng tool của nó, nhận lại `report.md`. Đó là thay đổi kiến trúc, chưa làm.
 
+### Phiên 04/09 — đợt 7: worker chạy trong codex / claude (anh chọn bọc tầng worker)
+
+| Commit | Mục |
+|---|---|
+| `2ea57b4` | `subprocess_worker.py` — chạy task trong codex hoặc `claude -p`, thay vòng ReAct |
+
+**Bật bằng biến, mặc định TẮT** (giữ nguyên worker cũ):
+```
+VIBE_TRADING_WORKER_EXECUTOR=codex     # hoặc claude
+VIBE_TRADING_CLAUDE_PERMISSION_MODE=acceptEdits   # BẮT BUỘC cho claude, xem dưới
+```
+
+**Cả hai đã CHẠY THẬT trên cùng một task, và chênh lệch chính là lý do làm việc này:**
+```
+codex   270s, completed. Tự viết collect_macro.py, lưu local_data.json, rồi ra report:
+        Q2 GDP 8,39% YoY · PMI T8 53,3 · XK 8T 22,4% · CPI bq 4,45% · nhập siêu 20,46 tỷ USD
+        — mỗi số kèm nguồn.
+claude  completed. Report mở đầu bằng mục "Provenance and what is missing",
+        khai rõ số lấy từ dump nào, cái gì không lấy được.
+ollama  cùng task đó, trước đây: "GDP: [Latest value]".
+```
+
+**🔴 BA LỖI CỦA EM, chỉ chạy thật mới lộ** — cả ba đều đúng họ lỗi nhánh này hay vấp:
+
+1. **`command line too long`.** `shutil.which` trả về shim npm `codex.cmd`, nên tiến trình chạy
+   qua `cmd.exe` và dính trần **8191 ký tự**; prompt worker 8455. Nay prompt đi qua **stdin**.
+2. **Đếm action sai.** Codex phát `item.completed` và để loại ở `item.item_type`; em lại khớp
+   chuỗi trên `type` cấp ngoài ⇒ **đếm 0 action** cho run có chạy lệnh và ghi file. Tệ hơn:
+   **test của em pass, vì nó khẳng định đúng cái hình dạng event em tự bịa.** Nay cả parser lẫn
+   test đều đối chiếu JSONL **codex thật**.
+3. **`num_turns` KHÔNG phải số tool call.** `claude -p` không có permission mode thì bị chặn mọi
+   `Write`/`Bash`, không ghi gì, **mà vẫn được chấm `completed`** — vì hợp đồng là *có tool call
+   **HOẶC** có report*, và 1 lượt hội thoại thoả vế đầu miễn phí. Định dạng `json` **không quan
+   sát được** số tool call, nên nay claude báo `actions=0`: **không bịa đại lượng mình không thấy.**
+
+> ⚠️ **BẪY ĐƠN VỊ TOKEN — hai bên ngược quy ước nhau, không dùng chung parser được:**
+> | | `input_tokens` báo về | cached |
+> |---|---|---|
+> | **codex** | **đã gồm** phần cached | `cached_input_tokens` là **tập con** |
+> | **claude** | **không** gồm | `cache_creation` + `cache_read` **tách rời** |
+>
+> Đọc bên này bằng quy ước bên kia thì sai vài bậc độ lớn mà số vẫn trông hợp lý — đúng họ bẫy
+> `RT_PRT_*` / `RT_VALUE_MARKET_CAP` mà `CLAUDE.md` cảnh báo. `cache_read` **loại khỏi cả hai**
+> (chính là cú cộng dồn làm phồng 225× ở đợt 2). claude còn trả `total_cost_usd` — ghi vào event.
+
+**Cái đã trả giá để biết:** worker mới **kém minh bạch hơn** với sổ cái. Worker cũ ghi từng tool
+call vào `events.jsonl`; cái này chỉ ghi token/exit code/message cuối, phần giữa nằm trong
+transcript riêng của agent. Nên `prompt.txt` được lưu xuống đĩa — nếu không thì prompt của run
+là thứ không phục hồi được. Đã ghi rõ trong docstring, không giấu.
+
+**Đặt tên thêm một nguyên nhân:** `host_exited` (reaper dọn run khi tiến trình chủ chết) — trước
+rơi vào `other`, và test tripwire đã bắt được.
+
+**❗ CÒN TREO, chờ anh quyết:** `_classify_deliverable` vẫn chấm report toàn `[Latest value]` là
+`completed`. Em để **`xfail(strict=True)` kèm lý do** thay vì vá, vì đó là classifier **dùng
+chung** với worker cũ — đổi nó là đổi cách chấm của cả hệ thống.
+
 ### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
 
 Hàng đợi 1–8 hết. Ba thứ dưới đây **không phải mục kế hoạch chưa làm**, mà là **giới hạn đã
