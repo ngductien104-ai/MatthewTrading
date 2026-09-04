@@ -304,7 +304,7 @@ def score_document(document: SourceDocument, propose: Callable[[str], str]) -> P
             result.items.append(ItemResult(item.code, False, rejected="not claimed"))
             continue
         try:
-            first, last = _locate(quote, document)
+            first, last, excerpt = _locate(quote, document)
         except ExtractionError:
             result.items.append(
                 ItemResult(item.code, False, rejected="quote is not in the document")
@@ -327,7 +327,7 @@ def score_document(document: SourceDocument, propose: Callable[[str], str]) -> P
                     source_uuid=document.source_uuid,
                     source_path=document.path,
                     locator=f"L{first}-L{last}",
-                    excerpt=quote,
+                    excerpt=excerpt,
                 ),
             )
         )
@@ -424,7 +424,7 @@ def classify_errors(
             refused.append(f"errors[{position}] ({code}) has no quote")
             continue
         try:
-            first, last = _locate(quote, document)
+            first, last, excerpt = _locate(quote, document)
         except ExtractionError:
             refused.append(f"errors[{position}] ({code}) quotes text not in the document")
             continue
@@ -435,7 +435,7 @@ def classify_errors(
             source_uuid=document.source_uuid,
             source_path=document.path,
             locator=f"L{first}-L{last}",
-            excerpt=quote,
+            excerpt=excerpt,
         )
         evidence.append(cited)
         entries.append(

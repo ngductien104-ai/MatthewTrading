@@ -168,6 +168,52 @@ def test_a_paraphrase_is_not_a_citation(document):
         validate_candidate(candidate, document)
 
 
+# -- markdown emphasis in quotes ----------------------------------------------
+#
+# The strict compare cost a whole extraction on 04/09: PET's memo writes
+# ``chốt mạnh quanh **64-66** nếu chạm trong cửa sổ T7-T8.`` and the model
+# reported it without the asterisks, so one of nine otherwise verbatim quotes
+# failed and the call was refused. These tests fix the boundary of the fix:
+# formatting may differ, wording may not.
+
+
+def test_a_quote_that_drops_bold_markers_is_still_a_citation(document):
+    """The PET case: the words are the document's, only the asterisks are gone."""
+    typed = FPT_CALL.replace("**", "")
+    _, evidence = validate_candidate(
+        _candidate(quotes=[FPT_HEADER, typed, FPT_ACTION]), document
+    )
+    located = [item for item in evidence if item.locator == "L6-L6"]
+    assert len(located) == 1
+    excerpt = located[0].excerpt
+    # What the ledger keeps is the document's own characters, not the model's
+    # retyping of them: the span runs from the first quoted character to the
+    # last, so a marker the model dropped inside the span comes back.
+    assert excerpt in document.text
+    assert excerpt != typed
+    assert "**" in excerpt
+
+
+def test_dropping_markers_does_not_let_a_changed_word_through(document):
+    """One word swapped inside an otherwise perfect quote is still a paraphrase."""
+    forged = FPT_CALL.replace("**", "").replace("Giá mục tiêu", "Giá sàn")
+    with pytest.raises(ExtractionError, match="quote not found"):
+        validate_candidate(_candidate(quotes=[forged]), document)
+
+
+def test_dropping_markers_does_not_let_a_changed_number_through(document):
+    """The fix must not become a way to quote a price the document never wrote."""
+    forged = FPT_CALL.replace("**", "").replace("58.800", "85.800")
+    with pytest.raises(ExtractionError, match="quote not found"):
+        validate_candidate(_candidate(quotes=[forged]), document)
+
+
+def test_a_quote_made_only_of_markers_matches_nothing(document):
+    """``****`` strips to the empty string, which str.find would place at 0."""
+    with pytest.raises(ExtractionError, match="quote not found"):
+        validate_candidate(_candidate(quotes=["****"]), document)
+
+
 def test_a_number_absent_from_its_own_quote_is_refused(document):
     with pytest.raises(ExtractionError, match="does not appear"):
         validate_candidate(_candidate(target=61000), document)

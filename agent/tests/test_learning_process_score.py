@@ -103,6 +103,19 @@ class TestAPointCannotBeAsserted:
         assert result.score == MAX_SCORE - 1
         assert result.items[3].rejected == "quote is not in the document"
 
+    def test_a_bolded_line_quoted_without_its_markers_still_earns_the_point(self):
+        """Scoring runs through the same gate extraction does, so it forgives the
+        same thing: a memo writing ``**expected in Q3 2026**`` must not cost a
+        rubric point because the model reported the words without the asterisks.
+        """
+        catalyst = "The land compensation decision from GVR is expected in Q3 2026."
+        bolded = MEMO.replace(catalyst, f"**{catalyst}**")
+        result = score_document(document(text=bolded), replies(**PERFECT))
+        assert result.score == MAX_SCORE
+        assert result.items[3].earned is True
+        # And what gets stored is the memo's own characters, not the model's.
+        assert result.items[3].evidence.excerpt in bolded
+
     def test_a_real_quote_without_the_required_shape_earns_nothing(self):
         """Offering a dateless line for data_cutoff is confident and empty."""
         weak = {**PERFECT, "data_cutoff": "which is the whole of the target."}

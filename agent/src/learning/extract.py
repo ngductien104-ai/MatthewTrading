@@ -625,9 +625,15 @@ Return JSON only, shaped as {{"calls": [...]}}, where each call has:
   horizon_sessions, thesis_episode, thesis_bullets, invalidation_triggers, notes
 
 Rules that are checked in code, so breaking one only loses the call:
-  - Every quote must appear character-for-character in the document.
+  - Every quote must appear character-for-character in the document, except that
+    markdown emphasis markers (* and `) may be dropped. Copy the words exactly;
+    do not tidy, translate, shorten or re-punctuate them.
   - Every number you report must appear in one of your own quotes.
   - Never convert or round a price. Report what is written; the scale is resolved here.
+  - The scale is resolved FROM YOUR QUOTES, so at least one quote must show a price
+    the way the document writes it with a unit or a thousands separator -- "53k",
+    "54.800 đ", "giá chốt 72.200". If every price you quote is a bare number like
+    "54.8" there is nothing to anchor against, and the whole call is refused.
   - If the document states two actions at once, pick the operative one and quote it.
   - The action vocabulary is closed. An unlisted phrase is refused rather than guessed,
     so report the phrase the document actually uses instead of paraphrasing it.
@@ -723,28 +729,75 @@ def _as_number(value: Any, field_name: str) -> float:
         ) from exc
 
 
-def _locate(quote: str, document: SourceDocument) -> tuple[int, int]:
-    """Return the 1-based line span of ``quote`` inside the document.
+#: Markdown characters that carry emphasis and nothing else. Dropping them
+#: changes how a line looks, never which words it says, so a quote differing
+#: from the document only in these cannot be a different claim.
+_EMPHASIS_CHARS = "*`"
+
+
+def _without_emphasis(text: str) -> tuple[str, list[int]]:
+    """Return ``text`` without emphasis markers, plus each kept character's index.
+
+    The index list is what keeps the span a fact rather than an estimate: a
+    match found in the stripped text maps straight back onto raw offsets, so
+    the recorded line number and excerpt still come from the document as
+    written.
+    """
+    kept: list[str] = []
+    origin: list[int] = []
+    for index, char in enumerate(text):
+        if char in _EMPHASIS_CHARS:
+            continue
+        kept.append(char)
+        origin.append(index)
+    return "".join(kept), origin
+
+
+def _locate(quote: str, document: SourceDocument) -> tuple[int, int, str]:
+    """Return the 1-based line span of ``quote`` and the document's own wording.
 
     The span is computed here rather than taken from the model: an offset the
     model reports is an assertion, an offset found by :meth:`str.find` is a
     fact.
 
+    A quote is matched character-for-character first. Failing that it is matched
+    with markdown emphasis markers dropped from *both* sides, because a model
+    that reads ``chốt mạnh quanh **64-66** nếu chạm`` and reports
+    ``64-66 nếu chạm`` has cited the document exactly and lost nothing but two
+    asterisks -- yet the strict compare refuses it, and one refusal takes the
+    whole call down. That is measured, not hypothetical: it cost the entire PET
+    re-extraction of 04/09, eight verbatim quotes discarded over one pair of
+    markers. Only formatting characters are dropped, never words, so a
+    paraphrase still fails. The excerpt returned is then the document's own
+    slice rather than the model's retyping of it.
+
+    Returns:
+        ``(first_line, last_line, excerpt)``, the excerpt being the raw span.
+
     Raises:
         ExtractionError: The quote is not in the document.
     """
     start = document.text.find(quote)
-    if start < 0:
-        raise ExtractionError(
-            f"quote not found in {document.path}: {quote[:80]!r}. "
-            "Quotes are checked character-for-character; a paraphrase is not a citation."
-        )
+    if start >= 0:
+        end = start + len(quote)
+    else:
+        flat_document, origin = _without_emphasis(document.text)
+        flat_quote, _ = _without_emphasis(quote)
+        flat_start = flat_document.find(flat_quote) if flat_quote.strip() else -1
+        if flat_start < 0:
+            raise ExtractionError(
+                f"quote not found in {document.path}: {quote[:80]!r}. "
+                "Quotes are checked character-for-character apart from markdown "
+                "emphasis; a paraphrase is not a citation."
+            )
+        start = origin[flat_start]
+        end = origin[flat_start + len(flat_quote) - 1] + 1
     first = document.text.count("\n", 0, start) + 1
-    return first, first + quote.count("\n")
+    return first, first + document.text.count("\n", start, end), document.text[start:end]
 
 
 def _build_evidence(quote: str, document: SourceDocument) -> Evidence:
-    first, last = _locate(quote, document)
+    first, last, excerpt = _locate(quote, document)
     return Evidence(
         kind=document.kind,
         observed_at=document.observed_at,
@@ -752,7 +805,7 @@ def _build_evidence(quote: str, document: SourceDocument) -> Evidence:
         source_uuid=document.source_uuid,
         source_path=document.path,
         locator=f"L{first}-L{last}",
-        excerpt=quote,
+        excerpt=excerpt,
     )
 
 
