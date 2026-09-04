@@ -15,11 +15,14 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 > **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Ba commit đã vào nhánh, cây làm việc sạch phần việc này.
 > **Chưa push** — quyết định push để anh gọi.
 
-**Full suite đã đối chiếu:** `11 failed, 3946 passed, 1 skipped, 9 errors` trong **484s (8:04)**.
+**Full suite đã đối chiếu trên cây ĐÃ COMMIT:** `11 failed, 3957 passed, 1 skipped, 9 errors`
+trong **409s (6:49)**. (Lần đo trước khi có `migrate.py` là `3946 passed`; +11 test của bộ di trú
+là đúng bằng chênh lệch — cộng khớp, không có test nào lặng lẽ biến mất.)
 11 fail + 9 error **khớp từng cái** với danh sách baseline (dividend ×3, loader_retry ×5,
 oauth ×3, `tests/factors/test_registry` ×9 error). Test `rich` lung lay lần trước nay xanh, nên
 là 11 chứ không phải 12. Passed đi từ **3885 → 3946**. Không có fail mới.
-Log đầy đủ: `_upgrade/full_suite_20260904_evening.txt` (ngoài git, xoá được).
+Log đầy đủ: `_upgrade/full_suite_20260904_final.txt` (và `..._evening.txt` là lần trước;
+cả hai ngoài git, xoá được).
 
 **Sổ cái `~/.vibe-trading/learning.db` sau di trú — đếm theo ID:**
 `calls=17` · `outcomes=15` (45 dòng) · `evidence=149` · `lessons=13` (20 dòng) ·
