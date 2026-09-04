@@ -195,6 +195,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default="",
         help="comma-separated tickers the cycle may consider",
     )
+    scheduler.add_argument(
+        "--run",
+        action="store_true",
+        help=(
+            "actually launch research if every gate allows it; without this "
+            "the command only reports what it would do"
+        ),
+    )
     report = sub.add_parser("report", help="print the scorecard for one checkpoint")
     report.add_argument(
         "--checkpoint", type=int, default=21, help="checkpoint in trading sessions"
@@ -214,9 +222,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "cost":
             print(_run_cost())
         elif args.command == "scheduler":
+            universe = [t.strip().upper() for t in args.universe.split(",") if t.strip()]
+            if args.run:
+                # The gates still decide. This flag only says the caller is
+                # willing to spend if they allow it, which is why launching
+                # takes an explicit word and reporting does not.
+                from src.scheduler.launcher import swarm_launcher
+                from src.scheduler.loop import run_cycle
+
+                kwargs = {"dry_run": False, "launcher": swarm_launcher()}
+                if universe:
+                    kwargs["universe"] = universe
+                print(run_cycle(**kwargs).detail)
+                return 0
             from src.scheduler.loop import status as scheduler_status
 
-            universe = [t.strip().upper() for t in args.universe.split(",") if t.strip()]
             print(scheduler_status(universe=universe))
             return 0
         elif args.command == "resolve":

@@ -23,6 +23,13 @@ not about whether the research converges. Both facts matter and they are not
 interchangeable, which is why :func:`summarise` reports them side by side and
 refuses to collapse them into one number.
 
+Updated 2026-09-04. A local ollama gave the machine a provider that completes,
+and the first run launched onto it failed for a research reason rather than a
+billing one: the 3B model answered in prose where the task required tool calls,
+and the output contract rejected the result. So "zero research failures" above
+is now one, and the distinction the module was built to draw has finally been
+drawn against a real example rather than an imagined one.
+
 **The rate is not adjusted for this.** It would be easy to exclude provider
 failures, watch the rate jump to 3 of 3, and open the gate -- and it would be
 wrong. An unattended cycle on a machine whose provider is dead produces
@@ -57,6 +64,11 @@ _CAUSE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("connection error", "provider_unavailable"),
     ("exceeded layer deadline", "timeout"),
     ("timed out", "timeout"),
+    # First observed 2026-09-04, against a local 3B model: the worker talked
+    # instead of acting, so the output contract rejected it. This is a research
+    # failure and not the provider's -- the completion was served fine -- and
+    # the two want different fixes, which is what the split below is for.
+    ("output contract not met", "output_contract_unmet"),
 )
 
 #: Causes that are the provider's, not the research's.
