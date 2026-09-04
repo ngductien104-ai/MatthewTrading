@@ -10,6 +10,64 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
+## 🔖 ĐIỂM DỪNG MỚI NHẤT — 04/09/2026, 14:0x (chạm session limit giữa mục `propose`)
+
+> **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Dừng vì hết token phiên, không phải vì bế tắc kỹ thuật.
+> Hẹn chạy lại **sau 14:40**.
+
+### Đang làm gì khi dừng: khép Giai đoạn 1 — `propose` cho `extract.py`
+
+**Đã xong (code + nối dây):**
+- `agent/src/learning/propose.py` — `claude_propose` / `codex_propose` / `configured_proposer`,
+  chọn bằng `VIBE_TRADING_PROPOSER` (mặc định `claude`), tên sai thì **báo lỗi** chứ không lùi
+  âm thầm (lùi âm thầm = gán extraction của model này cho model khác trong sổ cái).
+- `learning extract --doc X` nay **không cần `--reply`** nữa; `--reply` vẫn còn và vẫn là đường
+  tái lập được. Đường sống **ghi reply ra** `~/.vibe-trading/proposals/<stamp>-<digest>.json`
+  trước khi trả về, để không phá quy tắc của chính `extract.py`: *"a backfill nobody can re-run
+  against the same input is a one-off"*.
+- **KHÔNG cấp tool cho proposer, và đó là điểm thiết kế chứ không phải hạn chế.** Mọi trích dẫn
+  phải khớp nguyên văn tài liệu **được đưa**; một proposer đọc được ổ đĩa có thể thoả luật đó
+  bằng cách trích **một tài liệu khác**. `claude -p` không kèm `--permission-mode` = mọi tool bị
+  chặn, đúng thứ cần. `codex` dùng `--sandbox read-only` cùng lý do.
+- 458 test liên quan xanh; module import sạch; nhánh từ chối tên sai đã kiểm.
+
+### 🔴 CHƯA XONG — và theo luật của chính nhánh này thì mục NÀY CHƯA ĐƯỢC TÍNH LÀ XONG
+
+```
+$ learning extract --doc ../_phr_committee/PM_DECISION.md      (14.098 ký tự)
+learning extract failed: claude exited 1:                      ← stderr RỖNG
+real 1m12s
+```
+
+**Chưa xác minh được nguyên nhân.** Nghi phiên chạm usage limit (đang chạy `claude -p` từ trong
+một phiên Claude Code đã hết token), nhưng **em không kết luận** — stderr rỗng nên chưa có bằng
+chứng. Luật đã rút ra ở đợt 5/7: *chạy thật xong mới được nói là xong*. Nên mục này ở trạng thái
+**code xong, chưa chứng minh**.
+
+### Việc đầu tiên sau 14:40, theo thứ tự
+
+1. **Chạy lại đúng lệnh trên.** Nếu vẫn `exited 1` + stderr rỗng thì chẩn đoán bằng cách gọi tay:
+   `claude -p --output-format json` với prompt ngắn, xem exit code và stdout thật. Khả năng khác
+   cần loại trừ: prompt 14KB qua stdin trên Windows, và việc gọi `claude` lồng trong phiên claude.
+2. **Nếu chạy được:** kiểm số call/evidence trích được, đối chiếu với sổ cái
+   (`calls=16 · evidence=142` trước khi chạy), rồi commit + tick mục cuối của Giai đoạn 1.
+3. **Nếu không chạy được:** thử `--proposer codex` (codex đã chứng minh chạy được hôm nay,
+   1,68M token / 270s cho một task) để tách bạch *lỗi proposer* khỏi *lỗi hạ tầng claude*.
+4. Viết test cho `propose.py` (chưa có). Tối thiểu: tên sai bị từ chối, reply được ghi ra đĩa,
+   exit khác 0 thành `ProposerError`, và **không** có `--permission-mode` trong lệnh claude.
+
+### Trạng thái khác khi dừng
+- **Executor mặc định = `claude`** + `VIBE_TRADING_CLAUDE_PERMISSION_MODE=acceptEdits` đã ghi vào
+  `~/.vibe-trading/.env` (backup `.env.bak-20260904-104046`; khối deepseek vẫn ở đó, comment lại).
+- **Hai header lỗi thời ĐÃ SỬA** (cuối file): Giai đoạn 3 ghi "chưa bắt đầu" là **sai** từ đợt 2.
+- **Anh chọn C** cho cổng reliability: không cày 15 run (≈7,1 giờ, ~53 triệu token). Cổng vẫn
+  đóng ở 4/23 = 17,4% và **đó là câu trả lời đúng**, không phải lỗi.
+- Run MWG trọn vẹn đã chạy xong và **đây là run đầu tiên hoàn thành 4/4 task trên máy này qua
+  subprocess worker**: 1710s, 3,54M/34.282 token, báo cáo tổng hợp 19.976 ký tự tự mang cảnh báo
+  đơn vị DataPro. Xem đợt 8 và khối dưới.
+
+---
+
 ## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (đợt 3–4: ba lỗi ĐO SAI; đợt 5: mục 1+2 xong nhờ ollama)
 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
@@ -1814,5 +1872,17 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
     317,8 triệu token / 9,5 giờ; `rework_count` cao nhất 10.
   - Còn thiếu để khép Giai đoạn 1: **ai đóng vai `propose`** cho `extract.py` (provider chưa
     ngã ngũ) — `research_paths` đã sẵn trong `CaptureResult` để nạp cho vòng trích xuất đó.
-## Giai đoạn 2 — PIT + backtest cứng *(chưa bắt đầu)*
-## Giai đoạn 3 — Playbook + vòng lặp tự động *(chưa bắt đầu)*
+## Giai đoạn 2 — PIT + backtest cứng *(CHƯA BẮT ĐẦU — phần duy nhất còn nguyên)*
+
+Giai đoạn 2.1 (R1–R8, chống overfit) đã xong và **không** thay cho giai đoạn này: 2.1 hỏi
+"kết quả có mong manh / có tổng quát hóa không", còn giai đoạn 2 hỏi "dữ liệu đưa vào backtest
+có đúng là thứ biết được **tại thời điểm đó** không". Hai câu khác nhau.
+
+## Giai đoạn 3 — Playbook + vòng lặp tự động *(ĐÃ XONG 03–04/09/2026)*
+
+⚠️ Header này từng ghi "chưa bắt đầu" **sai** cho tới 04/09. G3.1–G3.5 đã xong ở đợt 2, hàng đợi
+1–8 hết, và mục 1–2 của "Còn nợ gì" đóng ở đợt 5. Chi tiết ở các khối ĐIỂM DỪNG đầu file — đọc
+từ đó, đừng đọc hai dòng header này như trạng thái.
+
+Còn mở duy nhất: **mục 3 — cổng `reliability`** (3/23 = 17,4% so với sàn 50%). Không mở được
+bằng cách hạ sàn hay loại lỗi provider khỏi mẫu số; xem cảnh báo ở khối đợt 5 và đợt 8.
