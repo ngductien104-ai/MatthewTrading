@@ -182,22 +182,14 @@ class TestRunSubprocessWorker:
         assert result.status == "failed"
         assert "codex blew up" in result.error
 
-    @pytest.mark.xfail(
-        reason=(
-            "KNOWN GAP, not a bug in this module: _classify_deliverable checks "
-            "that a report exists and that actions were taken, never that the "
-            "report contains anything. A 3B model passed it on 2026-09-04 with "
-            "a skeleton of [Latest value] placeholders. Closing this means "
-            "changing the grading shared with the in-process worker, which is "
-            "a decision the operator has not taken. Kept executable so the gap "
-            "is a failing expectation rather than a paragraph nobody reads."
-        ),
-        strict=True,
-    )
-    def test_a_hollow_report_should_fail_the_contract(
+    def test_a_hollow_report_fails_the_contract(
         self, monkeypatch, tmp_path, task_bits
     ):
-        """The whole point: a better worker, not an easier contract."""
+        """The whole point: a better worker, not an easier contract.
+
+        This was xfail while the shared classifier graded on form alone. It
+        passes now that ``_classify_deliverable`` counts unfilled fields.
+        """
         usage = json.dumps(
             {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2}}
         )
@@ -206,7 +198,17 @@ class TestRunSubprocessWorker:
             tmp_path,
             task_bits,
             _Completed(stdout=usage),
-            write_report="# Report\n- GDP: [Latest value]\n",
+            # Shaped like the artifact this rule exists for: the real one had
+            # nineteen unfilled fields. One or two is an honest gap and is
+            # allowed on purpose, so a single-field fixture would not exercise
+            # the rule at all.
+            write_report=(
+                "# Report\n"
+                "- GDP: [Latest value]\n"
+                "- CPI: [Latest value]\n"
+                "- PMI: [Latest value]\n"
+                "- Retail sales: [Latest value]\n"
+            ),
         )
         assert result.status != "completed"
 

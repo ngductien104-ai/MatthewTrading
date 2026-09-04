@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -705,6 +706,22 @@ _UNPARSED_TOOL_MARKERS = (
     "tool\u2581sep",
 )
 _FABRICATION_MARKERS = ("mock data", "without actual data", "fabricated data", "placeholder data")
+
+#: An unfilled field, in the shapes models actually leave them. Matched inside
+#: brackets so ordinary prose and markdown citations -- ``[1]``, ``[NSO Q2
+#: release](url)`` -- do not trip it.
+_PLACEHOLDER_PATTERN = re.compile(
+    r"\[\s*(?:latest\s+value|to\s*be\s*(?:determined|filled)|tbd|todo|"
+    r"placeholder\w*|insert[^\]]*|fill[^\]]*|value|number|figure|data|n/?a|x{2,})"
+    r"\s*\]",
+    re.IGNORECASE,
+)
+
+#: How many unfilled fields make a skeleton rather than an honest gap. One or
+#: two is a report saying what it could not get -- the claude run opened with a
+#: "what is missing" section and that is good practice, not a failure. The
+#: report this rule exists for had twelve, and every field was one.
+_PLACEHOLDER_LIMIT = 3
 _PLAN_PREFIXES = (
     "# phase 1", "## phase 1", "### phase 1",
     "phase 1 \u2014 plan", "phase 1 - plan", "phase 1: plan",
@@ -777,6 +794,14 @@ def _classify_deliverable(
         return "unparsed tool-call markup (provider did not parse tool calls)"
     if any(m in low for m in _FABRICATION_MARKERS):
         return "explicitly fabricated / mock data"
+    # Form was the whole contract until 2026-09-04, when a 3B model loaded a
+    # skill, copied its template, wrote it to report.md and was graded
+    # complete. Every field read "[Latest value]". A contract that cannot tell
+    # that from research would let an unattended cycle open its own gate on
+    # empty reports, which is the failure the gate exists to prevent.
+    unfilled = len(_PLACEHOLDER_PATTERN.findall(text))
+    if unfilled >= _PLACEHOLDER_LIMIT:
+        return f"placeholder skeleton: {unfilled} unfilled fields, not a finished report"
     if text.startswith("{") and '"status"' in text[:40] and (
         '"content"' in text[:300] or '"ok"' in text[:40]
     ):

@@ -206,3 +206,97 @@ def test_is_error_result_other_status_values():
     not error envelopes (the worker still credits them as a tool call)."""
     assert _is_error_result('{"status": "degenerate", "warning": "T=0"}') is False
     assert _is_error_result('{"status": "warning"}') is False
+
+
+# --- Substance, not just shape (added 2026-09-04) -----------------------------
+#
+# Until this date the contract asked whether a report existed, never whether it
+# said anything. A local 3B model loaded a skill, copied its template to
+# report.md, and was graded ``completed`` with every field reading
+# "[Latest value]". An unattended cycle farming runs like that would push its
+# own completion rate past the scheduler's floor on empty reports, which is the
+# outcome the floor exists to prevent.
+#
+# The strings below are taken from real artifacts on disk, not invented.
+
+HOLLOW_REPORT = (
+    "# Report on the Current Macroeconomic Environment\n\n"
+    "## Macro Overview\n"
+    "- **GDP (GSO quarterly)**: [Latest value]\n"
+    "- **CPI vs SBV comfort zone**: [Latest value]\n"
+    "- **S&P Global Vietnam Manufacturing PMI**: [Latest value]\n"
+    "- **Retail Sales**: [Latest value]\n"
+)
+
+REAL_REPORT = (
+    "# Vietnam / HOSE Macro Report\n\n"
+    "Q2 GDP grew **8.39% YoY**, August manufacturing PMI rose to **53.3**, "
+    "and eight-month exports grew **22.4% YoY**, against average CPI of "
+    "**4.45%**. [NSO Q2 release](https://www.nso.gov.vn/) [1]\n"
+)
+
+
+def test_a_placeholder_skeleton_is_not_a_deliverable():
+    reason = _classify_deliverable(
+        HOLLOW_REPORT, is_data_agent=True, report_written=True, data_tool_calls=3
+    )
+    assert reason is not None
+    assert "placeholder skeleton" in reason
+
+
+def test_a_real_report_with_citations_still_passes():
+    """Markdown citations are brackets too; they must not read as gaps."""
+    assert (
+        _classify_deliverable(
+            REAL_REPORT, is_data_agent=True, report_written=True, data_tool_calls=3
+        )
+        is None
+    )
+
+
+def test_naming_one_or_two_gaps_honestly_is_allowed():
+    """Saying what could not be fetched is good practice, not a failure."""
+    honest = (
+        "GDP grew 8.39% YoY and PMI reached 53.3. Credit growth could not be "
+        "retrieved for August: [not available]. FDI disbursement [n/a]."
+    )
+    assert (
+        _classify_deliverable(
+            honest, is_data_agent=True, report_written=True, data_tool_calls=3
+        )
+        is None
+    )
+
+
+def test_a_figureless_deliverable_is_deliberately_not_failed():
+    """A "no digits anywhere" rule was tried on 2026-09-04 and withdrawn.
+
+    It looked safe -- a macro report with no number fetched nothing -- but its
+    first contact with the existing suite false-rejected the M4 end-to-end
+    fixture, whose stub report legitimately carries no figures. The observed
+    problem was placeholder skeletons, and the placeholder rule catches those
+    on its own; the digit rule was an unrequested guess that failed the first
+    real case it met. Pinned here so it is not reintroduced as an obvious idea.
+    """
+    assert (
+        _classify_deliverable(
+            "Remote KB says: Bullish per fake KB.",
+            is_data_agent=True,
+            report_written=True,
+            data_tool_calls=3,
+        )
+        is None
+    )
+
+
+def test_a_synthesis_agent_is_not_required_to_carry_figures():
+    """Tool-less roles are intentionally not failed by the evidence rules."""
+    assert (
+        _classify_deliverable(
+            "On balance the committee favours patience over deployment.",
+            is_data_agent=False,
+            report_written=True,
+            data_tool_calls=0,
+        )
+        is None
+    )
