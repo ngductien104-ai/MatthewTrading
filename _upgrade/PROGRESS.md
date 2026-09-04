@@ -10,7 +10,7 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (hàng đợi hết; đợt 3–4 sửa BA lỗi ĐO SAI)
+## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (đợt 3–4: ba lỗi ĐO SAI; đợt 5: mục 1+2 xong nhờ ollama)
 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
 > Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
@@ -435,10 +435,69 @@ từ phía mình. DeepSeek vẫn $0. **Ba mục dưới đây vẫn kẹt** — 
    đã có tiền lệ ở luồng `codex-companion.mjs`. Tốn công nhất, nhưng không tốn tiền và không đụng
    vào cổng client của OpenAI.
 
+### Phiên 04/09 — đợt 5: ollama cục bộ ⇒ mục 1 và 2 XONG THẬT
+
+| Commit | Mục |
+|---|---|
+| `c22b692` | launcher scheduler + lỗi run ĐẦU TIÊN không phải lỗi provider |
+
+**Anh chọn ollama.** Cài `Ollama.Ollama` qua winget (0.33.3), kéo `qwen2.5:3b` (Q4, ~2,2GB).
+Máy này **CPU-only** (Intel UHD 620, VRAM 1GB, RAM 7,8GB) nên 3B là trần thực tế.
+Cấu hình đã ghi vào `~/.vibe-trading/.env` (**có backup** `.env.bak-20260904-104046`; khối
+deepseek giữ nguyên, chỉ comment lại — đổi về chỉ cần bỏ comment 2 dòng).
+
+**✅ MỤC 1 XONG — failover bàn giao THẬT** (trước đây chỉ kiểm được nhánh từ chối):
+```
+primary trước:  deepseek / deepseek-v4-pro   (402, chết)
+failover:       deepseek -> ollama:qwen2.5:3b [ollama:qwen2.5:3b ready]
+primary sau :   ollama / qwen2.5:3b
+build_llm().invoke(...) -> 'OK'      ← chạy được việc thật sau khi chuyển
+```
+Và **nhánh THÀNH CÔNG của `probe_provider` lần đầu được chạy**: `ready`, `spendable=True`.
+Preflight nay xanh với lý do thật: `qwen2.5:3b via http://localhost:11434/v1 (completion accepted)`.
+
+**✅ MỤC 2 XONG — `src/scheduler/launcher.py` + `learning scheduler --run`.**
+> **Chạy thật là thứ làm cho nó ĐÚNG.** Bản đầu trả `run.run_id`; trường thật là `run.id`, nên
+> nó nổ `AttributeError` ngay lần gọi thật đầu tiên. **Stub tự viết có `run_id` sẽ gật đầu** —
+> đúng bài học R8. Nay test dựng `SwarmRun` **thật** từ preset thật; đặt lại bug thì 4/6 test đỏ.
+
+**🔴 Và đây là kết quả đáng giá nhất của cả phiên — lỗi run đầu tiên KHÔNG phải lỗi provider:**
+```
+task-macro failed: output contract not met:
+  data agent produced no tool calls and no report.md
+6.649 token vào / 1.117 token ra
+```
+**Model trả lời bằng VĂN XUÔI trong khi task đòi tool call.** Provider phục vụ hoàn hảo; thứ
+hỏng là nghiên cứu. Suốt từ khi viết, module `reliability` vẫn khẳng định "**0 run hỏng vì
+nghiên cứu**" — nhưng đó là vì provider chết trước khi nghiên cứu kịp hỏng. Nay có tên riêng:
+`output_contract_unmet`, **KHÔNG nằm trong `PROVIDER_CAUSES`**.
+
+**Hai test trạng-thái-sống đỏ theo, và đỏ ĐÚNG.** Một cái mang sẵn lời nhắn *"a run failed for a
+non-provider reason — that is new, and worth reading before this assertion is relaxed"*. Đây
+chính là lần đọc đó. Nay chúng khẳng định **bất biến** (mọi nguyên nhân đều có tên; lỗi provider
+vẫn chiếm đa số) thay vì một con số chỉ đúng tại một thời điểm.
+
+> ⚠️ **BẪY MỚI, ghi để phiên sau không tự phát hiện lại: chạy thử launcher GHI VÀO chính quần thể
+> mà cổng đo.** Mẫu số đã đi **18 → 21** trong hôm nay: 1 run hỏng thật (`output_contract_unmet`)
+> + 2 run `unknown` là **rác dev** (bị giết giữa chừng khi script probe nổ, chưa kịp ghi lỗi).
+> **KHÔNG xoá gì để làm đẹp số.** Nhưng đây là câu hỏi thiết kế còn mở: cổng đếm *mọi* thư mục
+> run, kể cả run thử tay — mà cổng lại hỏi về *chu kỳ không người trực*. Sửa = đánh dấu run do
+> scheduler phóng rồi lọc theo đó. **Chưa làm**, vì đổi thứ cổng đếm phải là quyết định có bàn,
+> không phải tác dụng phụ của một buổi test — nhánh này đã có ba lỗi "đo nhầm đối tượng" rồi.
+
+**❌ MỤC 3 VẪN ĐÓNG, và ĐỪNG mở bằng ollama.** Cổng vẫn từ chối: `3/21 (14%)` so với sàn 50%.
+**Cày run bằng qwen2.5:3b để đẩy tỷ lệ lên chính là gaming cái thước** — model này không gọi nổi
+tool, nên "run về đích" nếu có cũng là kết luận rác. ollama ở đây là **đồ kiểm ống nước**, không
+phải nhà nghiên cứu. Muốn mở cổng thật thì cần một model **gọi được tool** (nạp tiền DeepSeek,
+hoặc bọc `codex exec`) — xem 3 đường ra ở khối trên.
+
 ### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
 
 Hàng đợi 1–8 hết. Ba thứ dưới đây **không phải mục kế hoạch chưa làm**, mà là **giới hạn đã
 biết** của thứ vừa làm xong. Ghi ra để phiên sau không phải tự phát hiện lại.
+
+> **CẬP NHẬT 04/09 (đợt 5): mục 1 và 2 ĐÃ XONG** nhờ ollama cục bộ — xem khối đợt 5 ở trên.
+> Mục 3 vẫn đóng và **không được mở bằng ollama**. Ba mục dưới đây giữ nguyên làm lịch sử.
 
 1. **Không có provider thứ hai ⇒ failover chưa từng bàn giao thật.** Nhánh từ chối đã kiểm
    sống; nhánh thành công thì chưa. Muốn kiểm: cấu hình một provider chạy được (ollama local là
