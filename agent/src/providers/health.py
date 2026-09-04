@@ -54,7 +54,8 @@ class ProviderHealth:
         spendable: A real completion was allowed. This is the only field that
             predicts whether a run will produce anything.
         status: ``ready``, ``no_balance``, ``bad_credentials``, ``unreachable``,
-            ``rate_limited``, ``not_logged_in`` or ``not_configured``.
+            ``rate_limited``, ``not_logged_in``, ``client_rejected`` or
+            ``not_configured``.
         detail: Human-readable specifics, provider text included where short.
         retryable: Whether waiting could change the answer. A rate limit is
             retryable; an empty balance is not, and burning a retry budget
@@ -247,7 +248,10 @@ def _probe_oauth(health: ProviderHealth, *, timeout: float) -> ProviderHealth:
     try:
         import httpx
 
-        from src.providers.openai_codex import OpenAICodexLLM
+        from src.providers.openai_codex import (
+            OpenAICodexLLM,
+            get_openai_codex_login_status,
+        )
     except ImportError as exc:  # pragma: no cover - both are hard dependencies
         health.detail = f"OAuth provider support is unavailable: {exc}"
         return health
@@ -255,6 +259,7 @@ def _probe_oauth(health: ProviderHealth, *, timeout: float) -> ProviderHealth:
     try:
         llm = OpenAICodexLLM(model=health.model, timeout=int(timeout))
         headers = llm._headers()
+        token = get_openai_codex_login_status()
     except Exception as exc:  # noqa: BLE001 - "no usable token" is a result
         health.status = "not_logged_in"
         health.detail = str(exc)
@@ -280,7 +285,35 @@ def _probe_oauth(health: ProviderHealth, *, timeout: float) -> ProviderHealth:
     # owners.
     health.credentials_ok = health.status in {"ready", "no_balance", "rate_limited"}
     health.spendable = health.status == "ready"
+    if health.status == "bad_credentials" and _token_is_live(token):
+        # A token minted minutes ago, still inside its own validity window, and
+        # refused anyway. Measured 2026-09-04: a token 4 minutes old with 51
+        # hours left came back ``token_revoked`` under both the vibe-trading
+        # and codex_cli_rs originators, while the official Codex CLI succeeded
+        # on the same account from the same machine. So the endpoint is
+        # refusing tokens minted by *this* OAuth client, and telling the reader
+        # to log in again sends them round a loop that cannot terminate. That
+        # is the same defect as pointing at a key file with no key in it.
+        health.status = "client_rejected"
     return health
+
+
+def _token_is_live(token: Any) -> bool:
+    """Whether an OAuth token is inside its own validity window.
+
+    A stale token and a refused-on-principle token both answer 401, and only
+    the first one is fixed by logging in again.
+    """
+    import time
+
+    expires = getattr(token, "expires", None)
+    if expires is None:
+        return False
+    try:
+        # The store keeps epoch milliseconds.
+        return float(expires) / 1000.0 > time.time()
+    except (TypeError, ValueError):
+        return False
 
 
 def describe(health: ProviderHealth) -> str:
@@ -292,6 +325,10 @@ def describe(health: ProviderHealth) -> str:
         "unreachable": "check network access to the provider",
         "rate_limited": "wait and retry; this one is transient",
         "not_logged_in": "no usable OAuth token; run: vibe-trading provider login",
+        "client_rejected": (
+            "the provider refuses tokens minted by this OAuth client; logging "
+            "in again will not change it -- switch LANGCHAIN_PROVIDER"
+        ),
         "not_configured": "set LANGCHAIN_PROVIDER, LANGCHAIN_MODEL_NAME and the key",
     }
     label = f"{health.provider or 'provider'} / {health.model or 'model'}: {health.status}"

@@ -140,6 +140,11 @@ class _CodexToken:
     account_id = "acct-test"
     access = "token-test"
 
+    def __init__(self, expires_in_hours=51.0):
+        import time
+
+        self.expires = (time.time() + expires_in_hours * 3600) * 1000.0
+
 
 class _FakeStream:
     """Stands in for the httpx streaming response the OAuth probe reads."""
@@ -194,6 +199,10 @@ class TestOAuthProbe:
         monkeypatch.setattr(
             "src.providers.openai_codex._get_codex_token", lambda: _CodexToken()
         )
+        monkeypatch.setattr(
+            "src.providers.openai_codex.get_openai_codex_login_status",
+            lambda: _CodexToken(),
+        )
 
     def test_a_missing_api_key_does_not_make_an_oauth_provider_unconfigured(
         self, monkeypatch
@@ -207,8 +216,13 @@ class TestOAuthProbe:
         monkeypatch.setattr("httpx.Client", _FakeClient(_FakeStream(200)))
         assert probe_provider().status != "not_configured"
 
-    def test_a_revoked_token_is_bad_credentials_not_ready(self, monkeypatch):
+    def test_an_expired_token_is_bad_credentials_not_ready(self, monkeypatch):
+        """A stale credential. Logging in again is the fix, and it is offered."""
         self._env(monkeypatch)
+        monkeypatch.setattr(
+            "src.providers.openai_codex.get_openai_codex_login_status",
+            lambda: _CodexToken(expires_in_hours=-1.0),
+        )
         monkeypatch.setattr(
             "httpx.Client",
             _FakeClient(
@@ -221,6 +235,29 @@ class TestOAuthProbe:
         assert health.credentials_ok is False
         assert health.spendable is False
         assert "token_revoked" in health.detail
+
+    def test_a_live_token_refused_anyway_is_not_sent_to_log_in_again(
+        self, monkeypatch
+    ):
+        """The live case on 2026-09-04, and the loop it would have started.
+
+        The token was 4 minutes old with 51 hours left and still came back
+        token_revoked, under both originators, while the official Codex CLI
+        worked on the same account. Telling the reader to log in again would
+        send them round a loop that cannot terminate -- the same defect as
+        pointing at a key file that holds no key.
+        """
+        self._env(monkeypatch)
+        monkeypatch.setattr(
+            "httpx.Client",
+            _FakeClient(_FakeStream(401, '{"error":{"code":"token_revoked"}}')),
+        )
+        health = probe_provider()
+        assert health.status == "client_rejected"
+        assert health.ok is False
+        line = describe(health)
+        assert "will not change it" in line
+        assert "provider login" not in line
 
     def test_a_token_that_can_spend_is_ready(self, monkeypatch):
         self._env(monkeypatch)
