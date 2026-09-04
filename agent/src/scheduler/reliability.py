@@ -69,6 +69,12 @@ _CAUSE_PATTERNS: tuple[tuple[str, str], ...] = (
     # failure and not the provider's -- the completion was served fine -- and
     # the two want different fixes, which is what the split below is for.
     ("output contract not met", "output_contract_unmet"),
+    # The stale-run reaper's own message. The host process died before the run
+    # finished -- a crashed harness, a killed terminal, a machine that slept.
+    # Neither the provider's fault nor the research's, and it recurs often
+    # enough during development to deserve a name rather than landing in
+    # "other" and making every novel cause harder to spot.
+    ("run reaped", "host_exited"),
 )
 
 #: Causes that are the provider's, not the research's.

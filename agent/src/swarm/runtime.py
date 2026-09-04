@@ -42,6 +42,10 @@ from src.swarm.task_store import (
     validate_dag,
 )
 from src.tools.redaction import redact_internal_paths
+from src.swarm.subprocess_worker import (
+    configured_executor,
+    run_subprocess_worker,
+)
 from src.swarm.worker import run_worker
 
 logger = logging.getLogger(__name__)
@@ -899,7 +903,13 @@ class SwarmRuntime:
                     max_retries + 1,
                 )
 
-            result = run_worker(
+            # Which loop runs the task. Unset means the in-process ReAct
+            # worker; an external executor is opt-in and refuses an unknown
+            # name rather than quietly falling back to the weaker path.
+            worker_fn = (
+                run_subprocess_worker if configured_executor() else run_worker
+            )
+            result = worker_fn(
                 agent_spec=agent_spec,
                 task=task,
                 upstream_summaries=upstream_summaries,

@@ -154,6 +154,8 @@ class TestSummariseAgainstTheRealRuns:
             # classify. Naming that state is honest; asserting it never
             # happens was only true while nobody had killed a run.
             "unknown",
+            # The host process died before the run finished.
+            "host_exited",
         }
         unnamed = set(summary.failed_runs_by_cause) - named
         assert not unnamed, f"failure causes with no name: {sorted(unnamed)}"
