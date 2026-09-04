@@ -56,32 +56,40 @@ def _check_llm_provider() -> CheckResult:
     base_url = os.getenv("OPENAI_BASE_URL", "") or os.getenv("OPENAI_API_BASE", "")
 
     if provider.lower() in {"openai-codex", "openai_codex"}:
-        try:
-            from src.providers.openai_codex import get_openai_codex_login_status
+        # This branch used to return "ready" as soon as a token file existed.
+        # On 2026-09-04 the stored token existed, carried an account id, and
+        # answered 401 token_revoked to a real request -- so the tick was green
+        # over a provider that could not run a single task. Having a credential
+        # and being allowed to spend are different questions here too, so the
+        # OAuth path now asks the same one the API-key path asks.
+        from src.providers.health import describe, probe_provider
 
-            token = get_openai_codex_login_status()
-        except Exception as exc:
+        health = probe_provider()
+        if health.ok:
+            account = "authenticated account"
+            try:
+                from src.providers.openai_codex import get_openai_codex_login_status
+
+                token = get_openai_codex_login_status()
+                account = getattr(token, "account_id", None) or account
+            except Exception:  # noqa: BLE001 - cosmetic detail only
+                pass
             return CheckResult(
                 name=f"LLM ({provider})",
-                status="error",
-                message=f"OAuth status unavailable: {exc}",
-                impact="run `vibe-trading provider login openai-codex`",
-                critical=True,
+                status="ready",
+                message=f"{model} via ChatGPT OAuth ({account}) (completion accepted)",
+                impact="",
             )
-        if not token:
-            return CheckResult(
-                name=f"LLM ({provider})",
-                status="not_configured",
-                message="ChatGPT OAuth login not found",
-                impact="run `vibe-trading provider login openai-codex`",
-                critical=True,
-            )
-        account = getattr(token, "account_id", None) or "authenticated account"
         return CheckResult(
             name=f"LLM ({provider})",
-            status="ready",
-            message=f"{model} via ChatGPT OAuth ({account})",
-            impact="",
+            status="not_configured" if health.status == "not_configured" else "error",
+            message=describe(health),
+            impact=(
+                "runs will retry against an error that cannot resolve"
+                if not health.retryable
+                else "runs may succeed once the limit clears"
+            ),
+            critical=not health.retryable,
         )
 
     if not base_url:

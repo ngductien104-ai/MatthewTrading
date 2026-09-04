@@ -35,6 +35,12 @@ PROBE_TIMEOUT_SEC = 20.0
 #: whether the account may spend at all, not to generate anything.
 PROBE_MAX_TOKENS = 1
 
+#: Providers whose credential is an OAuth token rather than an API key. They
+#: need their own probe: there is no ``OPENAI_API_KEY`` to find and no
+#: ``/models`` to ask, so the key-shaped check reports ``not_configured`` for a
+#: provider that is configured. Their remedy is a login, not a key rotation.
+OAUTH_PROVIDERS = {"openai-codex", "openai_codex"}
+
 
 @dataclass
 class ProviderHealth:
@@ -48,7 +54,7 @@ class ProviderHealth:
         spendable: A real completion was allowed. This is the only field that
             predicts whether a run will produce anything.
         status: ``ready``, ``no_balance``, ``bad_credentials``, ``unreachable``,
-            ``rate_limited`` or ``not_configured``.
+            ``rate_limited``, ``not_logged_in`` or ``not_configured``.
         detail: Human-readable specifics, provider text included where short.
         retryable: Whether waiting could change the answer. A rate limit is
             retryable; an empty balance is not, and burning a retry budget
@@ -170,6 +176,8 @@ def _probe_current(health: ProviderHealth, *, timeout: float) -> ProviderHealth:
     if not health.provider or not health.model:
         health.detail = "LANGCHAIN_PROVIDER or LANGCHAIN_MODEL_NAME is not set"
         return health
+    if health.provider.lower() in OAUTH_PROVIDERS:
+        return _probe_oauth(health, timeout=timeout)
     if not base_url or not key:
         health.detail = f"base URL or API key not set for {health.provider}"
         return health
@@ -223,6 +231,58 @@ def _probe_current(health: ProviderHealth, *, timeout: float) -> ProviderHealth:
     return health
 
 
+def _probe_oauth(health: ProviderHealth, *, timeout: float) -> ProviderHealth:
+    """Probe a provider whose credential is an OAuth token.
+
+    The presence of a token is not the question. Measured on this machine on
+    2026-09-04: the stored ChatGPT token existed, carried an account id, and
+    answered ``401 token_revoked`` to a real request. A check that stopped at
+    the token file would have called that ready -- the same green tick over a
+    dead provider this module was written to remove, still standing in the one
+    path that has no API key to check.
+
+    So this asks the endpoint a run asks, with the body a run sends, and reads
+    the status code the run would read.
+    """
+    try:
+        import httpx
+
+        from src.providers.openai_codex import OpenAICodexLLM
+    except ImportError as exc:  # pragma: no cover - both are hard dependencies
+        health.detail = f"OAuth provider support is unavailable: {exc}"
+        return health
+
+    try:
+        llm = OpenAICodexLLM(model=health.model, timeout=int(timeout))
+        headers = llm._headers()
+    except Exception as exc:  # noqa: BLE001 - "no usable token" is a result
+        health.status = "not_logged_in"
+        health.detail = str(exc)
+        return health
+
+    body = llm._body([{"role": "user", "content": "ping"}], stream=True)
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True, trust_env=True) as client:
+            with client.stream("POST", llm.codex_url, headers=headers, json=body) as response:
+                code = response.status_code
+                text = "" if code == 200 else response.read().decode("utf-8", "ignore")
+    except Exception as exc:  # noqa: BLE001 - a dead network is a result
+        health.status = "unreachable"
+        health.detail = f"{type(exc).__name__}: {exc}"
+        health.retryable = True
+        return health
+
+    health.reachable = True
+    health.status, health.detail, health.retryable = _classify_response(code, text)
+    # A rejected token never proved anything about the account; an empty
+    # balance and a rate limit both did. Kept explicit rather than inferred
+    # from ``spendable``, because they are separate questions with separate
+    # owners.
+    health.credentials_ok = health.status in {"ready", "no_balance", "rate_limited"}
+    health.spendable = health.status == "ready"
+    return health
+
+
 def describe(health: ProviderHealth) -> str:
     """Return a one-line summary, and what to do about it."""
     remedies = {
@@ -231,10 +291,18 @@ def describe(health: ProviderHealth) -> str:
         "bad_credentials": "the API key is rejected; rotate it in agent/.env",
         "unreachable": "check network access to the provider",
         "rate_limited": "wait and retry; this one is transient",
+        "not_logged_in": "no usable OAuth token; run: vibe-trading provider login",
         "not_configured": "set LANGCHAIN_PROVIDER, LANGCHAIN_MODEL_NAME and the key",
     }
     label = f"{health.provider or 'provider'} / {health.model or 'model'}: {health.status}"
     remedy = remedies.get(health.status, "")
+    # An OAuth provider has no key in agent/.env to rotate, so the generic
+    # credential remedy sends the reader to a file that cannot fix it.
+    if health.provider.lower() in OAUTH_PROVIDERS and health.status in {
+        "bad_credentials",
+        "not_logged_in",
+    }:
+        remedy = f"run: vibe-trading provider login {health.provider}"
     parts: list[Any] = [label]
     if health.detail:
         parts.append(health.detail)

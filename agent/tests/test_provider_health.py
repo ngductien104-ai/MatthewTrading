@@ -136,12 +136,156 @@ class TestProbe:
         assert isinstance(probe_provider(), ProviderHealth)
 
 
+class _CodexToken:
+    account_id = "acct-test"
+    access = "token-test"
+
+
+class _FakeStream:
+    """Stands in for the httpx streaming response the OAuth probe reads."""
+
+    def __init__(self, status_code, text=""):
+        self.status_code = status_code
+        self._text = text
+
+    def read(self):
+        return self._text.encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _FakeClient:
+    def __init__(self, response):
+        self._response = response
+
+    def __call__(self, *args, **kwargs):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def stream(self, *args, **kwargs):
+        return self._response
+
+
+class TestOAuthProbe:
+    """The OAuth path had no probe at all, and said ready on a token file.
+
+    Measured 2026-09-04: the stored token existed, carried an account id, and
+    answered 401 token_revoked. Every test here is about refusing to call that
+    configured, or ready.
+    """
+
+    def _env(self, monkeypatch):
+        monkeypatch.setattr("src.providers.llm._ensure_dotenv", lambda: None)
+        monkeypatch.setattr("src.providers.llm._sync_provider_env", lambda: None)
+        monkeypatch.setenv("LANGCHAIN_PROVIDER", "openai-codex")
+        monkeypatch.setenv("LANGCHAIN_MODEL_NAME", "openai-codex/gpt-5.6-terra")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+        monkeypatch.delenv("OPENAI_API_BASE", raising=False)
+        monkeypatch.setattr(
+            "src.providers.openai_codex._get_codex_token", lambda: _CodexToken()
+        )
+
+    def test_a_missing_api_key_does_not_make_an_oauth_provider_unconfigured(
+        self, monkeypatch
+    ):
+        """The bug this fixes: no OPENAI_API_KEY, so the key-shaped check gave up.
+
+        It reported ``not_configured`` -- pointing at env vars -- for a
+        provider that was configured and whose real fault was a dead token.
+        """
+        self._env(monkeypatch)
+        monkeypatch.setattr("httpx.Client", _FakeClient(_FakeStream(200)))
+        assert probe_provider().status != "not_configured"
+
+    def test_a_revoked_token_is_bad_credentials_not_ready(self, monkeypatch):
+        self._env(monkeypatch)
+        monkeypatch.setattr(
+            "httpx.Client",
+            _FakeClient(
+                _FakeStream(401, '{"error":{"code":"token_revoked"}}')
+            ),
+        )
+        health = probe_provider()
+        assert health.status == "bad_credentials"
+        assert health.ok is False
+        assert health.credentials_ok is False
+        assert health.spendable is False
+        assert "token_revoked" in health.detail
+
+    def test_a_token_that_can_spend_is_ready(self, monkeypatch):
+        self._env(monkeypatch)
+        monkeypatch.setattr("httpx.Client", _FakeClient(_FakeStream(200)))
+        health = probe_provider()
+        assert health.ok is True
+        assert health.spendable is True
+        assert health.credentials_ok is True
+
+    def test_no_usable_token_is_not_logged_in(self, monkeypatch):
+        self._env(monkeypatch)
+
+        def unauthenticated():
+            raise RuntimeError("OpenAI Codex is not logged in.")
+
+        monkeypatch.setattr(
+            "src.providers.openai_codex._get_codex_token", unauthenticated
+        )
+
+        def explode(*args, **kwargs):
+            raise AssertionError("must not call the endpoint without a token")
+
+        monkeypatch.setattr("httpx.Client", explode)
+        health = probe_provider()
+        assert health.status == "not_logged_in"
+        assert health.ok is False
+
+    def test_an_exhausted_oauth_account_is_told_apart_from_a_dead_token(
+        self, monkeypatch
+    ):
+        """Billing and authentication have different owners and different fixes."""
+        self._env(monkeypatch)
+        monkeypatch.setattr(
+            "httpx.Client", _FakeClient(_FakeStream(402, "Insufficient Balance"))
+        )
+        health = probe_provider()
+        assert health.status == "no_balance"
+        assert health.credentials_ok is True
+
+    def test_the_oauth_probe_never_raises(self, monkeypatch):
+        self._env(monkeypatch)
+
+        def boom(*args, **kwargs):
+            raise OSError("no route to host")
+
+        monkeypatch.setattr("httpx.Client", boom)
+        health = probe_provider()
+        assert isinstance(health, ProviderHealth)
+        assert health.status == "unreachable"
+        assert health.retryable is True
+
+
 class TestDescribe:
     def test_each_state_comes_with_the_action_that_fixes_it(self):
         assert "top up" in describe(ProviderHealth(status="no_balance"))
         assert "rotate it" in describe(ProviderHealth(status="bad_credentials"))
         assert "network" in describe(ProviderHealth(status="unreachable"))
         assert "transient" in describe(ProviderHealth(status="rate_limited"))
+
+    def test_an_oauth_failure_is_not_sent_to_rotate_a_key_that_does_not_exist(self):
+        """There is no key in agent/.env for an OAuth provider to rotate."""
+        for status in ("bad_credentials", "not_logged_in"):
+            line = describe(ProviderHealth(status=status, provider="openai-codex"))
+            assert "provider login openai-codex" in line
+            assert "agent/.env" not in line
 
     def test_a_ready_provider_offers_no_remedy(self):
         assert "->" not in describe(ProviderHealth(status="ready", provider="p", model="m"))
@@ -167,6 +311,34 @@ class TestPreflightUsesIt:
         assert result.status == "error"
         assert result.critical is True
         assert "cannot resolve" in result.impact
+
+    def test_a_revoked_oauth_token_is_no_longer_a_green_tick(self, monkeypatch):
+        """The regression that motivated this: ready, on a dead provider.
+
+        The old branch returned ready whenever a token file existed. It never
+        asked the endpoint anything, so a revoked token passed preflight and
+        every task behind it died one at a time.
+        """
+        from src import preflight
+
+        monkeypatch.setattr("src.providers.llm._ensure_dotenv", lambda: None)
+        monkeypatch.setattr("src.providers.llm._sync_provider_env", lambda: None)
+        monkeypatch.setenv("LANGCHAIN_PROVIDER", "openai-codex")
+        monkeypatch.setenv("LANGCHAIN_MODEL_NAME", "openai-codex/gpt-5.6-terra")
+        monkeypatch.setattr(
+            "src.providers.health.probe_provider",
+            lambda **kwargs: ProviderHealth(
+                provider="openai-codex",
+                model="openai-codex/gpt-5.6-terra",
+                status="bad_credentials",
+                detail='HTTP 401: {"code":"token_revoked"}',
+                retryable=False,
+            ),
+        )
+        result = preflight._check_llm_provider()
+        assert result.status == "error"
+        assert result.critical is True
+        assert "provider login openai-codex" in result.message
 
     def test_a_rate_limit_is_reported_without_declaring_the_agent_dead(self, monkeypatch):
         from src import preflight
