@@ -38,6 +38,20 @@ class TestConfiguredExecutor:
         with pytest.raises(ValueError, match="not supported"):
             configured_executor()
 
+    def test_the_operators_env_file_cannot_turn_a_test_into_a_live_run(self):
+        """Importing the provider loads ``~/.vibe-trading/.env`` into os.environ.
+
+        On 2026-09-04 that file gained ``VIBE_TRADING_WORKER_EXECUTOR=claude``,
+        and the suite began spawning the real ``claude`` CLI from the runtime's
+        worker dispatch -- 35 minutes on one live, billable call before it was
+        killed, then another in its place. ``conftest`` presets the name to
+        empty so the .env's ``override=False`` load leaves it alone; this is the
+        assertion that says so out loud.
+        """
+        import src.providers.llm  # noqa: F401 - the import is the trigger
+
+        assert configured_executor() == ""
+
 
 class TestParseEvents:
     def test_cached_input_tokens_are_not_added_to_the_total(self):
