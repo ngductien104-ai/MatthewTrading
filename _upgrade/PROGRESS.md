@@ -588,9 +588,34 @@ là thứ không phục hồi được. Đã ghi rõ trong docstring, không gi�
 **Đặt tên thêm một nguyên nhân:** `host_exited` (reaper dọn run khi tiến trình chủ chết) — trước
 rơi vào `other`, và test tripwire đã bắt được.
 
-**❗ CÒN TREO, chờ anh quyết:** `_classify_deliverable` vẫn chấm report toàn `[Latest value]` là
-`completed`. Em để **`xfail(strict=True)` kèm lý do** thay vì vá, vì đó là classifier **dùng
-chung** với worker cũ — đổi nó là đổi cách chấm của cả hệ thống.
+**✅ ĐÃ VÁ (đợt 8, commit `45874e6`)** — xem ngay dưới. `xfail` đã gỡ.
+
+### Phiên 04/09 — đợt 8: hợp đồng ĐỌC báo cáo, không chỉ nhìn tên file
+
+Anh duyệt vá classifier. Nay `_classify_deliverable` **đếm số ô còn trống**; từ **3 ô trở lên**
+là vỏ rỗng, không phải báo cáo.
+
+**Ngưỡng KHÔNG phải 0, và đó là cố ý.** Khai một hai chỗ không lấy được là làm ăn tử tế — chính
+report của claude mở đầu bằng mục "what is missing". Chỉ khớp các từ placeholder **trong ngoặc
+vuông**, nên trích dẫn markdown `[1]` hay `[NSO Q2 release](url)` không bị đọc nhầm thành ô trống.
+
+**Kiểm trên BA BÁO CÁO THẬT trên đĩa, không phải chuỗi tự gõ:**
+```
+ollama 3B  -> placeholder skeleton: 19 ô trống          (TRƯỢT, đúng)
+codex      -> PASS   (14.453 ký tự, số kèm nguồn)
+claude     -> PASS   (20.190 ký tự, mở đầu bằng phần khai thiếu)
+```
+
+> ⚠️ **Một luật nữa em viết rồi TỰ RÚT.** "Report của data agent mà không có lấy một chữ số nào
+> thì chưa fetch gì" — nghe an toàn, không cần ngưỡng. Nhưng lần đầu chạm bộ test có sẵn nó
+> **đánh trượt oan** fixture E2E M4, vốn có report stub không số một cách hợp lệ. Vấn đề quan sát
+> được là **vỏ rỗng placeholder**, và luật placeholder tự nó đã bắt đủ; luật chữ số là thứ em
+> **tự thêm không ai yêu cầu** và trượt ngay ca thật đầu tiên. Em **không sửa fixture của người
+> khác để chiều code mình** — em gỡ luật, và **ghim lại bằng một test** để lần sau không ai
+> (kể cả em) tưởng đó là ý hay mà thêm lại.
+
+**Đây là mảnh cuối để mục 3 mở được bằng chất lượng thật:** giờ cày run bằng model yếu **không
+còn đẩy được tỷ lệ**, vì report rỗng bị chấm trượt ngay.
 
 ### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
 
