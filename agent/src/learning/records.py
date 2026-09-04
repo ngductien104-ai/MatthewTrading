@@ -55,6 +55,26 @@ CHECKPOINT_SESSIONS = (21, 63, 126)
 #: A lesson with no evidence behind it dies after this many days.
 LESSON_TTL_DAYS = 90
 
+#: Every action one record can carry. Each is a direction for ONE ticker,
+#: because a record is about one ticker and is scored against that ticker's
+#: own price.
+#:
+#: ``switch`` is absent on purpose, and adding it would be a mistake worth
+#: naming here. The TPB-HDB memo of 29/06/2026 writes "switch" fourteen times,
+#: and the ledger holds it as TPB ``reduce`` plus HDB ``accumulate``. That is a
+#: decomposition, not the memo's own word, and it loses something real: whether
+#: the *swap* was right is a different question from whether reducing TPB was.
+#: But a switch is a relation between two tickers, so as an action it would
+#: produce a record whose meaning lives in another record -- and the resolver,
+#: which scores one ticker against one price series, would have nothing to
+#: score it against. An alias would be worse still: "switch" alone cannot say
+#: which side of the swap it is, so mapping it onto reduce or accumulate would
+#: be the guess this vocabulary exists to refuse.
+#:
+#: Measuring swap calls properly means linking two records, not adding a verb.
+#: That is a deliberate change to a frozen contract, and it belongs in an item
+#: of its own; the decision of 05/09/2026 was to keep the decomposition and
+#: write this down instead of quietly widening the table.
 ACTIONS = (
     "buy",
     "accumulate",

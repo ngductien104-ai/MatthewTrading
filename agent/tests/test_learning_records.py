@@ -178,6 +178,21 @@ def test_unknown_action_raises_rather_than_guessing():
         normalize_action("có thể cân nhắc")
 
 
+@pytest.mark.parametrize("swap_word", ["switch", "SWITCH", "swap", "hoán đổi"])
+def test_a_swap_is_refused_rather_than_split_onto_one_side(swap_word):
+    """A switch is a relation between two tickers, so it is not one's action.
+
+    The TPB-HDB memo writes "switch" fourteen times and the ledger holds it as
+    TPB reduce plus HDB accumulate. Registering the word would hand one record
+    a meaning that lives in another, and an alias could not even say which side
+    of the swap it meant. This is the guard on that: the vocabulary refuses,
+    loudly, instead of picking a side. Measuring swap calls means linking two
+    records -- see the note on ACTIONS -- not widening this table.
+    """
+    with pytest.raises(RecordValidationError, match="unknown action"):
+        normalize_action(swap_word)
+
+
 # --- horizons are trading sessions -------------------------------------------
 
 

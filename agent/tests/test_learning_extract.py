@@ -941,6 +941,67 @@ def test_affirmative_registered_wording_is_action_evidence(written_action, quote
     assert _action_is_quoted(written_action, quote) is True
 
 
+# -- `trim`, the weakest alias in the table -----------------------------------
+#
+# Measured on the English TPB-HDB memo, which is the only document in the corpus
+# that uses the word. `trim` earns its place there and is deliberately kept, but
+# unlike OUTPERFORM or GIẢM TỶ TRỌNG it is an ordinary verb, not a ranking word,
+# so it certifies things it should not. The cases below record exactly where the
+# line falls today so that a later session reads a measurement rather than
+# rediscovering the hole -- and so that any attempt to move it shows up as a
+# changed assertion rather than a quiet drift.
+
+
+@pytest.mark.parametrize(
+    ("quote", "why_it_is_wrong"),
+    [
+        (
+            "Trim triggers (HDB): trim into 27.8 (3M high) if it arrives "
+            "without a confirming Q2",
+            "a condition on a future price, while the memo's HDB call is accumulate",
+        ),
+        (
+            "trim/exit the retained TPB into 18,300-18,500 (fair value)",
+            "an exit planned for a level the memo says has not arrived",
+        ),
+        (
+            "Nha may da trim lai cong suat trong quy 2",
+            "trim as an ordinary verb about a factory, not a position",
+        ),
+    ],
+)
+def test_a_conditional_trim_still_certifies_a_present_reduce(quote, why_it_is_wrong):
+    """Known false positive, held open on purpose: 04/09 decision was to keep the
+    alias and measure it rather than add a conditional-clause gate, which would
+    have to be shown not to refuse real calls first. ``why_it_is_wrong`` names
+    the defect each line carries; the assertion records that the gate lets it by.
+    """
+    assert _action_is_quoted("reduce", quote) is True
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "không trim vị thế HDB ở vùng này",
+        "do not trim the HDB position here",
+    ],
+)
+def test_a_negated_trim_is_not_action_evidence(quote):
+    """The negation check covers the alias in both languages of this corpus."""
+    assert _action_is_quoted("reduce", quote) is False
+
+
+def test_a_negation_written_without_its_accents_is_not_caught():
+    """The one negation that gets through, and it is the safer failure.
+
+    Aliases keep their accents on purpose: folding them made ``bán`` collide
+    with *Ban lãnh đạo* and certified a buy call on a memo that placed no
+    order. So an author who writes ``khong`` loses the negation check. That is
+    a typo in the source, not a gate that guesses.
+    """
+    assert _action_is_quoted("reduce", "khong trim vi the HDB o vung nay") is True
+
+
 @pytest.mark.parametrize(
     ("written_action", "quote", "canonical"),
     [
