@@ -491,6 +491,50 @@ tool, nên "run về đích" nếu có cũng là kết luận rác. ollama ở �
 phải nhà nghiên cứu. Muốn mở cổng thật thì cần một model **gọi được tool** (nạp tiền DeepSeek,
 hoặc bọc `codex exec`) — xem 3 đường ra ở khối trên.
 
+### Phiên 04/09 — đợt 6: `num_ctx` cắt âm thầm, và hợp đồng chỉ kiểm HÌNH THỨC
+
+Anh hỏi có dùng Claude Pro / bọc `codex exec` để mở cổng được không. Đi kiểm thì ra hai thứ.
+
+**1. Lỗi `no tool calls` hôm nay KHÔNG phải vì model dốt — vì `num_ctx` mặc định 4096.**
+```
+ollama context_length mặc định : 4096
+prompt worker thật             : ~6.649 token   ← VƯỢT TRẦN, bị cắt ÂM THẦM
+```
+Không lỗi, không cảnh báo — model chỉ đơn giản mất chỉ dẫn rồi quay ra đọc lại prompt.
+Test trực tiếp: **qwen2.5:3b gọi tool sạch sẽ** (`get_price{"ticker":"FPT"}`). Nên đã tạo
+`qwen2.5:3b-16k` (`PARAMETER num_ctx 16384`) và chạy lại **cùng task đó**:
+```
+Lượt 4096 : tool_call = 0   -> output contract not met
+Lượt 16384: tool_call = 3   -> load_skill ×2 + write_file("report.md") = ok
+```
+Đã ghi vào `~/.vibe-trading/.env` kèm lời giải thích. **Đây là bẫy đáng nhớ**: cùng họ với ba
+lỗi "đo nhầm đối tượng" — một giới hạn im lặng làm hỏng kết quả mà không hề báo sai.
+
+**2. 🔴 Nhưng report nó viết ra là VỎ RỖNG — và đây mới là điều quan trọng:**
+```markdown
+## Macro Overview
+- **GDP (GSO quarterly)**: [Latest value]
+- **CPI vs SBV comfort zone**: [Latest value]
+```
+Model gọi `load_skill`, **chép nguyên template của skill ra**, không hề gọi một tool dữ liệu nào.
+
+> ⚠️ **`output_contract` kiểm HÌNH THỨC, không kiểm NỘI DUNG.** Nó hỏi "có tool call và có
+> `report.md` không", và một model 3B **đạt được** bằng một cái vỏ đầy `[Latest value]`.
+> Nghĩa là: **cày run bằng ollama sẽ đẩy tỷ lệ qua sàn 50% và mở cổng bằng rác.** Trước đây
+> (đợt 5) em mới *dự đoán* điều này; nay có **bằng chứng chạy thật**. Mục 3 vẫn đóng, và lý do
+> mạnh hơn trước.
+>
+> Câu hỏi thiết kế mở ra: hợp đồng nên có **kiểm chất** (report còn placeholder chưa điền, hoặc
+> không có lấy một con số nào có nguồn ⇒ trượt). **CHƯA làm** — đổi định nghĩa "về đích" là
+> quyết định phải bàn, không phải tác dụng phụ của một buổi test.
+
+**3. Vì sao bọc `claude -p` hoặc `codex exec` làm PROVIDER là sai tầng.** Cả hai là **agent loop
+có bộ tool riêng**: đưa schema tool của mình vào, chúng không trả `tool_calls` để mình thực thi —
+chúng tự gọi tool của chúng rồi trả **văn bản**. Mà `src/providers/chat.py` dùng `bind_tools()`
+(native function calling). Bọc ở tầng provider ⇒ **hỏng đúng lỗi `output contract not met`**,
+không liên quan model mạnh hay yếu. Muốn dùng thì phải bọc ở **tầng worker**: giao nguyên task,
+để nó tự dùng tool của nó, nhận lại `report.md`. Đó là thay đổi kiến trúc, chưa làm.
+
 ### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
 
 Hàng đợi 1–8 hết. Ba thứ dưới đây **không phải mục kế hoạch chưa làm**, mà là **giới hạn đã
