@@ -10,7 +10,131 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG MỚI NHẤT — 04/09/2026, 14:0x (chạm session limit giữa mục `propose`)
+## 🔖 ĐIỂM DỪNG MỚI NHẤT — 04/09/2026 chiều: Giai đoạn 1 KHÉP + mục `episode_id` XONG kèm di trú
+
+> **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Ba commit đã vào nhánh, cây làm việc sạch phần việc này.
+> **Chưa push** — quyết định push để anh gọi.
+
+**Full suite đã đối chiếu:** `11 failed, 3946 passed, 1 skipped, 9 errors` trong **484s (8:04)**.
+11 fail + 9 error **khớp từng cái** với danh sách baseline (dividend ×3, loader_retry ×5,
+oauth ×3, `tests/factors/test_registry` ×9 error). Test `rich` lung lay lần trước nay xanh, nên
+là 11 chứ không phải 12. Passed đi từ **3885 → 3946**. Không có fail mới.
+Log đầy đủ: `_upgrade/full_suite_20260904_evening.txt` (ngoài git, xoá được).
+
+**Sổ cái `~/.vibe-trading/learning.db` sau di trú — đếm theo ID:**
+`calls=17` · `outcomes=15` (45 dòng) · `evidence=149` · `lessons=13` (20 dòng) ·
+`process_records=32` (56 dòng).
+
+### Ba commit của phiên này
+
+| Commit | Mục |
+|---|---|
+| `758c9c8` | **test(swarm)** full suite đang gọi claude thật — `.env` là nguyên nhân |
+| `d50fcf4` | **feat(learning)** proposer chạy sống, và một dấu phẩy thập phân làm mất một call |
+| _(commit này)_ | **fix(learning)** thesis rời khỏi danh tính episode, kèm bộ di trú sổ cái |
+
+### 1. ✅ Giai đoạn 1 KHÉP — proposer sống, chứng minh bằng run thật
+
+```
+$ learning extract --doc ../_nlg_research/report.md
+extract ..\_nlg_research\report.md: 1 call(s) [NLG], 7 evidence, refused: none    1m07s
+```
+
+calls 16 → 17, evidence 142 → 149. Call NLG đúng thứ báo cáo viết (`accumulate` · `ref 27.300` ·
+`target 31.000` · `as_of 2026-06-16`), và model **từ chối** quy 36.000/25.000 thành bull/bear —
+đó là ngưỡng đổi khuyến nghị, không phải kịch bản giá — tự ghi lý do vào `notes`.
+
+**`claude exited 1` hôm qua là do phiên hết token, không phải lỗi hạ tầng** (gọi tay `claude -p`
+prompt một dòng → exit 0; chạy lại lệnh PHR → trả lời trong 75s).
+
+**Bẫy đã sập lần thứ ba:** prompt bảo ghi `ref_price` "exactly as written", `_as_number()` gọi
+thẳng `float()` → model viết `"62,0"` như tài liệu viết → mất trọn một call. Đã sửa hai vế, không
+nới cổng: prompt đòi **digits alone**; `_as_number()` đọc chuỗi số trần bằng chính `_to_float()`
+(bộ đọc dùng cho văn bản tài liệu). Chuỗi **có đơn vị** (`"58.800 đ"`) vẫn bị từ chối — đó mới là
+scale chưa chốt. JSON `58.800` (= 58,8) và `"58.800"` (= 58.800đ) **tách đường**, có ghi trong
+docstring.
+
+`propose.py` nay đã có test (**14 test**). Hai tính chất khoá bằng assert chứ không bằng comment:
+lệnh claude **không có** `--permission-mode` / codex có `--sandbox read-only`; và tên proposer lạ
+**raise** chứ không lùi âm thầm.
+
+### 2. ✅ FULL SUITE gọi claude thật — đã bịt (`758c9c8`)
+
+`src/providers/llm.py:_ensure_dotenv()` nạp `~/.vibe-trading/.env` vào `os.environ` ngay lần đầu
+module đó được import. Sáng nay file đó có thêm `VIBE_TRADING_WORKER_EXECUTOR=claude`, nên
+`runtime.py:910` chọn **executor thật** trong lúc test: pytest đứng CPU 35 phút, giết con thì nó
+sinh con mới. Cách bịt: `agent/tests/conftest.py` **đặt sẵn biến thành rỗng** (không phải xoá —
+`.env` nạp `override=False` nên tên bị *xoá* sẽ quay lại). Test hồi quy:
+`test_the_operators_env_file_cannot_turn_a_test_into_a_live_run`.
+⚠️ Mọi số "full suite" ghi trước chiều 04/09 đều đo trên môi trường **không** có biến này.
+
+### 3. ✅ Mục `episode_id` — thesis rời khỏi danh tính, sổ cái đã di trú
+
+**Lỗi:** `call_id_for()` hứa *"re-parsing the same source event must land on the same call_id"*,
+nhưng `call_id = f(episode_id, revision, sha)` và `episode_id = f(khoá, ticker, thesis_episode)` —
+`thesis_episode` là **câu văn model tự viết**. Đo trên đúng một file, cùng `source_event_sha256`:
+backfill chép tay (`default`) → `call_0a92413e0721`; proposer sống (thesis dài) →
+`call_857826d03b94`. Tức **đếm PHR hai lần**.
+
+**Đã sửa:**
+- `extract.py`: danh tính episode của tài liệu trên đĩa là `(khoá thư mục, ticker)` —
+  `episode_id_for(document.episode_key, ticker, "")`. Thesis vẫn còn trong primitive vì nguồn
+  **transcript** thật sự có thể ôm hai luận điểm cho cùng một mã; nó chỉ không được vào khoá của
+  nguồn tài liệu.
+- `extract.py`: revision trong một tài liệu khoá theo **ticker**. Không sửa chỗ này thì hai call
+  cùng mã trong một file đều nhận revision 1 → **trùng `call_id`**.
+- `extract.py`: tách `episode_key_for_path()` khỏi `load_document()` — bộ di trú phải tính lại khoá
+  từ `source_path` ghi mấy tháng trước, hai bản sao của một quy tắc là hai câu trả lời.
+- 2 test khoá: đọc lại **cùng tài liệu** với hai thesis khác nhau → **cùng `call_id`**; hai call
+  cùng mã trong một tài liệu → revision 1 và 2, id khác nhau.
+
+**Bộ di trú `agent/src/learning/migrate.py` (12 test):** sổ cái append-only bằng trigger
+`BEFORE UPDATE`/`BEFORE DELETE`, nên không có đường sửa tại chỗ — di trú là **dựng lại sang file
+mới**, file cũ giữ nguyên và **chính nó là đường lùi**. Ba quyết định đáng ghi:
+1. **Ghi qua `LearningStore`, không copy SQL thô** → mọi dòng cũ đi lại qua đúng các cổng mà một
+   dòng mới phải qua. Dòng nào bị từ chối thì báo ra, không im lặng bỏ.
+2. **Copy MỌI revision**, không phải bản mới nhất (45 dòng cho 15 outcome — xem "BẪY ĐẾM").
+3. **Sidecar đi theo file của nó.** `-wal` của file bị thay mà để lại thì lần mở sau nó sẽ được
+   áp vào file mới: sổ cái hỏng bằng những bước trông rất ngăn nắp.
+
+**Chạy thật (`python -m src.learning.migrate --install`):**
+
+```
+evidence=149 · calls=17 · outcomes=45 · lessons=20 · process_records=57
+calls with a new id: 1
+  call_62eeed311784 -> call_08e5a9002a83          ← đúng NLG, như đã dự đoán
+collapsed as identical content: 1 (two serializations of one record, not a lost revision)
+  process_records proc_94df45750f5d
+installed learning.db.rebuilt as learning.db; previous ledger at learning.db.bak-20260904-100132Z
+```
+
+**Quy mô đúng như đã đo trước:** 16/17 call có `thesis_episode = 'default'` → seed không đổi → id
+không đổi; chỉ NLG đổi. NLG chưa có outcome nên bảng ánh xạ outcomes rỗng lần này.
+
+**Vụ `process_records` 57 → 56 KHÔNG phải mất dữ liệu, và đừng để nó thành nghi vấn về sau.**
+Hai revision của `proc_94df45750f5d` lệch nhau đúng một trường: `token_usage` là `None` ở dòng cũ
+và `{}` ở dòng mới — dòng cũ ghi **trước khi** trường đó tồn tại (hồi sửa lỗi token 225×), và
+`ProcessRecord.__post_init__` chuẩn hoá `None` → `{}`. Sau khi đi qua contract hiện hành, hai dòng
+là **một** record. Idempotency `(record_id, content_hash)` gộp chúng, đúng chức năng. Bộ di trú
+**nói ra** chuyện này (`collapsed`) thay vì để ai đó phát hiện bằng cách trừ hai con số.
+
+Di trú **idempotent**: dựng lại từ file đã dựng → `calls with a new id: 0`, không gộp thêm gì.
+Đường lùi: `~/.vibe-trading/learning.db.bak-20260904-100132Z` (kèm `-wal`/`-shm`).
+
+### 4. Việc kế tiếp, theo thứ tự
+
+1. **Push nhánh** nếu anh muốn (`git push` — 3 commit đang nằm local).
+2. Hỏi lại **VRE + PET** bằng proposer sống (trước đây thiếu trích dẫn dòng action / thiếu giá có
+   đơn vị) — nay không cần chép reply tay nữa.
+3. **TPB-HDB**: memo tiếng Anh — quyết thêm alias tiếng Anh vào từ vựng action hay bỏ.
+   **MWG** không có `.md`.
+4. Backfill tiếp bằng proposer sống: mỗi tài liệu ≈ **$0,35 và 70s**, và giờ đọc lại cùng một tài
+   liệu **không** sinh quan sát thứ hai nữa — nên chạy lại được an toàn.
+5. Sang **Giai đoạn 2, làm 2.2 TRƯỚC 2.1**.
+
+---
+
+## 🔖 ĐIỂM DỪNG — 04/09/2026, 14:0x (mục `propose`) — ĐÃ XỬ LÝ XONG, xem khối trên
 
 > **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Dừng vì hết token phiên, không phải vì bế tắc kỹ thuật.
 > Hẹn chạy lại **sau 14:40**.

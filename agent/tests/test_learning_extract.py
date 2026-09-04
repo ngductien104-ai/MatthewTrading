@@ -378,6 +378,46 @@ def test_the_prompt_does_not_ask_the_extractor_for_a_price_it_cannot_see(documen
     assert "no unit and no currency word" in prompt
 
 
+# -- episode identity ---------------------------------------------------------
+
+
+def test_rereading_one_document_lands_on_the_same_call(document):
+    """The thesis is the model's own sentence, and it is never the same twice.
+
+    Measured on ``_phr_committee/PM_DECISION.md``: a hand-recorded reply said
+    ``default`` and a live proposer said "Đền bù VSIP III + neo định giá RNAV…",
+    so the same file, at the same sha, produced two episodes and two call ids --
+    two observations of one call. ``call_id_for`` promises the opposite in its
+    own docstring, and this is where that promise is kept.
+    """
+    first = extract_document(
+        document,
+        lambda prompt: json.dumps({"calls": [_candidate(thesis_episode="định giá lại theo RNAV")]}),
+    )
+    second = extract_document(
+        document,
+        lambda prompt: json.dumps({"calls": [_candidate(thesis_episode="cắt giảm vì P/E đắt")]}),
+    )
+    assert first.calls[0].episode_id == second.calls[0].episode_id
+    assert first.calls[0].call_id == second.calls[0].call_id
+    assert first.calls[0].thesis_episode != second.calls[0].thesis_episode
+
+
+def test_two_calls_on_one_ticker_in_one_document_are_revisions(document):
+    """They no longer split into two episodes, so they must not collide either."""
+    reply = json.dumps(
+        {
+            "calls": [
+                _candidate(thesis_episode="đợt một"),
+                _candidate(thesis_episode="đợt hai"),
+            ]
+        }
+    )
+    result = extract_document(document, lambda prompt: reply)
+    assert [call.revision for call in result.calls] == [1, 2]
+    assert len({call.call_id for call in result.calls}) == 2
+
+
 # -- document level -----------------------------------------------------------
 
 
@@ -708,8 +748,6 @@ def test_a_decimal_comma_survives_the_number_field(tmp_path):
     assert result.rejections == []
     assert result.calls[0].ref_price == 62000.0
     assert result.calls[0].target == 72000.0
-
-
 
 
 # -- loading a document by path ------------------------------------------------

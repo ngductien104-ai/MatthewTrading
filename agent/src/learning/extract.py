@@ -34,6 +34,15 @@ Two source families exist beyond the transcripts, and neither carries a Claude
 Code session id. The episode key therefore comes from the container -- one
 ``_xxx_research/`` folder, or one swarm run, is one episode -- while
 ``source_session_id`` stays empty rather than being filled with a lie.
+
+**The thesis stays out of that key.** ``episode_id_for`` accepts a thesis
+because one interactive session really can hold two arguments about one ticker,
+but ``thesis_episode`` here is a sentence the *model* writes, and it comes out
+differently every time the same file is read. Letting it into the key made
+re-extracting one document produce a second episode -- a second observation of
+a call that was already on the ledger -- which is the denominator error the
+outcome counting already had to be rescued from. A folder plus a ticker is the
+episode; the thesis is the label on it.
 """
 
 from __future__ import annotations
@@ -483,6 +492,27 @@ def _document(path: Path, kind: str, episode_key: str, text: str | None = None) 
     )
 
 
+def episode_key_for_path(path: str | Path) -> str:
+    """Return the container that defines the episode a document belongs to.
+
+    The first ``_``-prefixed directory above the file, because one research
+    folder is one episode; a swarm ``run.json`` belongs to its run directory. A
+    file outside any such folder gets its parent, which keeps it from silently
+    joining somebody else's episode.
+
+    Split out of :func:`load_document` because the ledger migration has to
+    recompute this key from a ``source_path`` recorded months ago, and a second
+    copy of the rule would be a second answer to the same question.
+    """
+    source = Path(path)
+    if source.name == "run.json":
+        return source.parent.name
+    return next(
+        (part for part in source.parts if part.startswith("_") and part != "_"),
+        source.parent.name,
+    )
+
+
 def load_document(path: str | Path) -> SourceDocument:
     """Load one document, reading its episode key off its own path.
 
@@ -501,10 +531,7 @@ def load_document(path: str | Path) -> SourceDocument:
         ExtractionError: The file is a ``run.json`` with no report in it.
     """
     source = Path(path)
-    episode_key = next(
-        (part for part in source.parts if part.startswith("_") and part != "_"),
-        source.parent.name,
-    )
+    episode_key = episode_key_for_path(source)
     if source.name == "run.json":
         payload = json.loads(source.read_text(encoding="utf-8", errors="replace"))
         report = str(payload.get("final_report") or "").strip()
@@ -875,7 +902,7 @@ def validate_candidate(
         as_of=as_of.isoformat(),
         action=action,
         known_at=document.observed_at,
-        episode_id=episode_id_for(document.episode_key, ticker, thesis),
+        episode_id=episode_id_for(document.episode_key, ticker, ""),
         revision=revision,
         thesis_episode=thesis,
         ref_price=numbers["ref_price"],
@@ -943,8 +970,11 @@ def extract_document(document: SourceDocument, propose: Callable[[str], str]) ->
     seen: dict[str, int] = {}
     for candidate in candidates:
         ticker = str(candidate.get("ticker") or "").upper()
-        episode = f"{ticker}|{candidate.get('thesis_episode') or 'default'}"
-        revision = seen.get(episode, 0) + 1
+        # Counted per ticker, not per ticker-and-thesis: the thesis no longer
+        # separates episodes, so two calls on one ticker in one document are
+        # revisions of each other. Keying on the thesis here would hand them
+        # both revision 1, and with it the same call_id.
+        revision = seen.get(ticker, 0) + 1
         try:
             record, evidences = validate_candidate(candidate, document, revision=revision)
         except (ExtractionError, RecordValidationError) as exc:
@@ -952,7 +982,7 @@ def extract_document(document: SourceDocument, propose: Callable[[str], str]) ->
                 Rejection(_rejection_code(exc), str(exc), document.doc_id, ticker, candidate)
             )
             continue
-        seen[episode] = revision
+        seen[ticker] = revision
         result.calls.append(record)
         result.evidence.extend(evidences)
     return result
