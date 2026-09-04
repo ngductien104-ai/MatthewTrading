@@ -587,7 +587,8 @@ Return JSON only, shaped as {{"calls": [...]}}, where each call has:
               states the call in a sentence, put the sentence in `quotes` and only its
               recommendation phrase here. A sentence is refused.
   quotes      required, a list of verbatim excerpts from the document
-  ref_price   the price the document quotes as its reference, exactly as written.
+  ref_price   the level the document quotes as its reference -- its digits alone,
+              no unit and no currency word ("62,0" or 62, never "62,0 đ").
               Do NOT try to supply the day's close: if the note says "do not chase
               at 69" or "accumulate 61,5-62,5", that quoted level IS the answer.
               The close is looked up later from price data, and the two are
@@ -659,6 +660,15 @@ def parse_proposal(raw: str) -> list[dict[str, Any]]:
 # -- validation ---------------------------------------------------------------
 
 
+#: Digits and separators only. A model reading a Vietnamese document writes the
+#: reference price back the way the document writes it -- ``"62,0"`` -- and that
+#: is the corpus convention, not a mistake, so it is read with :func:`_to_float`
+#: like every number lifted out of the prose. Anything carrying a unit or a word
+#: is still refused: ``"58.800 đ"`` is a scale left unsettled, and settling it
+#: here is exactly the step the gate exists to prevent.
+_BARE_NUMBER_RE = re.compile(r"^\d[\d.,]*$")
+
+
 def _as_number(value: Any, field_name: str) -> float:
     """Coerce a proposed field to a float, or refuse the candidate.
 
@@ -666,7 +676,17 @@ def _as_number(value: Any, field_name: str) -> float:
     made a typing mistake -- it has skipped the step where the scale gets
     settled -- so this raises the extraction error rather than the ``ValueError``
     that would escape :func:`extract_document` and stop a whole backfill.
+
+    A bare string of digits is read the way the document would be read, so a
+    JSON ``58.800`` (58.8, by the JSON spec) and a quoted ``"58.800"`` (58,800
+    dong, by the corpus) part ways deliberately: one is a number the model
+    computed, the other is text the model copied.
     """
+    if isinstance(value, str) and _BARE_NUMBER_RE.match(value.strip()):
+        try:
+            return _to_float(value.strip())
+        except ValueError:
+            pass
     try:
         return float(value)
     except (TypeError, ValueError) as exc:

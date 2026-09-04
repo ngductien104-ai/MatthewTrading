@@ -373,8 +373,9 @@ def test_the_prompt_does_not_ask_the_extractor_for_a_price_it_cannot_see(documen
     promises something else. The close is looked up from price data instead.
     """
     prompt = build_prompt(document)
-    assert "the price the document quotes as its reference" in prompt
+    assert "the level the document quotes as its reference" in prompt
     assert "Do NOT try to supply the day's close" in prompt
+    assert "no unit and no currency word" in prompt
 
 
 # -- document level -----------------------------------------------------------
@@ -664,6 +665,51 @@ def test_a_price_reported_as_text_is_refused_not_crashed(document):
     assert result.calls == []
     assert [item.code for item in result.rejections] == ["invalid_record"]
     assert "is not a number" in result.rejections[0].message
+
+
+def test_a_price_written_the_way_the_document_writes_it_is_read_that_way(document):
+    """A model reading a Vietnamese note writes ``"72.200"`` back, not ``72200``.
+
+    The digits are the document's own, so they are read with the document's own
+    reader. Refusing them would throw away a sound extraction over typography,
+    and the scale gates downstream are unchanged either way.
+    """
+    result = extract_document(
+        document, lambda prompt: json.dumps({"calls": [_candidate(ref_price="72.200")]})
+    )
+    assert result.rejections == []
+    assert result.calls[0].ref_price == 72200.0
+
+
+def test_a_decimal_comma_survives_the_number_field(tmp_path):
+    """The refusal that stopped the first live extraction: ``ref_price="62,0"``."""
+    body = """# PHR
+
+**Giá tham chiếu:** 62,0 (đóng cửa 29/06 = 62.000 đ)
+
+> Khuyến nghị: MUA THEO ĐỢT — giá mục tiêu 72
+"""
+    path = _write(tmp_path, "_phr_committee/PM_DECISION.md", body, "2026-06-30T09:00:00Z")
+    from src.learning.extract import _document
+
+    doc = _document(path, "markdown", "_phr_committee")
+    candidate = {
+        "ticker": "PHR",
+        "as_of": "2026-06-30",
+        "action": "MUA THEO ĐỢT",
+        "ref_price": "62,0",
+        "target": 72,
+        "quotes": [
+            "**Giá tham chiếu:** 62,0 (đóng cửa 29/06 = 62.000 đ)",
+            "> Khuyến nghị: MUA THEO ĐỢT — giá mục tiêu 72",
+        ],
+    }
+    result = extract_document(doc, lambda prompt: json.dumps({"calls": [candidate]}))
+    assert result.rejections == []
+    assert result.calls[0].ref_price == 62000.0
+    assert result.calls[0].target == 72000.0
+
+
 
 
 # -- loading a document by path ------------------------------------------------
