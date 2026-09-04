@@ -126,14 +126,17 @@ Di trú **idempotent**: dựng lại từ file đã dựng → `calls with a new
 
 ### 4. Việc kế tiếp, theo thứ tự
 
-1. **Push nhánh** nếu anh muốn (`git push` — 3 commit đang nằm local).
+1. ~~**Push nhánh**~~ — **đã push**, `origin/upgrade/learning-loop` bắt kịp `HEAD` (kiểm 05/09).
 2. Hỏi lại **VRE + PET** bằng proposer sống (trước đây thiếu trích dẫn dòng action / thiếu giá có
    đơn vị) — nay không cần chép reply tay nữa.
 3. **TPB-HDB**: memo tiếng Anh — quyết thêm alias tiếng Anh vào từ vựng action hay bỏ.
    **MWG** không có `.md`.
 4. Backfill tiếp bằng proposer sống: mỗi tài liệu ≈ **$0,35 và 70s**, và giờ đọc lại cùng một tài
    liệu **không** sinh quan sát thứ hai nữa — nên chạy lại được an toàn.
-5. Sang **Giai đoạn 2, làm 2.2 TRƯỚC 2.1**.
+5. ~~Sang **Giai đoạn 2, làm 2.2 TRƯỚC 2.1**.~~ ⚠️ **DÒNG NÀY SAI, đừng làm theo.** Giai đoạn 2
+   đã đóng trọn (2.1 R1–R8 · 2.2 Q4–Q10 · 2.3 `ddd731e` · 2.4 `280fa4d`) — xem bảng đối chiếu
+   ở header Giai đoạn 2 cuối file. Dòng này viết theo **file kế hoạch**, mà file kế hoạch chưa
+   bao giờ được tick lại; hàng đợi Q1–Q11 trong chính file này mới là trạng thái thật.
 
 ---
 
@@ -1999,11 +2002,38 @@ Thứ tự đã chốt sau phản biện Codex lượt hai:
     317,8 triệu token / 9,5 giờ; `rework_count` cao nhất 10.
   - Còn thiếu để khép Giai đoạn 1: **ai đóng vai `propose`** cho `extract.py` (provider chưa
     ngã ngũ) — `research_paths` đã sẵn trong `CaptureResult` để nạp cho vòng trích xuất đó.
-## Giai đoạn 2 — PIT + backtest cứng *(CHƯA BẮT ĐẦU — phần duy nhất còn nguyên)*
+## Giai đoạn 2 — PIT + backtest cứng *(ĐÃ XONG — 2.1, 2.2, 2.3, 2.4)*
 
-Giai đoạn 2.1 (R1–R8, chống overfit) đã xong và **không** thay cho giai đoạn này: 2.1 hỏi
-"kết quả có mong manh / có tổng quát hóa không", còn giai đoạn 2 hỏi "dữ liệu đưa vào backtest
-có đúng là thứ biết được **tại thời điểm đó** không". Hai câu khác nhau.
+⚠️ Header này ghi **"CHƯA BẮT ĐẦU — phần duy nhất còn nguyên"** cho tới 04/09 và **đó là sai**.
+Đây là **lần thứ ba** cùng một lỗi trong file này (G3 đã sửa 04/09, G2 sửa 05/09) và nó **đã gây
+thiệt hại thật**: phiên 05/09 mở đầu bằng việc đề xuất "làm 2.2" — một mục đã đóng bốn ngày —
+vì đọc file kế hoạch trong `~/.claude/plans/` cộng với header này, thay vì đọc hàng đợi Q1–Q11
+ở giữa file. **Trạng thái thật nằm trong hàng đợi và các khối ĐIỂM DỪNG, không nằm ở header.**
+
+Đối chiếu từng mục con:
+
+| Mục | Trạng thái | Bằng chứng |
+|---|---|---|
+| 2.1 Walk-forward + chống overfit | ✅ | R1–R8, kết thúc bằng `agent/backtest/walkforward.py` |
+| 2.2-a Hợp nhất hai client DataPro | ✅ | Q5 — `datapro_loader.py` nay là adapter mỏng trên `vndata.price` |
+| 2.2-b PIT VN30 | ✅ *(có giới hạn đã ghi)* | Q6 — `_materialize_named_universe`; **membership vẫn là hiện tại**, cảnh báo survivorship vào run card |
+| 2.2-c Lịch nghỉ lễ VN cho T+2 | ✅ | Q4 — `vn_equity.py` suy lịch từ phiên quan sát được, không `busday_count` |
+| 2.2-d Hợp đồng dữ liệu `vndata` | ✅ | Q7 + Q10 — schema gate, audit phiên thiếu, đơn vị giá thôi suy đoán khi fallback |
+| 2.2-e `_DISCLOSURE_LAG_DAYS` lên `vndata` | ✅ | Q8 — `vndata/fundamental.py:43`, `resolve.py` dùng chung |
+| 2.2 (bổ sung) Chính sách điều chỉnh giá + đối chiếu 2 nguồn | ✅ | Q9 — `adj_rate` / `traded_price()` |
+| 2.3 Chấm chất lượng quy trình | ✅ | commit `ddd731e` — `process_score.py`, rubric 6 mục **xác định** |
+| 2.4 `bench_runner_strict` → `Hypothesis.status` | ✅ | commit `280fa4d` — 4 nhãn của bench đẩy trạng thái |
+
+**Hai giới hạn còn mở, ghi trung thực chứ không tick cho đẹp:**
+1. **Survivorship bias CHƯA được chữa.** `symbols_by_group("VN30")` trả membership **hiện tại**;
+   chưa tìm được nguồn lịch sử tái cơ cấu VN30 trong `vndata` hay trong repo. Run card mang cảnh
+   báo nguyên văn — đó là bản vá cho **sự trung thực**, không phải bản vá cho **bias**.
+2. **Chưa config backtest nào dùng `universe: VN30`.** Q6 mở đường, chưa đổi kết quả của bất kỳ
+   backtest đang chạy nào. Muốn hưởng thì phải sửa config.
+
+2.1 và 2.2 hỏi hai câu khác nhau và **không** thay cho nhau: 2.1 hỏi *"kết quả có mong manh /
+có tổng quát hoá không"*, 2.2 hỏi *"dữ liệu đưa vào backtest có đúng là thứ biết được **tại thời
+điểm đó** không"*. Cả hai nay đều đã trả lời.
 
 ## Giai đoạn 3 — Playbook + vòng lặp tự động *(ĐÃ XONG 03–04/09/2026)*
 
