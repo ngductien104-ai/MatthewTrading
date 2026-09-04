@@ -450,7 +450,21 @@ class LearningStore:
 
     @_synchronized
     def list_calls(self, ticker: str | None = None, since: str | None = None) -> list[CallRecord]:
-        """Return current versions of calls, oldest ``as_of`` first."""
+        """Return one call per episode -- the revision in force -- oldest first.
+
+        An episode is one folder's position on one ticker, and
+        :meth:`scoring_point` has always treated it as scoring once. This used
+        to group by ``call_id`` instead, so the two readers of the same ledger
+        disagreed the moment an episode was read out of a second document:
+        ``_HAH_research`` holds both ``HAH_BaoCao.md`` and ``report.md``, two
+        drafts of one report stating one call, and the scoreboard counted them
+        as two while the resolver counted one. Reading a fuller draft of a memo
+        is not the desk making a second call, and it must not move the
+        denominator of a hit rate.
+
+        The document a revision came from is not lost -- ``episode_revisions``
+        and ``call_history`` still hold every one of them.
+        """
         clauses, params = [], []
         if ticker:
             clauses.append("ticker = ?")
@@ -468,7 +482,21 @@ class LearningStore:
             payload = self._latest_payload("calls", "call_id", row["call_id"])
             if payload:
                 records.append(CallRecord.from_dict(payload))
-        return records
+
+        by_episode: dict[str, list[CallRecord]] = {}
+        for record in records:
+            by_episode.setdefault(record.episode_id, []).append(record)
+        collapsed, seen = [], set()
+        for record in records:
+            # Walked in query order so an episode keeps the position of its
+            # earliest call, while the record returned is the one in force.
+            if record.episode_id in seen:
+                continue
+            seen.add(record.episode_id)
+            in_force = latest_revision(by_episode[record.episode_id])
+            if in_force is not None:
+                collapsed.append(in_force)
+        return collapsed
 
     # -- outcomes -------------------------------------------------------------
 

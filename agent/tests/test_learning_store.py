@@ -18,6 +18,7 @@ from src.learning.records import (
     Outcome,
     ProcessRecord,
     RecordValidationError,
+    episode_id_for,
 )
 from src.learning.store import (
     LearningStore,
@@ -217,6 +218,60 @@ def test_list_calls_filters_by_ticker_and_date(store):
     assert [item.ticker for item in store.list_calls()] == ["VRE", "FPT"]
     assert [item.ticker for item in store.list_calls(ticker="fpt")] == ["FPT"]
     assert [item.ticker for item in store.list_calls(since="2026-08-01")] == ["FPT"]
+
+
+# --- one episode is one call, however many documents state it -----------------
+
+
+def _episode_call(episode_key: str, sha: str, target: float, known_at: str) -> CallRecord:
+    """One ticker's call as a given folder's document states it."""
+    return CallRecord(
+        ticker="HAH",
+        as_of="2026-06-15",
+        action="neutral",
+        known_at=known_at,
+        episode_id=episode_id_for(episode_key, "HAH", ""),
+        ref_price=54_500.0,
+        target=target,
+        confidence=0.5,
+        source_path=f"../{episode_key}/{sha}.md",
+        source_event_sha256=sha,
+    )
+
+
+def test_two_documents_of_one_episode_are_one_call(store):
+    """The HAH case: two drafts of one report, one decision, one row to score.
+
+    ``_HAH_research`` holds ``HAH_BaoCao.md`` and ``report.md``. Both state the
+    same call, so both land in one episode with different call ids -- reading a
+    fuller draft is not the desk calling the stock a second time, and it must
+    not move the denominator of a hit rate.
+    """
+    store.append_call(_episode_call("_HAH_research", "a" * 64, 57_400.0, "2026-06-15T09:00:00Z"))
+    store.append_call(_episode_call("_HAH_research", "b" * 64, 57_900.0, "2026-06-16T09:00:00Z"))
+
+    listed = store.list_calls(ticker="HAH")
+    assert len(listed) == 1
+    # The later reading is the one in force, matching scoring_point exactly.
+    assert listed[0].target == 57_900.0
+    assert listed[0].call_id == store.scoring_point(listed[0].episode_id).call_id
+    # Nothing was destroyed: both readings are still there to be inspected.
+    assert len(store.episode_revisions(listed[0].episode_id)) == 2
+
+
+def test_the_same_ticker_in_two_folders_stays_two_calls(store):
+    """The collapse must not reach across episodes.
+
+    HPG is called once by its own research folder and again by the VRE
+    committee's execution table. Those are two decisions on two dates, and
+    folding them into one would hide a call rather than de-duplicate one.
+    """
+    store.append_call(_episode_call("_hpg_research", "c" * 64, 27_000.0, "2026-06-17T09:00:00Z"))
+    store.append_call(_episode_call("_vre_committee", "d" * 64, 21_000.0, "2026-07-31T09:00:00Z"))
+
+    listed = store.list_calls(ticker="HAH")
+    assert len(listed) == 2
+    assert {record.target for record in listed} == {27_000.0, 21_000.0}
 
 
 # --- outcomes -----------------------------------------------------------------
