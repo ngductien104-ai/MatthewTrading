@@ -360,6 +360,7 @@ lỗi test cộng vào bộ đếm PR thật ở commit trước đó.
 | Commit | Mục |
 |---|---|
 | `9905558` | Nhánh OAuth **không hề có probe** — và báo `ready` cho token đã bị thu hồi |
+| `cde08fe` | `client_rejected` tách khỏi `bad_credentials` — cách sửa in ra cũng phải chạy thử |
 
 Đi kiểm mục 1–3 của "Còn nợ gì" (đều cần một provider sống) thì lòi ra cái thứ ba.
 
@@ -398,9 +399,41 @@ token chết là hai cách sửa khác nhau); và cách sửa cho OAuth là **đ
 - **8 test mới đều ĐỎ trên code cũ** (kiểm bằng `git stash` hai file nguồn rồi chạy lại). Test
   xanh mà không kiểm chiều đỏ thì chỉ là phát biểu lại bản vá — đúng bài học "hợp đồng dễ hơn".
 
-**Token codex hiện đã bị thu hồi.** Muốn dùng lại: `vibe-trading provider login openai-codex`
-(tương tác, phải anh tự chạy). DeepSeek vẫn $0. Nên **cả ba mục dưới đây vẫn kẹt** — nhưng nay
-preflight sẽ **nói đúng lý do** khi anh thử.
+### ⛔ openai-codex ĐÃ LOẠI — đăng nhập lại KHÔNG cứu được (đo 04/09, commit `cde08fe`)
+
+Anh đã chạy `provider login openai-codex` **thành công** (báo "Authenticated", account id mới).
+Vẫn hỏng. Đây là chuỗi đo, **đừng ai làm lại**:
+
+```
+login thành công                              -> account id mới a204e5c8…
+token trên đĩa: mint 4 PHÚT trước, còn 51,5 GIỜ mới hết hạn
+POST …/codex/responses, originator=vibe-trading -> 401 token_revoked
+POST …/codex/responses, originator=codex_cli_rs -> 401 token_revoked
+`codex exec` CHÍNH CHỦ, cùng tài khoản, cùng máy -> CHẠY ĐƯỢC (12.639 token)
+```
+
+**Kết luận: endpoint từ chối token do CHÍNH OAuth client này mint ra**, bất kể header
+`originator`. Tài khoản có quyền (CLI chính chủ chạy ngon), token còn sống — nên **đăng nhập lại
+là vòng lặp không có lối ra**. `vnstock`-style "thử lại xem sao" ở đây chỉ tốn thời gian.
+
+> ⚠️ **Em suýt phát lại đúng con bug em vừa chê.** Commit `9905558` gán cho MỌI lỗi credential
+> OAuth cách sửa "chạy provider login" — chạy thử thì thấy sai, y hệt kiểu "rotate key trong
+> `agent/.env`" chỉ vào file không có key. Nay `client_rejected` **tách khỏi** `bad_credentials`
+> theo đúng thứ phân biệt được hai ca: **token còn trong hạn của chính nó hay không**. Token cũ
+> → vẫn mời đăng nhập lại. Token còn sống mà vẫn bị từ chối → bảo đổi provider.
+>
+> **Bài học:** cách sửa in ra màn hình cũng là một khẳng định, và nó cũng phải được **chạy thử**.
+> Hai commit liên tiếp cùng mắc lỗi "chỉ vào chỗ không sửa được".
+
+**Vậy `openai-codex` LOẠI KHỎI danh sách provider.** Không phải lỗi cấu hình, không còn gì để thử
+từ phía mình. DeepSeek vẫn $0. **Ba mục dưới đây vẫn kẹt** — nhưng nay preflight **nói đúng lý do**.
+
+**Đường ra còn lại, xếp theo giá:**
+1. **ollama cục bộ** — miễn phí, chính là thứ mục 1 dưới đây đã đề xuất để kiểm failover. Chưa cài.
+2. **Nạp tiền DeepSeek** — rẻ, mở lại đúng provider mà mọi thứ đã cấu hình sẵn.
+3. **Bọc `codex exec` thành provider chạy qua tiến trình con** — CLI chính chủ chạy được, và repo
+   đã có tiền lệ ở luồng `codex-companion.mjs`. Tốn công nhất, nhưng không tốn tiền và không đụng
+   vào cổng client của OpenAI.
 
 ### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
 
