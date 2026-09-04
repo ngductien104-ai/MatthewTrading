@@ -241,8 +241,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         elif args.command == "report":
             print(_run_report(args.checkpoint))
+            return 0
         elif args.command == "cost":
             print(_run_cost())
+            return 0
         elif args.command == "scheduler":
             universe = [t.strip().upper() for t in args.universe.split(",") if t.strip()]
             if args.run:

@@ -34,7 +34,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 from src.learning.extract import episode_key_for_path
 from src.learning.records import (
@@ -62,6 +62,7 @@ class MigrationReport:
     remapped_episodes: dict[str, str] = field(default_factory=dict)
     collapsed: list[str] = field(default_factory=list)
     refused: list[str] = field(default_factory=list)
+    withdrawn: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         """One line per table, then what changed identity, collapsed, or failed."""
@@ -69,6 +70,9 @@ class MigrationReport:
         lines = [counts, f"calls with a new id: {len(self.remapped_calls)}"]
         for old, new in sorted(self.remapped_calls.items()):
             lines.append(f"  {old} -> {new}")
+        if self.withdrawn:
+            lines.append(f"withdrawn, with the reason recorded here: {len(self.withdrawn)}")
+            lines.extend(f"  {entry}" for entry in self.withdrawn)
         if self.collapsed:
             lines.append(
                 f"collapsed as identical content: {len(self.collapsed)} "
@@ -114,26 +118,50 @@ def recomputed_call(payload: dict[str, Any]) -> CallRecord:
     return CallRecord.from_dict(data)
 
 
-def rebuild_ledger(source: Path | str, target: Path | str) -> MigrationReport:
+def rebuild_ledger(
+    source: Path | str,
+    target: Path | str,
+    withdrawn: Mapping[str, str] | None = None,
+) -> MigrationReport:
     """Copy one ledger into a new file, re-deriving every identifier.
 
     Args:
         source: Existing ledger. Opened read-only and never modified.
         target: Path to create. Must not already exist -- writing into a ledger
             that already holds rows would mix two histories.
+        withdrawn: ``{call_id: reason}`` for calls that must not be carried
+            over, and the outcomes hanging off them. The reason is required
+            rather than optional: a row that leaves the ledger without one is
+            indistinguishable from a row that was lost, and this ledger's whole
+            claim is that nothing leaves it quietly. Ids are matched as they are
+            written in the source, before any re-derivation.
 
     Returns:
-        What moved, what changed identity, and what the current gates refused.
+        What moved, what changed identity, what was withdrawn, and what the
+        current gates refused.
 
     Raises:
         FileNotFoundError: The source does not exist.
         FileExistsError: The target does.
+        ValueError: A withdrawal was asked for with no reason, or for a call the
+            source does not hold -- both mean the caller is working from a
+            wrong picture of the ledger, which is when a silent no-op does the
+            most damage.
     """
     source, target = Path(source), Path(target)
     if not source.exists():
         raise FileNotFoundError(source)
     if target.exists():
         raise FileExistsError(target)
+    withdrawn = dict(withdrawn or {})
+    for call_id, reason in withdrawn.items():
+        if not str(reason).strip():
+            raise ValueError(f"withdrawing {call_id} needs a reason")
+    if withdrawn:
+        present = {str(payload.get("call_id") or "") for payload in _read_payloads(source, "calls")}
+        missing = sorted(set(withdrawn) - present)
+        if missing:
+            raise ValueError(f"cannot withdraw calls the source does not hold: {', '.join(missing)}")
 
     report = MigrationReport()
 
@@ -158,8 +186,11 @@ def rebuild_ledger(source: Path | str, target: Path | str) -> MigrationReport:
             book("evidence", store.append_evidence(record), record.evidence_id)
 
         for payload in _read_payloads(source, "calls"):
-            record = recomputed_call(payload)
             was = str(payload.get("call_id") or "")
+            if was in withdrawn:
+                report.withdrawn.append(f"call {was}: {withdrawn[was]}")
+                continue
+            record = recomputed_call(payload)
             if was and was != record.call_id:
                 report.remapped_calls[was] = record.call_id
                 report.remapped_episodes[str(payload["episode_id"])] = record.episode_id
@@ -172,6 +203,12 @@ def rebuild_ledger(source: Path | str, target: Path | str) -> MigrationReport:
 
         for payload in _read_payloads(source, "outcomes"):
             data = dict(payload)
+            if str(data.get("call_id") or "") in withdrawn:
+                # An outcome whose call is gone would be scored against nothing.
+                report.withdrawn.append(
+                    f"outcome {data.get('outcome_id')}: its call {data['call_id']} was withdrawn"
+                )
+                continue
             data["call_id"] = report.remapped_calls.get(data["call_id"], data["call_id"])
             data["episode_id"] = report.remapped_episodes.get(
                 data.get("episode_id", ""), data.get("episode_id", "")
@@ -243,13 +280,27 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="put the rebuilt ledger in place, keeping the old one as .bak-<stamp>",
     )
+    parser.add_argument(
+        "--withdraw",
+        action="append",
+        default=[],
+        metavar="CALL_ID=REASON",
+        help="drop one call and its outcomes; the reason is mandatory and is printed",
+    )
     args = parser.parse_args(argv)
 
     from src.learning.store import default_db_path
 
+    withdrawn: dict[str, str] = {}
+    for entry in args.withdraw:
+        call_id, separator, reason = str(entry).partition("=")
+        if not separator or not reason.strip():
+            parser.error(f"--withdraw needs CALL_ID=REASON, got {entry!r}")
+        withdrawn[call_id.strip()] = reason.strip()
+
     source = Path(args.source) if args.source else default_db_path()
     target = Path(args.target) if args.target else Path(f"{source}.rebuilt")
-    report = rebuild_ledger(source, target)
+    report = rebuild_ledger(source, target, withdrawn)
     print(report.summary())
     if report.refused:
         print("\nnothing installed: the rebuild refused rows, so the two ledgers disagree")

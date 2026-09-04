@@ -91,6 +91,15 @@ def _rows(path, table: str) -> int:
         conn.close()
 
 
+def _sole_call_id(path) -> str:
+    """The one call id the fixture writes, read as the source spells it."""
+    conn = sqlite3.connect(path)
+    try:
+        return str(conn.execute("SELECT call_id FROM calls").fetchone()[0])
+    finally:
+        conn.close()
+
+
 # -- the identifier actually changes ------------------------------------------
 
 
@@ -172,6 +181,60 @@ def test_a_rebuild_that_would_collapse_content_says_so(old_ledger, tmp_path):
     assert report.rows["calls"] == 2
     assert len(report.collapsed) == 1
     assert "calls" in report.collapsed[0]
+
+
+# -- withdrawing a row, which is the only way one ever leaves ------------------
+#
+# The ledger is append-only by trigger, so a row that should never have been
+# written can only leave through a rebuild. The case it was built for: the VRE
+# memo of 31/07 quotes the PET write-up's conclusion in passing, and the
+# extractor turned that citation into a second PET call, dated to the VRE
+# meeting and carrying no price at all. It could never be scored and it
+# double-counted a ticker. Withdrawing it has to stay as loud as writing it.
+
+
+def test_a_withdrawn_call_does_not_come_across(old_ledger, tmp_path):
+    call_id = _sole_call_id(old_ledger)
+    report = rebuild_ledger(
+        old_ledger, tmp_path / "new.db", {call_id: "a citation of another document"}
+    )
+    assert _rows(tmp_path / "new.db", "calls") == 0
+    assert any(call_id in entry for entry in report.withdrawn)
+    assert "a citation of another document" in report.summary()
+
+
+def test_the_outcomes_of_a_withdrawn_call_go_with_it(old_ledger, tmp_path):
+    """An outcome kept behind would be a verdict on a call nothing holds."""
+    call_id = _sole_call_id(old_ledger)
+    rebuild_ledger(old_ledger, tmp_path / "new.db", {call_id: "withdrawn under test"})
+    assert _rows(tmp_path / "new.db", "outcomes") == 0
+
+
+def test_a_withdrawal_with_no_reason_is_refused(old_ledger, tmp_path):
+    """A row leaving with no reason cannot be told from a row that was lost."""
+    with pytest.raises(ValueError, match="needs a reason"):
+        rebuild_ledger(old_ledger, tmp_path / "new.db", {_sole_call_id(old_ledger): "   "})
+
+
+def test_withdrawing_a_call_the_ledger_does_not_hold_is_refused(old_ledger, tmp_path):
+    """Silently doing nothing would leave the caller believing a row had gone."""
+    with pytest.raises(ValueError, match="does not hold"):
+        rebuild_ledger(old_ledger, tmp_path / "new.db", {"call_ffffffffffff": "typo"})
+
+
+def test_evidence_outlives_the_call_it_was_cited_by(old_ledger, tmp_path):
+    """Quotes are facts about a document; only the reading of them was wrong."""
+    before = _rows(old_ledger, "evidence")
+    rebuild_ledger(
+        old_ledger, tmp_path / "new.db", {_sole_call_id(old_ledger): "withdrawn under test"}
+    )
+    assert _rows(tmp_path / "new.db", "evidence") == before
+
+
+def test_nothing_is_withdrawn_unless_asked(old_ledger, tmp_path):
+    report = rebuild_ledger(old_ledger, tmp_path / "new.db")
+    assert report.withdrawn == []
+    assert _rows(tmp_path / "new.db", "calls") == _rows(old_ledger, "calls")
 
 
 # -- refusing to write over a ledger that already holds rows -------------------

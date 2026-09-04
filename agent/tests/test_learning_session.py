@@ -365,6 +365,24 @@ def _research_doc(root: Path) -> Path:
     return path
 
 
+@pytest.mark.parametrize("command", ["report", "cost"])
+def test_a_read_only_command_exits_cleanly_after_printing(ledger_env, capsys, command):
+    """Both printed their answer and then crashed on the way out.
+
+    ``report`` and ``cost`` print directly and, unlike every other branch, fell
+    through to the shared ``_log(message)`` tail with ``message`` never
+    assigned. That line sits outside the try, so the UnboundLocalError went
+    straight to the caller: the scoreboard appeared in full, then the command
+    exited non-zero with a traceback under it. Anything reading the exit code --
+    a hook, a scheduler, a shell -- saw a failed run of a command that had
+    worked.
+    """
+    assert cli.main([command]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.strip()
+    assert "UnboundLocalError" not in captured.err
+
+
 def test_prompt_prints_the_contract_and_the_document(ledger_env, capsys):
     doc = _research_doc(ledger_env)
     assert cli.main(["prompt", "--doc", str(doc)]) == 0

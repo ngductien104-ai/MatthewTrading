@@ -641,6 +641,12 @@ Rules that are checked in code, so breaking one only loses the call:
     mapped onto a document that never used it is a guess, and is refused.
   - Omit a field you cannot quote. A missing target is recorded as incomplete;
     an invented one is a fabricated forecast.
+  - List only the calls THIS document makes. A conclusion it attributes to another
+    analysis, another document or an earlier meeting -- "the repo already has a PET
+    write-up (conclusion: wait, fair 44-48)" -- is a citation, not a call made here,
+    and it belongs in `notes` on a call this document does make, or nowhere. Its
+    real date is the one the other document carried, which this one does not state,
+    so recording it duplicates that call under the wrong date.
 
 Document: {path}
 Observed at: {observed_at}
