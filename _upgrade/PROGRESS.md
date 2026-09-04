@@ -10,7 +10,7 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (hàng đợi hết; đợt 3 sửa hai lỗi ĐO SAI)
+## 🔖 ĐIỂM DỪNG — 03–04/09/2026 (hàng đợi hết; đợt 3–4 sửa BA lỗi ĐO SAI)
 
 > **Phiên sau đọc từ đây.** Thứ tự việc còn lại nằm ở **"Việc kế tiếp"** ngay dưới.
 > Quy ước không đổi: 1 mục = 1 commit, đối chiếu full suite trước khi commit.
@@ -354,6 +354,53 @@ bệnh. Sổ cái đã có **3 lesson process** nói chồng nhau, một trong �
 lesson cho một **sổ cái test rỗng** lại đi đọc thư mục run thật của máy. Nay truyền summary vào —
 luật đọc trạng thái môi trường thì không phải là hàm của dữ liệu nó nhận. **Cùng hình dạng** với
 lỗi test cộng vào bộ đếm PR thật ở commit trước đó.
+
+### Phiên 04/09 — đợt 4: lỗi ĐO SAI thứ ba, cùng một hình dạng, ở nhánh OAuth
+
+| Commit | Mục |
+|---|---|
+| `9905558` | Nhánh OAuth **không hề có probe** — và báo `ready` cho token đã bị thu hồi |
+
+Đi kiểm mục 1–3 của "Còn nợ gì" (đều cần một provider sống) thì lòi ra cái thứ ba.
+
+**Đo trên máy này hôm nay, với `LANGCHAIN_PROVIDER=openai-codex`:**
+
+```
+token có thật: True, có account_id, access token 1794 ký tự
+POST .../codex/responses            -> HTTP 401 {"code": "token_revoked"}
+preflight nói (TRƯỚC commit này):      status=ready          ← tích xanh trên provider chết
+probe_provider nói (TRƯỚC):            not_configured
+                                       "base URL or API key not set"
+```
+
+**Sai hai chiều ngược nhau, cùng một nguyên nhân: cả hai đều không biết OAuth là gì.**
+- `probe_provider` đi tìm `OPENAI_API_KEY`, không thấy, nên gọi một provider **đã cấu hình**
+  là chưa cấu hình — và chỉ người đọc về phía biến môi trường, tức **sai luôn cả cách sửa**.
+- `preflight` thì **bỏ qua probe hoàn toàn**: có *file* token là `ready`. Đây **đúng là con bug
+  mà G3.5-a được viết ra để giết** ("check cũ gọi bất kỳ câu trả lời nào là ready — điều đó
+  đúng cả với key bị thu hồi lẫn tài khoản hết tiền"), chỉ là bản vá hồi đó **chỉ vá nhánh
+  API-key**. Nhánh không có key thì giữ nguyên hình dạng cũ.
+
+Nay `_probe_oauth` hỏi **đúng endpoint mà một run hỏi, với đúng body một run gửi**; preflight
+đi qua nó như mọi provider khác; `not_logged_in` tách khỏi `bad_credentials` (không có token và
+token chết là hai cách sửa khác nhau); và cách sửa cho OAuth là **đăng nhập lại**, không phải
+"rotate key trong `agent/.env`" — file đó **không có key nào** để rotate.
+
+> ⚠️ **Đây là LẦN THỨ BA cùng một hình dạng trong hai phiên.** Cổng `reliability` đọc nhầm quần
+> thể; `lesson_id` băm nhầm danh tính; nay preflight đo nhầm thuộc tính. **Công cụ đúng, đối
+> tượng đo sai** — và cả ba lần đều lọt vì con số/trạng thái trả ra *trông hợp lý*.
+
+**Hai chi tiết đáng giữ:**
+- **Provider đang chạy thật là `deepseek`, KHÔNG phải codex.** `~/.vibe-trading/.env` **che**
+  `agent/.env` (thứ tự trong `_ENV_CANDIDATES`: home → agent → cwd). Nên lỗi này **tiềm ẩn**,
+  chưa phải câu trả lời sai của hôm nay — nhưng nó sẽ thành câu trả lời sai **ngay lần đổi
+  provider kế tiếp**, mà đổi provider chính là việc mục 1–2 dưới đây yêu cầu.
+- **8 test mới đều ĐỎ trên code cũ** (kiểm bằng `git stash` hai file nguồn rồi chạy lại). Test
+  xanh mà không kiểm chiều đỏ thì chỉ là phát biểu lại bản vá — đúng bài học "hợp đồng dễ hơn".
+
+**Token codex hiện đã bị thu hồi.** Muốn dùng lại: `vibe-trading provider login openai-codex`
+(tương tác, phải anh tự chạy). DeepSeek vẫn $0. Nên **cả ba mục dưới đây vẫn kẹt** — nhưng nay
+preflight sẽ **nói đúng lý do** khi anh thử.
 
 ### Còn nợ gì (KHÔNG còn trong hàng đợi kế hoạch — đây là việc mới)
 
