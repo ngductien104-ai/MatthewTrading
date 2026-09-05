@@ -10,7 +10,127 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG MỚI NHẤT — 05/09/2026: 5 commit vào nhánh, cây làm việc SẠCH
+## 🔖 ĐIỂM DỪNG MỚI NHẤT — 06/09/2026: backfill KHÉP, và cổng thứ tư đã được sửa
+
+> **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Backfill (mục 1 của khối 05/09) và mục 2 (hai tài liệu TA)
+> đều đã đóng. Không còn tài liệu quyết định nào chờ đọc.
+
+### Full suite trên cây có thay đổi
+
+`11 failed, 3987 passed, 2 skipped, 9 errors` trong **350s (5:50)**. Fail và error khớp baseline
+từng cái: dividend ×3 · loader_retry ×5 · oauth ×3 · `factors/test_registry` ×9 error.
+Passed đi từ 3982 → **3987**, skipped 1 → 2; cộng lại chênh đúng **6**, bằng số test phiên này
+thêm. Cái skip mới **không phải do thay đổi này**: `test_the_real_datapro_frame_still_satisfies_the_resolver`
+bỏ qua với lý do *"DataPro desktop is not answering"* — máy chưa mở DataPro lúc chạy.
+Log: `_upgrade/full_suite_20260906_revisions.txt` — ngoài git, xoá được.
+
+### Sổ cái `~/.vibe-trading/learning.db` lúc dừng
+
+`calls = 28 dòng / 26 id / **24 episode**` · `evidence = 286` · `outcomes = 45 dòng / 15 id` ·
+`lessons = 20/13` · `process_records = 58/32`.
+
+Đi từ 20 → 24 episode. Bốn episode mới đều đến từ **một** tài liệu: quyết định CIO ngày
+15/06/2026 (`_portfolio_review/00_CIO_decision.md`) với TCB · HPG · FPT · VND.
+Hai đường lùi của phiên này: `learning.db.bak-20260905-173702Z` (trước khi rút 4 dòng) và
+`learning.db.bak-20260905-173840Z` (trước khi rút dòng SBT).
+
+### 1. Backfill xong — nhưng 3 trong 5 tài liệu KHÔNG phải call mới
+
+Danh sách TODO của khối 05/09 được lập theo **tài liệu chưa đọc**, không theo **episode chưa có
+trong sổ**. Ba trong năm tài liệu là bản kể lại của một quyết định sổ đã giữ từ 04/09:
+
+| Tài liệu | Sổ đã có | Đã làm |
+|---|---|---|
+| `_switch_tpb_hdb/client_report.md` | `04_pm_decision.md` → TPB `reduce` + HDB `accumulate` | rút 2 dòng |
+| `_vre_committee/BAO_CAO_TONG_HOP_VRE.md` | `PM_DECISION.md` → VRE `avoid` | rút 1 dòng |
+| `_sbt_committee/report.md` | `PM_DECISION.md` → SBT `wait` | rút 1 dòng |
+
+Và chúng **không đọc giống nhau**: bản khách hàng của vụ hoán đổi cho ra TPB `hold` (thay vì
+`reduce`) và HDB `buy` (thay vì `accumulate` khi giá lùi 24,5–25,0); báo cáo tổng hợp VRE cho ra
+`buy` ở đúng mức giá mà hội đồng viết là **KHÔNG mua** — 24.300. Kết luận có điều kiện đọc thành
+một chữ `buy` thì mất đúng cái điều kiện làm nên call. Cả bốn dòng đã rút qua `rebuild_ledger`
+kèm lý do; evidence ở lại, đúng như luật của mục 7 khối 05/09.
+
+**Luật rút ra:** hàng đợi backfill phải theo **episode**, không theo tài liệu. Một thư mục là một
+quyết định; bản khách hàng, báo cáo tổng hợp, bản tóm tắt điều hành đều là **cách kể lại** nó.
+Cùng họ với "dẫn lại không phải call".
+
+Hai tài liệu còn lại là call thật và đã vào sổ: `_portfolio_review/00_CIO_decision.md`
+(4 call) và `_vre_committee/PM_DECISION_v2_LaiSuat.md` (VRE, **revision 2** — xem mục 3).
+
+### 2. Cổng action từ chối oan một bảng tỷ trọng
+
+`00_CIO_decision.md` lần chạy đầu trả **1 call, 3 từ chối `unknown_action`**. Ba chữ bị từ chối là
+`GIẢM mạnh` · `GIẢM` · `TĂNG` — bảng hành động viết **động từ trần** vì danh từ nằm ở cột bên
+cạnh, cột tỷ trọng mục tiêu (TCB 66,2% → ≤25–30%; FPT 9,3% → 12–15%). Đây không phải model
+paraphrase: nó chép đúng ô bảng, như prompt yêu cầu.
+
+Đã thêm `giảm` · `giảm mạnh` → `reduce` và `tăng` → `accumulate`. **Không phải nới cổng**: bảng
+alias xưa nay đã nhận động từ trần `mua`, `bán`, `giữ`, `nắm`, `gom`, `chờ`, `loại` — hai chữ này
+cùng một hình. `giảm mạnh` vẫn là `reduce` chứ không phải `sell`, vì vị thế được giữ lại
+(66,2% → 25–30%), và có test khoá đúng điều đó. Chạy lại từ reply đã lưu: **4 call, 19 evidence,
+không từ chối**.
+
+### 3. Cổng thứ tư, và là cái nặng nhất phiên này: `extract --doc` luôn đánh số revision = 1
+
+`assign_revisions()` đánh số trong **một lần chạy** — mà `extract --doc` thì mỗi lần chỉ thấy một
+tài liệu. Nên **mọi** tài liệu đều nhận revision 1, kể cả khi sổ đã giữ episode đó. Hậu quả đo
+được trên sổ thật: `_switch_tpb_hdb` có hai bản ghi TPB cùng revision 1 (`reduce` và `hold`),
+`_vre_committee` có ba bản ghi VRE cùng revision 1. Ai là bản **đang có hiệu lực**? `latest_revision`
+lấy `max(revision, known_at)` — revision hoà, nên nó rơi xuống `known_at`, tức **mtime của file**.
+Mọi file trong repo đều bị `touch` ngày 03/09, nên thực chất bản thắng là bản **chèn vào sổ sau**.
+Đó là một sự thật về hệ thống tệp, không phải về cái bàn ra quyết định — và nó đã âm thầm đẩy
+bản kể lại cho khách hàng lên trên quyết định của PM.
+
+Đã sửa: `settle_revisions_against_ledger()` (`extract.py`) đọc `episode_revisions()` trước khi
+ghi và **nối tiếp** số revision của sổ, kèm `supersedes`. Tài liệu đã có trong episode **giữ
+nguyên số cũ**, nên đọc lại vẫn ra đúng `call_id` và append vẫn là no-op — có test riêng cho
+tính chất đó, vì đây đúng là chỗ dễ đánh mất tính bất biến nhất. Chạy thật: VRE v2 nay là
+**revision 2 superseding revision 1**, `list_calls` trả một dòng VRE `avoid`.
+
+### 4. Hai tài liệu TA — từ chối ĐÚNG cả hai, không đụng code
+
+Đã đọc reply đã lưu trước, đúng như khối 05/09 dặn:
+
+- `_dig_ta/report_aggregate.md` → `scale_ambiguous`. **Từ chối đúng, và không sửa được từ tài
+  liệu**: `grep` toàn file không có lấy một mức giá nào mang đơn vị hay dấu phân nhóm nghìn —
+  chỉ `12.80`, `13.40`, `12.20`. Không có gì neo thang giá. Nới cổng ở đây là đoán.
+- `_sbt_ta/report_AGGREGATE.md` → `unknown_action`. Model chọn nhãn tiêu đề
+  `MUA NHẸ CÓ ĐIỀU KIỆN`, trong khi câu điều hành của tài liệu là *"gom thang từ vùng thấp,
+  KHÔNG đuổi giá tại 21.55"* — tức `accumulate`, mà `gom` thì đã có trong từ vựng. Nhưng kể cả
+  đọc đúng thì tài liệu này **cũng không nên vào sổ**: nó là bảng kỹ thuật đầu vào cho quyết định
+  `_sbt_committee` ngày 18/06 mà sổ đã giữ. Đầu vào, không phải quyết định.
+
+### 5. Một quan sát chưa xử: call theo %NAV thì bộ chấm không chấm được
+
+Bốn call của quyết định CIO đều `incomplete`: không mức giá tham chiếu nào, vì tài liệu phát biểu
+hành động bằng **tỷ trọng NAV** (66,2% → ≤25–30%) và số lượng cổ phiếu, không bằng giá. Model tự
+ghi lý do vào `notes` chứ không bịa giá — đúng. Nhưng nghĩa là bốn episode này nằm trong sổ mà
+**không bao giờ vào được mẫu số của hit rate**. Đây là một loại call thật, không phải một bản ghi
+thiếu; nếu muốn đo thì phải chấm bằng tỷ trọng, không bằng chuỗi giá. Là một mục riêng.
+
+### Việc kế tiếp, theo thứ tự
+
+1. **Cảnh báo khi một revision mới ĐỔI action.** Hôm nay `store_result` im lặng cho `hold` đè lên
+   `reduce`; cái bắt được là mắt người, không phải công cụ. Một dòng *"revision 2 của ep_… đổi TPB
+   reduce → hold"* trên output CLI là đủ, và là thứ lẽ ra đã chặn nửa buổi hôm nay.
+2. **`_HAH_research` vẫn còn hai bản ghi cùng revision 1** (`HAH_BaoCao.md` và `report.md`, cùng
+   `neutral`, cùng số) — đây là hình dạng y hệt SBT, nhưng phiên 05/09 đã CỐ Ý giữ cả hai. Vì hai
+   bản đồng thuận nên không con số nào sai. Muốn dọn thì rút một bản, đúng cách đã làm với SBT.
+   Đừng dọn lặng lẽ: đó là đảo một quyết định đã ghi.
+3. Chấm call theo tỷ trọng (mục 5 ở trên).
+
+### Đã sửa lại về chính mình
+
+Giữa phiên em kết luận cần **thêm alias cho `GIẢM`/`TĂNG`** rồi suýt dừng ở đó, coi như xong
+`00_CIO_decision.md`. Sai ở chỗ: chữa được cổng action mới lộ ra cổng revision, và cổng revision
+mới là cái làm hỏng số liệu. Ba lần backfill sau đó (SBT, switch, VRE) chạy "thành công, không từ
+chối" — và cả ba đều đang ghi sai vào sổ. **Một lần chạy không báo lỗi không có nghĩa là nó ghi
+đúng**; phải mở sổ ra đọc sau mỗi đợt backfill.
+
+---
+
+## 🔖 ĐIỂM DỪNG — 05/09/2026: 5 commit vào nhánh, cây làm việc SẠCH
 
 > **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Dừng vì **hết token phiên**, không phải bế tắc kỹ thuật.
 > Chữ ký của việc hết token là `learning extract failed: claude exited 1:` với **stderr rỗng** —
@@ -106,12 +226,13 @@ gộp** (HPG được gọi bởi cả `_hpg_research` lẫn bảng thực thi c
 
 ### Việc kế tiếp, theo thứ tự
 
-1. **Backfill nốt.** Đã xong HPG (`wait`, ref 24.000, tgt 27.000, 6 evidence) và HAH (`neutral`,
+1. ~~**Backfill nốt.**~~ **XONG 06/09 — xem khối trên; 3/5 tài liệu hoá ra là bản kể lại và đã bị
+   rút khỏi sổ.** Đã xong HPG (`wait`, ref 24.000, tgt 27.000, 6 evidence) và HAH (`neutral`,
    ref 54.500, tgt 57.400, 7 evidence). Còn lại, **nay đã an toàn** vì episode gộp đúng:
    - `_portfolio_review/00_CIO_decision.md` — **chạy dở, `claude exited 1` do hết token.** Chạy lại.
    - `_sbt_committee/report.md` · `_switch_tpb_hdb/client_report.md`
    - `_vre_committee/BAO_CAO_TONG_HOP_VRE.md` · `_vre_committee/PM_DECISION_v2_LaiSuat.md` (80KB)
-2. **Hai tài liệu TA bị từ chối — đọc kỹ trước khi coi là lỗi:**
+2. ~~**Hai tài liệu TA bị từ chối**~~ **XONG 06/09 — từ chối ĐÚNG cả hai, không nới cổng:**
    - `_dig_ta/report_aggregate.md` → `scale_ambiguous`
    - `_sbt_ta/report_AGGREGATE.md` → `unknown_action`
 
