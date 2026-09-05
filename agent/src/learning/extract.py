@@ -62,6 +62,7 @@ from src.learning.records import (
     CallRecord,
     Evidence,
     RecordValidationError,
+    call_id_for,
     episode_id_for,
     fold_text,
     normalize_action,
@@ -1082,6 +1083,71 @@ def assign_revisions(records: Sequence[CallRecord]) -> list[CallRecord]:
     return renumbered
 
 
+def settle_revisions_against_ledger(
+    store: LearningStore, records: Sequence[CallRecord]
+) -> list[CallRecord]:
+    """Continue the ledger's revision numbering instead of restarting at 1.
+
+    :func:`assign_revisions` numbers an episode within one run, which is all a
+    single ``extract --doc`` ever sees: every document it reads starts at
+    revision 1. So a folder read one document at a time -- which is how the
+    whole backfill runs -- ends up with several revision-1 records for one
+    episode, and then nothing can say which is in force.
+    ``_switch_tpb_hdb/`` held exactly that on 05/09/2026: ``04_pm_decision.md``
+    said TPB ``reduce``, the client restatement said ``hold``, both revision 1,
+    and :func:`~src.learning.records.latest_revision` broke the tie on
+    ``known_at`` -- the file's mtime, a fact about the filesystem and not about
+    the desk.
+
+    A document already in the episode keeps the revision it was given, so
+    re-reading it lands on the same ``call_id`` and the append stays a no-op.
+
+    Args:
+        store: Open ledger, read for what each episode already holds.
+        records: Calls from this run, already numbered within it.
+
+    Returns:
+        New records carrying ledger-wide revisions and ``supersedes`` links.
+    """
+    numbering: dict[str, dict[int, str]] = {}
+    taken: dict[str, set[int]] = {}
+    settled: list[CallRecord] = []
+    for record in records:
+        episode = record.episode_id
+        if episode not in numbering:
+            held = store.episode_revisions(episode)
+            numbering[episode] = {item.revision: item.source_event_sha256 for item in held}
+            taken[episode] = set()
+        revision = next(
+            (
+                number
+                for number in sorted(numbering[episode])
+                if numbering[episode][number] == record.source_event_sha256
+                and number not in taken[episode]
+            ),
+            0,
+        )
+        if not revision:
+            revision = max(numbering[episode], default=0) + 1
+            numbering[episode][revision] = record.source_event_sha256
+        taken[episode].add(revision)
+        earlier = [number for number in numbering[episode] if number < revision]
+        data = record.to_dict()
+        data.update(
+            {
+                "revision": revision,
+                "supersedes": (
+                    call_id_for(episode, max(earlier), numbering[episode][max(earlier)])
+                    if earlier
+                    else ""
+                ),
+                "call_id": "",
+            }
+        )
+        settled.append(CallRecord.from_dict(data))
+    return settled
+
+
 def store_result(store: LearningStore, result: ExtractionResult) -> list[AppendResult]:
     """Write an extraction to the ledger, evidence first as the store demands.
 
@@ -1094,7 +1160,10 @@ def store_result(store: LearningStore, result: ExtractionResult) -> list[AppendR
     """
     for evidence in result.evidence:
         store.append_evidence(evidence)
-    return [store.append_call(record) for record in result.calls]
+    return [
+        store.append_call(record)
+        for record in settle_revisions_against_ledger(store, result.calls)
+    ]
 
 
 def extract_all(

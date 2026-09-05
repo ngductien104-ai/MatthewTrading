@@ -20,6 +20,7 @@ from src.learning.extract import (
     parse_prices,
     parse_proposal,
     resolve_scale,
+    settle_revisions_against_ledger,
     store_result,
     validate_candidate,
 )
@@ -219,6 +220,7 @@ __all__ = [
     "parse_prices",
     "parse_proposal",
     "resolve_scale",
+    "settle_revisions_against_ledger",
     "store_result",
     "validate_candidate",
     "SCHEMA_VERSION",

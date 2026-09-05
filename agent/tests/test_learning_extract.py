@@ -562,6 +562,63 @@ def test_re_running_the_same_extraction_appends_nothing(tmp_path, document):
         assert store.counts()["calls"] == 1
 
 
+BODY = "\n".join(["# FPT", "", FPT_HEADER, "", "> Khuyến nghị: GIẢM TỶ TRỌNG", FPT_CALL])
+
+
+def _episode_document(tmp_path, name: str, body: str, mtime: str):
+    from src.learning.extract import _document
+
+    return _document(_write(tmp_path, name, body, mtime=mtime), "markdown", "_switch_tpb_hdb")
+
+
+def test_a_second_document_of_one_episode_is_the_next_revision(tmp_path):
+    """One document at a time is how the whole backfill runs.
+
+    Before this, every ``extract --doc`` handed its call revision 1, so
+    ``_switch_tpb_hdb/`` came to hold two revision-1 records for TPB -- the PM
+    decision saying ``reduce`` and the client restatement saying ``hold`` --
+    and which one was in force fell to the tie-break on ``known_at``, the
+    file's mtime.
+    """
+    decision = _episode_document(
+        tmp_path, "_switch_tpb_hdb/04_pm_decision.md", BODY, "2026-08-27T08:41:00Z"
+    )
+    restatement = _episode_document(
+        tmp_path, "_switch_tpb_hdb/client_report.md", BODY + "\n", "2026-08-27T08:42:00Z"
+    )
+    reply = json.dumps({"calls": [_candidate()]})
+    with LearningStore(tmp_path / "learning.db") as store:
+        store_result(store, extract_document(decision, lambda p: reply))
+        store_result(store, extract_document(restatement, lambda p: reply))
+        episode = store.list_calls()[0].episode_id
+        revisions = store.episode_revisions(episode)
+        assert [item.revision for item in revisions] == [1, 2]
+        assert revisions[1].supersedes == revisions[0].call_id
+        assert store.scoring_point(episode).call_id == revisions[1].call_id
+
+
+def test_re_reading_the_earlier_document_still_appends_nothing(tmp_path):
+    """Settling revisions must not cost the ledger its idempotence.
+
+    A document already in the episode keeps the number it was given, so reading
+    it again lands on the same ``call_id`` even after a later document has
+    taken revision 2.
+    """
+    decision = _episode_document(
+        tmp_path, "_switch_tpb_hdb/04_pm_decision.md", BODY, "2026-08-27T08:41:00Z"
+    )
+    restatement = _episode_document(
+        tmp_path, "_switch_tpb_hdb/client_report.md", BODY + "\n", "2026-08-27T08:42:00Z"
+    )
+    reply = json.dumps({"calls": [_candidate()]})
+    with LearningStore(tmp_path / "learning.db") as store:
+        store_result(store, extract_document(decision, lambda p: reply))
+        store_result(store, extract_document(restatement, lambda p: reply))
+        again = store_result(store, extract_document(decision, lambda p: reply))
+        assert [item.appended for item in again] == [False]
+        assert store.counts()["calls"] == 2
+
+
 def test_the_scoring_point_is_the_last_revision(tmp_path, document):
     reply = json.dumps({"calls": [_candidate(target=None), _candidate()]})
     result = extract_document(document, lambda prompt: reply)
