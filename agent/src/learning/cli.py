@@ -47,6 +47,7 @@ from src.learning.extract import (
     build_prompt,
     extract_document,
     load_document,
+    overridden_actions,
     store_result,
 )
 from src.learning.records import utc_now
@@ -125,13 +126,16 @@ def _run_extract(doc: str, reply: str = "", proposer: str = "") -> str:
     result = extract_document(document, propose)
     result.calls = assign_revisions(result.calls)
     with LearningStore(default_db_path()) as store:
+        overrides = overridden_actions(store, result.calls)
         store_result(store, result)
     refused = ", ".join(f"{item.code}" for item in result.rejections) or "none"
     tickers = ", ".join(sorted({record.ticker for record in result.calls})) or "-"
-    return (
+    lines = [
         f"extract {document.path}: {len(result.calls)} call(s) [{tickers}], "
         f"{len(result.evidence)} evidence, refused: {refused}"
-    )
+    ]
+    lines.extend(f"  ! {item}" for item in overrides)
+    return "\n".join(lines)
 
 
 def _run_resolve(ticker: str | None, today: str | None, dry_run: bool) -> str:

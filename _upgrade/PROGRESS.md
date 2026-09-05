@@ -10,19 +10,20 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG MỚI NHẤT — 06/09/2026: backfill KHÉP, và cổng thứ tư đã được sửa
+## 🔖 ĐIỂM DỪNG MỚI NHẤT — 06/09/2026: backfill KHÉP, hai cổng nữa, và một luật hàng đợi
 
 > **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Backfill (mục 1 của khối 05/09) và mục 2 (hai tài liệu TA)
 > đều đã đóng. Không còn tài liệu quyết định nào chờ đọc.
 
 ### Full suite trên cây có thay đổi
 
-`11 failed, 3987 passed, 2 skipped, 9 errors` trong **350s (5:50)**. Fail và error khớp baseline
+`11 failed, 3989 passed, 2 skipped, 9 errors` trong **380s (6:19)**. Fail và error khớp baseline
 từng cái: dividend ×3 · loader_retry ×5 · oauth ×3 · `factors/test_registry` ×9 error.
-Passed đi từ 3982 → **3987**, skipped 1 → 2; cộng lại chênh đúng **6**, bằng số test phiên này
+Passed đi từ 3982 → **3989**, skipped 1 → 2; cộng lại chênh đúng **8**, bằng số test phiên này
 thêm. Cái skip mới **không phải do thay đổi này**: `test_the_real_datapro_frame_still_satisfies_the_resolver`
 bỏ qua với lý do *"DataPro desktop is not answering"* — máy chưa mở DataPro lúc chạy.
-Log: `_upgrade/full_suite_20260906_revisions.txt` — ngoài git, xoá được.
+Hai log ngoài git, xoá được: `_upgrade/full_suite_20260906_revisions.txt` (đo sau mục 3, 3987
+passed) và `_upgrade/full_suite_20260906_override.txt` (đo sau mục 6).
 
 ### Sổ cái `~/.vibe-trading/learning.db` lúc dừng
 
@@ -50,6 +51,10 @@ Và chúng **không đọc giống nhau**: bản khách hàng của vụ hoán �
 `buy` ở đúng mức giá mà hội đồng viết là **KHÔNG mua** — 24.300. Kết luận có điều kiện đọc thành
 một chữ `buy` thì mất đúng cái điều kiện làm nên call. Cả bốn dòng đã rút qua `rebuild_ledger`
 kèm lý do; evidence ở lại, đúng như luật của mục 7 khối 05/09.
+
+**Việc này đổi số thật, không phải dọn hình thức.** Bảng điểm sau khi dọn chấm TPB `reduce`
+(hit, alpha −4,67%: TPB −14,07% so với VNI −9,40%) và HDB `accumulate` (hit, alpha +6,69%). Nếu
+để nguyên, hai dòng đang có hiệu lực sẽ là `hold` và `buy` — hai verdict khác, trên cùng chuỗi giá.
 
 **Luật rút ra:** hàng đợi backfill phải theo **episode**, không theo tài liệu. Một thư mục là một
 quyết định; bản khách hàng, báo cáo tổng hợp, bản tóm tắt điều hành đều là **cách kể lại** nó.
@@ -109,16 +114,28 @@ ghi lý do vào `notes` chứ không bịa giá — đúng. Nhưng nghĩa là b�
 **không bao giờ vào được mẫu số của hit rate**. Đây là một loại call thật, không phải một bản ghi
 thiếu; nếu muốn đo thì phải chấm bằng tỷ trọng, không bằng chuỗi giá. Là một mục riêng.
 
+### 6. Cảnh báo khi một revision mới ĐỔI action (làm luôn trong phiên)
+
+Ba lần backfill hôm nay đều in *"refused: none"* trong lúc ghi `hold` đè lên `reduce` và `buy` đè
+lên `avoid`. Đè là **hợp lệ** — đó là cách một bàn đổi ý — nhưng đè **lặng lẽ** thì không.
+`overridden_actions()` đọc `scoring_point()` **trước khi ghi** và CLI in ra theo đúng lối `  !`
+mà `resolve` đã dùng. Kiểm đầu-cuối trên sổ tạm, bằng chính hai tài liệu đã gây chuyện:
+
+```
+extract ..\_vre_committee\BAO_CAO_TONG_HOP_VRE.md: 1 call(s) [VRE], 32 evidence, refused: none
+  ! VRE avoid -> buy: this overrides call_53bae6e9805d in episode ep_dbb48c11dffb
+```
+
+Bản đọc trùng khớp thì **im lặng** — một bản thảo đầy đủ hơn của cùng một call không phải tin
+tức, có test khoá cả hai chiều.
+
 ### Việc kế tiếp, theo thứ tự
 
-1. **Cảnh báo khi một revision mới ĐỔI action.** Hôm nay `store_result` im lặng cho `hold` đè lên
-   `reduce`; cái bắt được là mắt người, không phải công cụ. Một dòng *"revision 2 của ep_… đổi TPB
-   reduce → hold"* trên output CLI là đủ, và là thứ lẽ ra đã chặn nửa buổi hôm nay.
-2. **`_HAH_research` vẫn còn hai bản ghi cùng revision 1** (`HAH_BaoCao.md` và `report.md`, cùng
+1. **`_HAH_research` vẫn còn hai bản ghi cùng revision 1** (`HAH_BaoCao.md` và `report.md`, cùng
    `neutral`, cùng số) — đây là hình dạng y hệt SBT, nhưng phiên 05/09 đã CỐ Ý giữ cả hai. Vì hai
    bản đồng thuận nên không con số nào sai. Muốn dọn thì rút một bản, đúng cách đã làm với SBT.
    Đừng dọn lặng lẽ: đó là đảo một quyết định đã ghi.
-3. Chấm call theo tỷ trọng (mục 5 ở trên).
+2. Chấm call theo tỷ trọng (mục 5 ở trên).
 
 ### Đã sửa lại về chính mình
 

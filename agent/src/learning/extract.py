@@ -1148,6 +1148,37 @@ def settle_revisions_against_ledger(
     return settled
 
 
+def overridden_actions(store: LearningStore, records: Sequence[CallRecord]) -> list[str]:
+    """Name every call about to change the action in force for its episode.
+
+    Revisions are how a desk changes its mind, so overriding is legal and the
+    ledger must allow it. What it must not do is stay quiet about it: on
+    05/09/2026 a client restatement turned TPB ``reduce`` into ``hold`` and VRE
+    ``avoid`` into ``buy`` at exactly the price the committee had written as
+    do-not-buy, and every one of those runs reported "no refusals". The thing
+    that caught it was a person opening the ledger afterwards.
+
+    Call this before :func:`store_result`, while the ledger still holds the
+    standing revision.
+
+    Args:
+        store: Open ledger.
+        records: Calls this run is about to write.
+
+    Returns:
+        One line per override, empty when the run agrees with what is stored.
+    """
+    lines = []
+    for record in records:
+        standing = store.scoring_point(record.episode_id)
+        if standing is not None and standing.action != record.action:
+            lines.append(
+                f"{record.ticker} {standing.action} -> {record.action}: this overrides "
+                f"{standing.call_id} in episode {record.episode_id}"
+            )
+    return lines
+
+
 def store_result(store: LearningStore, result: ExtractionResult) -> list[AppendResult]:
     """Write an extraction to the ledger, evidence first as the store demands.
 

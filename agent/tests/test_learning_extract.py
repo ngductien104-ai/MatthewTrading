@@ -33,6 +33,7 @@ from src.learning.extract import (
     iter_research_documents,
     iter_run_documents,
     load_document,
+    overridden_actions,
     parse_prices,
     parse_proposal,
     resolve_scale,
@@ -617,6 +618,50 @@ def test_re_reading_the_earlier_document_still_appends_nothing(tmp_path):
         again = store_result(store, extract_document(decision, lambda p: reply))
         assert [item.appended for item in again] == [False]
         assert store.counts()["calls"] == 2
+
+
+HOLD_ACTION = "> Khuyến nghị: nắm giữ"
+HOLD_BODY = BODY.replace("> Khuyến nghị: GIẢM TỶ TRỌNG", HOLD_ACTION)
+
+
+def test_a_revision_that_changes_the_action_says_so(tmp_path):
+    """Overriding is legal; overriding quietly is what cost a day.
+
+    Three backfill runs on 05/09/2026 reported "no refusals" while writing
+    TPB `hold` over `reduce` and VRE `buy` over `avoid`. Nothing in the output
+    said a standing call had just been replaced.
+    """
+    decision = _episode_document(
+        tmp_path, "_switch_tpb_hdb/04_pm_decision.md", BODY, "2026-08-27T08:41:00Z"
+    )
+    restatement = _episode_document(
+        tmp_path, "_switch_tpb_hdb/client_report.md", HOLD_BODY, "2026-08-27T08:42:00Z"
+    )
+    first = json.dumps({"calls": [_candidate()]})
+    second = json.dumps(
+        {"calls": [_candidate(action="nắm giữ", quotes=[FPT_HEADER, FPT_CALL, HOLD_ACTION])]}
+    )
+    with LearningStore(tmp_path / "learning.db") as store:
+        store_result(store, extract_document(decision, lambda p: first))
+        later = extract_document(restatement, lambda p: second)
+        warnings = overridden_actions(store, later.calls)
+        assert len(warnings) == 1
+        assert "FPT reduce -> hold" in warnings[0]
+
+
+def test_a_revision_that_agrees_is_silent(tmp_path):
+    """A fuller draft of the same call is not news, so it must not read as an alarm."""
+    decision = _episode_document(
+        tmp_path, "_switch_tpb_hdb/04_pm_decision.md", BODY, "2026-08-27T08:41:00Z"
+    )
+    restatement = _episode_document(
+        tmp_path, "_switch_tpb_hdb/client_report.md", BODY + "\n", "2026-08-27T08:42:00Z"
+    )
+    reply = json.dumps({"calls": [_candidate()]})
+    with LearningStore(tmp_path / "learning.db") as store:
+        store_result(store, extract_document(decision, lambda p: reply))
+        later = extract_document(restatement, lambda p: reply)
+        assert overridden_actions(store, later.calls) == []
 
 
 def test_the_scoring_point_is_the_last_revision(tmp_path, document):
