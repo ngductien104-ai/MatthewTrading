@@ -471,6 +471,29 @@ def test_the_broker_rating_words_map_to_canonical_actions(written, canonical):
     assert normalize_action(written) == canonical
 
 
+@pytest.mark.parametrize(
+    "written, canonical",
+    [
+        ("GIẢM", "reduce"),
+        ("GIẢM mạnh", "reduce"),
+        ("TĂNG", "accumulate"),
+    ],
+)
+def test_the_bare_verb_of_an_action_table_still_normalizes(written, canonical):
+    """A weight table writes the verb alone; the noun is the next column.
+
+    `_portfolio_review/00_CIO_decision.md` refused three of its four rows on
+    05/09/2026 for this and this alone: the table says GIẢM mạnh / GIẢM / TĂNG
+    while the target-weight column carries "<=25-30%" and "12-15%".
+    """
+    assert normalize_action(written) == canonical
+
+
+def test_a_strong_reduction_is_not_promoted_to_a_sale():
+    """"GIẢM mạnh" cut TCB from 66,2% to 25-30% NAV -- the position stayed."""
+    assert normalize_action("GIẢM mạnh") != "sell"
+
+
 def test_a_whole_sentence_is_refused_with_a_usable_hint():
     """The first backfill failed exactly here: the model sent sentences.
 

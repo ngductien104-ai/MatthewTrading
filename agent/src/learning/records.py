@@ -106,12 +106,20 @@ ACTION_ALIASES = {
     "gom": "accumulate",
     "khả quan": "buy",
     "tăng tỷ trọng": "accumulate",
+    "tăng": "accumulate",
     "nắm giữ": "hold",
     "nắm": "hold",
     "giữ": "hold",
     "trung lập": "neutral",
     "giảm tỷ trọng": "reduce",
     "hạ tỷ trọng": "reduce",
+    # The CIO decision of 15/06/2026 writes the verb bare -- "GIẢM mạnh",
+    # "GIẢM / soi lại" -- because the noun lives in the next column, the target
+    # weight (66,2% -> <=25-30%). Bare verbs are already how this table reads
+    # "mua", "bán", "giữ" and "gom"; these two are the same shape, not a wider
+    # gate. "giảm mạnh" is still `reduce`, not `sell`: the position is kept.
+    "giảm": "reduce",
+    "giảm mạnh": "reduce",
     "kém khả quan": "reduce",
     "chốt lời": "reduce",
     "bán": "sell",
