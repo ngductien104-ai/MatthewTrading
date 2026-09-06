@@ -425,6 +425,32 @@ def test_the_prompt_does_not_ask_the_extractor_for_a_price_it_cannot_see(documen
     assert "no unit and no currency word" in prompt
 
 
+def test_the_prompt_resolves_joined_rating_labels_from_the_action_sentence(document):
+    """A string check only; it does not prove that a live model follows the rule."""
+    prompt = build_prompt(document)
+    assert (
+        "A rating label joining words with a slash or a middot is two actions, not one\n"
+        '    phrase: "NEUTRAL/HOLD", "TRUNG LẬP/HOLD", "KHẢ QUAN / TÍCH LŨY". Report the\n'
+        "    single word the document's executive/action sentence uses for the operative\n"
+        "    action, and put that sentence in `quotes`."
+    ) in prompt
+
+
+@pytest.mark.parametrize(
+    "written_action", ["NEUTRAL/HOLD", "TRUNG LẬP/HOLD", "KHẢ QUAN / TÍCH LŨY"]
+)
+def test_joined_rating_labels_remain_unknown_actions(tmp_path, written_action):
+    """These corpus labels stay refused even when quoted verbatim."""
+    quotes = [FPT_HEADER, FPT_CALL, written_action]
+    document = load_document(_write(tmp_path, "_ratings/decision.md", "\n".join(quotes)))
+    reply = json.dumps({"calls": [_candidate(action=written_action, quotes=quotes)]})
+
+    result = extract_document(document, lambda _prompt: reply)
+
+    assert result.calls == []
+    assert [item.code for item in result.rejections] == ["unknown_action"]
+
+
 # -- episode identity ---------------------------------------------------------
 
 

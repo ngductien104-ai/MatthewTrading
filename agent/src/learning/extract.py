@@ -602,6 +602,10 @@ def iter_run_documents(runs_dir: str | Path) -> Iterator[SourceDocument]:
 
 # -- prompting ----------------------------------------------------------------
 
+# Resolve joined labels in the prompt, never by adding slash aliases or splitting
+# them in the parser: NEUTRAL/HOLD joins two no-claim words, but KHẢ QUAN / TÍCH LŨY
+# joins buy and accumulate, distinct actions on the same side. Splitting would
+# silently choose one for the document -- writing the call rather than reading it.
 PROMPT_TEMPLATE = """Read the research document below and list every investment call it states.
 
 A call is a stated recommendation on one ticker: what to do, at what price, by when.
@@ -636,6 +640,10 @@ Rules that are checked in code, so breaking one only loses the call:
     "54.800 đ", "giá chốt 72.200". If every price you quote is a bare number like
     "54.8" there is nothing to anchor against, and the whole call is refused.
   - If the document states two actions at once, pick the operative one and quote it.
+    A rating label joining words with a slash or a middot is two actions, not one
+    phrase: "NEUTRAL/HOLD", "TRUNG LẬP/HOLD", "KHẢ QUAN / TÍCH LŨY". Report the
+    single word the document's executive/action sentence uses for the operative
+    action, and put that sentence in `quotes`.
   - The action vocabulary is closed. An unlisted phrase is refused rather than guessed,
     so report the phrase the document actually uses instead of paraphrasing it.
   - The action must itself appear in one of your quotes, like every number does. A phrase
