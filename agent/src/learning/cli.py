@@ -45,12 +45,14 @@ from typing import Sequence
 from src.learning.extract import (
     assign_revisions,
     build_prompt,
+    episode_key_for_path,
     extract_document,
+    iter_research_documents,
     load_document,
     overridden_actions,
     store_result,
 )
-from src.learning.records import utc_now
+from src.learning.records import CHECKPOINT_SESSIONS, utc_now
 from src.learning.report import build_scorecard
 from src.learning.process_score import cost_per_conclusion, render_cost_surface
 from src.learning.resolve import resolve_ledger
@@ -172,6 +174,101 @@ def _run_report(checkpoint: int) -> str:
         return build_scorecard(store, checkpoint=checkpoint).to_text()
 
 
+def _status_source_path(source: str, root: Path) -> Path:
+    """Normalize a source path relative to the repository or agent directory."""
+    path = Path(source)
+    if not path.is_absolute():
+        base = root / "agent" if path.parts and path.parts[0] == ".." else root
+        path = base / path
+    return path.resolve()
+
+
+def _run_status() -> str:
+    """Report directory coverage and unscored calls without external services."""
+    root = Path(__file__).resolve().parents[3]
+    with LearningStore(default_db_path()) as store:
+        calls = store.list_calls()
+        revisions = [
+            record
+            for call in calls
+            for record in store.episode_revisions(call.episode_id)
+        ]
+        scored = {
+            record.call_id for record in revisions if store.outcomes_for(record.call_id)
+        }
+        evidence_count = store.counts()["evidence"]
+
+    sources: dict[str, set[Path]] = {}
+    for record in revisions:
+        if record.source_path:
+            key = episode_key_for_path(record.source_path)
+            sources.setdefault(key, set()).add(_status_source_path(record.source_path, root))
+
+    documents: dict[str, set[Path]] = {}
+    for document in iter_research_documents(root):
+        key = episode_key_for_path(document.path)
+        documents.setdefault(key, set()).add(Path(document.path).resolve())
+
+    lines = [
+        "ledger summary:",
+        f"  episodes: {len({call.episode_id for call in calls})}",
+        f"  calls in force: {len(calls)}",
+        f"  distinct calls with outcomes: {len(scored)}",
+        f"  evidence: {evidence_count}",
+        "",
+        "uncovered episodes (backfill queue):",
+    ]
+    uncovered = sorted(documents.keys() - sources.keys())
+    if not uncovered:
+        lines.append("  none")
+    for key in uncovered:
+        lines.append(f"  uncovered {key}")
+        lines.extend(
+            f"    {document.relative_to(root).as_posix()}"
+            for document in sorted(documents[key])
+        )
+
+    lines.extend([
+        "",
+        "covered episodes (directory-level coverage):",
+        "  Coverage is judged per directory; an episode is (directory, ticker). "
+        "A document about a DIFFERENT ticker in a covered directory is a real "
+        "backfill item even though it is listed here. "
+        "Offline status cannot determine a document's ticker.",
+    ])
+    covered = sorted(documents.keys() & sources.keys())
+    if not covered:
+        lines.append("  none")
+    for key in covered:
+        lines.append(f"  covered {key}")
+        for document in sorted(documents[key]):
+            label = (
+                "stored call source" if document in sources[key]
+                else "not a stored call source"
+            )
+            lines.append(f"    {document.relative_to(root).as_posix()} [{label}]")
+
+    # resolve_deadline needs sessions from VNINDEX prices; do not guess due dates.
+    checkpoints = ", ".join(str(value) for value in CHECKPOINT_SESSIONS)
+    lines.extend([
+        "",
+        f"checkpoint due dates need the VNINDEX price calendar ({checkpoints} sessions).",
+        "calls with no outcome yet (run `resolve` to score; needs DataPro):",
+    ])
+    pending = sorted(
+        (call for call in calls if call.call_id not in scored),
+        key=lambda call: (call.as_of, call.episode_id, call.call_id),
+    )
+    if not pending:
+        lines.append("  none")
+    for call in pending:
+        lines.append(
+            f"  {call.call_id} {call.ticker} {call.action} as_of={call.as_of} "
+            f"episode={call.episode_id} [{call.extraction_status}]"
+        )
+    return "\n".join(lines)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI.
 
@@ -213,6 +310,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--dry-run", action="store_true", help="score and report without writing outcomes"
     )
     sub.add_parser("cost", help="print what a conclusion has cost, by month")
+    sub.add_parser("status", help="print the offline episode backfill and outcome queues")
     scheduler = sub.add_parser(
         "scheduler", help="print whether an unattended cycle would be allowed, and why"
     )
@@ -248,6 +346,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         elif args.command == "cost":
             print(_run_cost())
+            return 0
+        elif args.command == "status":
+            print(_run_status())
             return 0
         elif args.command == "scheduler":
             universe = [t.strip().upper() for t in args.universe.split(",") if t.strip()]
