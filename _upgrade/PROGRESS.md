@@ -26,11 +26,23 @@ Passed 3989 → **4000**: **+10** test mới của `test_learning_status.py` (đ
 chạy được vì **DataPro đã mở**. Skipped 2 → 1 vì đúng cái test đó.
 Log: `_upgrade/full_suite_20260906_golive.txt` — ngoài git, xoá được.
 
+Lần đo thứ hai (sau G4.2): `11 failed, **4004 passed**, 1 skipped, 9 errors` trong **690s (11:30)`.
++4 đúng bằng 4 test G4.2 thêm. ⚠️ Log lần này bị cắt vì lệnh pytest có `| tail -15`, nên chỉ thấy
+5/11 dòng FAILED; đã chạy riêng `test_dividend_analysis_skill.py` + `test_loader_retry_helpers.py`
+để đối chiếu nốt (3+5, khớp). **Đừng để `tail` trong lệnh chạy suite** — nó vứt mất chính cái phần
+dùng để đối chiếu. Log: `_upgrade/full_suite_20260906_slash.txt`.
+
 ### Sổ cái `~/.vibe-trading/learning.db` lúc dừng
 
-`calls = 28 dòng / 26 id / **25 episode**` · `evidence = 306` · `outcomes = 53 dòng / **24 id**` ·
-`lessons = 20/13`. Hai đường lùi phiên này: `learning.db.bak-20260906-045234Z` (trước khi rút
-HAH). Bảng điểm: **hit 7/15 = 46,7%**, KTC [24,8%; 69,9%], **alpha trung bình −1,55%**.
+`calls = 31 dòng / 29 id / **27 episode**` · `evidence = 332` · `outcomes = 56 dòng / **27 id**` ·
+`lessons = 20/13`. `list_calls()` trả **27** — một bản ghi mỗi episode.
+⚠️ Dòng đầu bảng điểm in `calls=29`, tức **đếm id chứ không đếm episode**. Không sai số nào trong
+bảng (thân bảng đi qua `list_calls`), nhưng nó là đúng loại lệch mà mục 9 khối 05/09 đã phải sửa
+một lần — thêm vào hàng đợi.
+Đường lùi phiên này: `learning.db.bak-20260906-045234Z` (trước khi rút HAH).
+Bảng điểm: **hit 7/15 = 46,7%**, KTC [24,8%; 69,9%], **alpha trung bình −1,55%**.
+Bốn call backfill cuối đều `hold`/`neutral` nên **mẫu số có hướng vẫn 15** — chúng được đo mà
+không được chấm, đúng thiết kế.
 
 ### 1. ⚠️ ĐÍNH CHÍNH — mục 5 của khối trước SAI, và may là đã kiểm trước khi viết code
 
@@ -107,24 +119,39 @@ cần để chạy: thứ tự `status → extract → resolve → report`, file
 vào/vai/kể lại, cách đọc bảng điểm khi n còn quá nhỏ, cách rút một dòng và đường lùi ở đâu, bẫy
 đếm `count(*)` thổi mẫu số gấp ba, mỗi loại từ chối nghĩa là gì, và **cái loop không đo**.
 
-### 5. Backfill: LPB xong, TCB/TPB chặn ở một dấu gạch chéo
+### 5. Backfill XONG cả bốn — sau khi gỡ một dấu gạch chéo (`0045540`)
 
-`_social_alpha_lpb/04_alpha_synthesis.md` → **LPB `neutral`, 11 evidence, không từ chối**.
+| Tài liệu | Vào sổ |
+|---|---|
+| `_social_alpha_lpb/04_alpha_synthesis.md` | LPB `neutral` · ref 52.600 · 11 evidence |
+| `_bankdata/TCB_valuation.md` | TCB `hold` · ref 31.250 · tgt 33.000 · bull 40.000 · bear 25.000 · 11 evidence |
+| `_bankdata/TPB_valuation.md` | TPB `accumulate` **rev1** · ref 15.850 · tgt 18.300 · 4 evidence |
+| `_bankdata/TPB_valuation_v2.md` | TPB `neutral` **rev2 supersedes rev1** · ref 16.350 · tgt 16.000 · 6 evidence |
 
-`_bankdata/TCB_valuation.md` → **0 call, `unknown_action`**. Model khai
+Lần nạp v2 in ra `! TPB accumulate -> neutral: this overrides call_143b95a1e85b` — cơ chế của mục 6
+khối trước, lần đầu bật trên một **ghi đè hợp lệ** thay vì trên một bản kể lại. Hai episode TPB
+(định giá 12/06 vs hoán đổi 29/06) **không** bị gộp, đúng tính chất đã khoá 05/09.
+
+**Lịch sử của chỗ tắc, giữ lại vì lý do đằng sau mới là cái đáng nhớ:**
+
+`_bankdata/TCB_valuation.md` lần đầu → **0 call, `unknown_action`**. Model khai
 `"action": "NEUTRAL/HOLD"` — nó **chép đúng nhãn tiêu đề** `KẾT LUẬN: **HỢP LÝ (FAIR) ·
 NEUTRAL/HOLD**`, đúng như prompt yêu cầu ("the SHORT recommendation phrase as the document writes
 it"). `_bankdata/TPB_valuation_v2.md` (`TRUNG LẬP/HOLD`) sẽ dính y hệt.
 
-**KHÔNG nới cổng, sửa ở prompt** — mục G4.2, đang giao Codex. Lý do phải giữ: nhãn gạch chéo có
+**KHÔNG nới cổng, sửa ở prompt** — mục G4.2, **xong** (`0045540`). Lý do phải giữ: nhãn gạch chéo có
 thể ghép hai từ **cùng chiều** (`NEUTRAL/HOLD`, cả hai là no-claim) hoặc **khác action**
 (`_bankdata/TPB_valuation.md` viết `KHẢ QUAN / TÍCH LŨY` = `buy` và `accumulate`). Tách trong code
 thì parser phải **tự chọn hộ một vế** — đó là viết lại call, không phải đọc call.
 
 TPB có **hai bản định giá khác kết luận cùng ngày 12/06**: v1 `KHẢ QUAN/TÍCH LŨY` fair
 18.300–18.500, v2 `TRUNG LẬP/HOLD` fair 15.800–16.600 sau khi chuẩn hoá ROE. Đó là **revision
-thật**, không phải bản kể lại — nạp v1 trước rồi v2, và v2 phải bật cảnh báo ghi đè của mục 6
-khối trước.
+thật**, không phải bản kể lại — đã nạp v1 trước rồi v2.
+
+**Test chuỗi không chứng minh model làm theo.** Codex kèm hai test: một assert prompt chứa câu mới,
+một khoá chiều ngược — ba nhãn `NEUTRAL/HOLD` · `TRUNG LẬP/HOLD` · `KHẢ QUAN / TÍCH LŨY` **vẫn phải
+bị từ chối** nếu ai đó thử đưa chúng vào bảng alias. Cái thứ hai mới là cái giữ quyết định. Bằng
+chứng thật là run sống ở bảng trên.
 
 ### 6. `_sector_rotation_banks` — CỐ Ý không nạp
 
@@ -139,14 +166,26 @@ sổ là biến một call ngành thành một call mã. Đã ghi vào runbook.
 hàng đợi `uncovered`. Chúng là file hạ tầng, không phải nghiên cứu. Không nguy hiểm (chỉ ai đó
 nạp nhầm mới hỏng), nhưng làm hàng đợi ồn. Sửa thì phải đụng enumerator — một mục riêng.
 
+### 8. Một chỗ đối chiếu suýt thành nghi vấn về sau
+
+`report` in `outcomes=27`, `resolve` báo ghi **26**. Không phải mất dữ liệu: outcome thứ 27 thuộc
+`call_53bae6e9805d` — **VRE revision 1**, đã bị v2 (`call_480d8adcd110`) thay thế. Nó được chấm
+trước khi v2 tồn tại và **ở lại sổ như lịch sử**, đúng bản chất append-only; `resolve` đi qua
+`list_calls()` nên chỉ chấm bản đang có hiệu lực. Bảng điểm cũng đi qua `list_calls()` nên **không
+đếm trùng** — bảng chỉ có một dòng VRE. Ghi ra đây để lần sau không ai trừ hai con số rồi hoảng.
+
 ### Việc kế tiếp, theo thứ tự
 
-1. **G4.2** bản vá prompt nhãn gạch chéo → chạy lại TCB, rồi TPB v1 → v2.
-2. `resolve` lại sau backfill, đọc lại bảng điểm.
-3. **Push nhánh** (6 commit đang treo tính cả 4 commit cũ).
-4. Lọc `AGENTS.md`/`FACTS.md`/`_upgrade` khỏi enumerator (mục 7).
-5. Chấm call theo tỷ trọng — **chỉ khi** tìm được ca thật mà `score_call` chấm sai, chứ không phải
-   vì mục 5 cũ nói thế.
+1. Lọc `AGENTS.md` / `FACTS.md` / `_upgrade` khỏi enumerator (mục 7). Mục nhỏ, [C] được.
+2. `_dig_ta` và `_sbt_ta` vẫn nằm trong hàng đợi `uncovered` của `learning status`, nhưng khối
+   06/09 sáng đã kiểm và **từ chối đúng cả hai**. Muốn hàng đợi sạch thì cần một đường đánh dấu
+   "đã xét, cố ý không nạp" — nếu không thì mỗi phiên sau lại kiểm lại hai tài liệu đó.
+   Cùng nhu cầu với `_sector_rotation_banks` ở mục 6.
+3. Chấm call theo tỷ trọng — **chỉ khi** tìm được ca thật mà `score_call` chấm sai, chứ không phải
+   vì mục 5 cũ nói thế. Xem mục 1.
+4. Backfill tiếp thì đọc `learning status` trước, và nhớ giới hạn (thư mục, mã) ở mục 3.
+5. Dòng `ledger:` của bảng điểm đếm `call_id`, trong khi mọi con số dưới nó đếm **episode**.
+   Sửa cho một thước đo — cùng loại lỗi mục 9 khối 05/09.
 
 ---
 
