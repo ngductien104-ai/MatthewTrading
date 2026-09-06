@@ -10,7 +10,147 @@ mở phiên mới và gõ: *"đọc `_upgrade/PROGRESS.md` + kế hoạch trong 
 
 ---
 
-## 🔖 ĐIỂM DỪNG MỚI NHẤT — 06/09/2026: backfill KHÉP, hai cổng nữa, và một luật hàng đợi
+## 🔖 ĐIỂM DỪNG MỚI NHẤT — 06/09/2026 chiều: GO-LIVE — hàng đợi thành code, và mục 5 hoá ra sai
+
+> **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Luồng: Claude điều phối, **Codex GPT-6 Astra** (`model =
+> "gpt-6-astra"`, `model_reasoning_effort = "high"` trong `~/.codex/config.toml`) thực thi qua
+> `codex-companion.mjs task --write --model gpt-6-astra --effort high`, `--resume-last` cho lượt
+> trả lại. Codex **không** commit; Claude review, dựng ca đối kháng, rồi commit.
+
+### Full suite trên cây có thay đổi
+
+`11 failed, 4000 passed, 1 skipped, 9 errors` trong **603s (10:03)**. Fail/error khớp baseline
+**từng cái**: dividend ×3 · loader_retry ×5 · oauth ×3 · `factors/test_registry` ×9 error.
+Passed 3989 → **4000**: **+10** test mới của `test_learning_status.py` (đếm bằng
+`--collect-only`, không bằng `grep '^def test_'` — grep sót 2) **+1** test trước đây skip nay
+chạy được vì **DataPro đã mở**. Skipped 2 → 1 vì đúng cái test đó.
+Log: `_upgrade/full_suite_20260906_golive.txt` — ngoài git, xoá được.
+
+### Sổ cái `~/.vibe-trading/learning.db` lúc dừng
+
+`calls = 28 dòng / 26 id / **25 episode**` · `evidence = 306` · `outcomes = 53 dòng / **24 id**` ·
+`lessons = 20/13`. Hai đường lùi phiên này: `learning.db.bak-20260906-045234Z` (trước khi rút
+HAH). Bảng điểm: **hit 7/15 = 46,7%**, KTC [24,8%; 69,9%], **alpha trung bình −1,55%**.
+
+### 1. ⚠️ ĐÍNH CHÍNH — mục 5 của khối trước SAI, và may là đã kiểm trước khi viết code
+
+Khối 06/09 sáng viết: *"bốn call CIO đều `incomplete`… nằm trong sổ mà **không bao giờ vào được
+mẫu số của hit rate**"*, và kết luận phải viết bộ chấm theo tỷ trọng NAV. **Cả hai vế đều sai.**
+
+`grep extraction_status` toàn repo: nó **không chặn gì ở hạ nguồn** — không `report.py`, không
+`resolve.py`, không `store.py` lọc theo nó. `score_call()` chấm bằng `as_of` + chuỗi giá, **không
+cần `ref_price`**. Bằng chứng có sẵn trong chính sổ: STB · VCB · HDB · ACB · MBB đều `ref=None`,
+đều `incomplete`, và **đều đã có outcome** từ lần `resolve` trước.
+
+Mười call thiếu outcome chỉ vì **chưa ai chạy lại `resolve`** kể từ đợt backfill. Chạy một lệnh:
+
+```
+resolve 23 outcome(s) [hit=7, invalidated=2, miss=8, no_claim=6], 49 pending, 4 warning(s)
+```
+
+**Không viết một dòng code nào.** Mẫu số đi từ 7 → 15 call, và bức tranh đổi chiều:
+
+| | trước | sau |
+|---|---:|---:|
+| hit rate | 57,1% (4/7) | **46,7% (7/15)** |
+| alpha trung bình | **+0,70%** | **−1,55%** |
+
+Bảng điểm cũ không sai — nó **đang đo một nửa sổ, và nửa đó là nửa đẹp**. Phần kéo trung bình
+xuống là 4 call CIO 15/06 (HPG `reduce` hit · TCB `reduce` miss · FPT `accumulate` miss ·
+VND `hold`), NLG `accumulate` (alpha −9,64%), HPG/TCB 31/07.
+
+**Bài học, và nó đắt hơn cái lỗi:** khối ĐIỂM DỪNG là **quan sát**, không phải kết luận đã kiểm.
+Mục 5 viết ra từ việc thấy 4 dòng `incomplete` + `ref=None`, rồi **suy** ra hậu quả thay vì chạy
+`resolve --dry-run` — một lệnh 90 giây. Một phiên sau đọc nó như sự thật và suýt đặt hàng một
+tính năng không cần tồn tại. **Trước khi ghi một kết luận về hành vi hệ thống vào file này, chạy
+cái lệnh chứng minh nó.**
+
+### 2. HAH — rút bản trình bày, giữ bản swarm (anh chốt)
+
+`report.md` mang dòng *"Thực hiện bởi swarm `fundamental_research_team` … Report Editor"*;
+`HAH_BaoCao.md` mang `<div class="ratingbox">`, tức bản dựng để render PDF. Đúng hình dạng bản
+kể lại của TPB/VRE/SBT. Rút `call_440937534885` kèm lý do: `calls 28 → 27 dòng`,
+`outcomes 45 → 42 dòng`, **evidence giữ nguyên 286**, không dòng nào bị cổng từ chối.
+Cả hai bản đọc ra `neutral` / ref 54.500 / target 57.400 nên **không số nào đổi** — cái đổi là
+chỉ còn một dòng có hiệu lực ở **mọi** đường đọc, không riêng `list_calls`.
+
+### 3. `learning status` — hàng đợi backfill thành code (`14ead1a`, Codex)
+
+Luật *"hàng đợi theo episode, không theo tài liệu"* của khối trước là một câu trong file này, tức
+là thứ phiên sau phải học lại. Nay là một lệnh: offline hoàn toàn, nhóm tài liệu theo episode key,
+`covered` khi sổ đã có call, phần còn lại là hàng đợi thật.
+
+**Lượt 1 bị trả lại, ba điểm:**
+1. Nó là lệnh **duy nhất** không theo lối `with LearningStore(default_db_path())` mà 6 lệnh kia
+   dùng — nó mở `LearningStore(":memory:")` rồi `source.backup(store._conn)`, thò vào thuộc tính
+   riêng. `learning report` đọc sổ sống theo lối thường từ lâu, nên không có lý do.
+2. Docstring/comment viết tiếng Việt trong một module toàn tiếng Anh.
+3. **Lỗ hổng là của brief em viết, không phải của Codex:** episode thật là **(thư mục, mã)**,
+   `status` nhóm theo **thư mục**. Thư mục đã sinh call cho mã A sẽ dán nhãn một quyết định thật
+   về mã B là "ứng viên kể lại". Có thật ngay trong kho: `_bankdata` có TPB **và** TCB,
+   `_vre_committee` có VRE + HPG + TCB, `_sector_rotation_2026H2` có 5 mã. Offline **không** biết
+   mã của tài liệu nếu chưa gọi model → không sửa được và **không được sửa**; cái phải sửa là
+   output **nói ra giới hạn**, và có test khoá đúng câu đó lại.
+
+**Ca đối kháng Claude tự dựng (test của Codex không đủ để tick):**
+- Băm SHA-256 sổ cái trước/sau khi chạy → **không đổi**. Đây là câu hỏi sắc nhất, vì lượt 1 đã
+  bọc một bản sao RAM đúng vì sợ chuyện này.
+- Thay `socket.socket` bằng lớp `raise` rồi gọi `main(['status'])` → **exit 0**, in đủ. Offline thật.
+- Chạy trên sổ thật: `_vre_committee/BAO_CAO_TONG_HOP_VRE.md` — đúng cái đã bị rút hôm nay —
+  hiện ra là *không phải nguồn của call đã lưu*. Phân loại đúng.
+
+### 4. Runbook vận hành (`b5beb0e`)
+
+`agent/src/learning/RUNBOOK.md`. Tri thức vận hành xưa nay nằm rải trong 2.300 dòng của **chính
+file này** — đó là *lịch sử xây dựng*, không phải thứ đọc vào sáng thứ Hai. Runbook chỉ mang cái
+cần để chạy: thứ tự `status → extract → resolve → report`, file nào là quyết định file nào là đầu
+vào/vai/kể lại, cách đọc bảng điểm khi n còn quá nhỏ, cách rút một dòng và đường lùi ở đâu, bẫy
+đếm `count(*)` thổi mẫu số gấp ba, mỗi loại từ chối nghĩa là gì, và **cái loop không đo**.
+
+### 5. Backfill: LPB xong, TCB/TPB chặn ở một dấu gạch chéo
+
+`_social_alpha_lpb/04_alpha_synthesis.md` → **LPB `neutral`, 11 evidence, không từ chối**.
+
+`_bankdata/TCB_valuation.md` → **0 call, `unknown_action`**. Model khai
+`"action": "NEUTRAL/HOLD"` — nó **chép đúng nhãn tiêu đề** `KẾT LUẬN: **HỢP LÝ (FAIR) ·
+NEUTRAL/HOLD**`, đúng như prompt yêu cầu ("the SHORT recommendation phrase as the document writes
+it"). `_bankdata/TPB_valuation_v2.md` (`TRUNG LẬP/HOLD`) sẽ dính y hệt.
+
+**KHÔNG nới cổng, sửa ở prompt** — mục G4.2, đang giao Codex. Lý do phải giữ: nhãn gạch chéo có
+thể ghép hai từ **cùng chiều** (`NEUTRAL/HOLD`, cả hai là no-claim) hoặc **khác action**
+(`_bankdata/TPB_valuation.md` viết `KHẢ QUAN / TÍCH LŨY` = `buy` và `accumulate`). Tách trong code
+thì parser phải **tự chọn hộ một vế** — đó là viết lại call, không phải đọc call.
+
+TPB có **hai bản định giá khác kết luận cùng ngày 12/06**: v1 `KHẢ QUAN/TÍCH LŨY` fair
+18.300–18.500, v2 `TRUNG LẬP/HOLD` fair 15.800–16.600 sau khi chuẩn hoá ROE. Đó là **revision
+thật**, không phải bản kể lại — nạp v1 trước rồi v2, và v2 phải bật cảnh báo ghi đè của mục 6
+khối trước.
+
+### 6. `_sector_rotation_banks` — CỐ Ý không nạp
+
+`BaoCao_XoayVongNganh_NganHang_2026-06-18.md` kết luận **`MARKET-WEIGHT, KHÔNG overweight`** cho
+**cả nhóm ngân hàng**. Một bản ghi là một **mã**, chấm bằng chuỗi giá của mã đó — call theo ngành
+không có gì để chấm, và `MARKET-WEIGHT` không nằm trong từ vựng. Cùng họ với `switch`. Ép nó vào
+sổ là biến một call ngành thành một call mã. Đã ghi vào runbook.
+
+### 7. Quan sát ngoài phạm vi, chưa xử (Codex cũng tự thấy)
+
+`iter_research_documents()` quét cả `_upgrade/PROGRESS.md` và các `AGENTS.md` / `FACTS.md` vào
+hàng đợi `uncovered`. Chúng là file hạ tầng, không phải nghiên cứu. Không nguy hiểm (chỉ ai đó
+nạp nhầm mới hỏng), nhưng làm hàng đợi ồn. Sửa thì phải đụng enumerator — một mục riêng.
+
+### Việc kế tiếp, theo thứ tự
+
+1. **G4.2** bản vá prompt nhãn gạch chéo → chạy lại TCB, rồi TPB v1 → v2.
+2. `resolve` lại sau backfill, đọc lại bảng điểm.
+3. **Push nhánh** (6 commit đang treo tính cả 4 commit cũ).
+4. Lọc `AGENTS.md`/`FACTS.md`/`_upgrade` khỏi enumerator (mục 7).
+5. Chấm call theo tỷ trọng — **chỉ khi** tìm được ca thật mà `score_call` chấm sai, chứ không phải
+   vì mục 5 cũ nói thế.
+
+---
+
+## 🔖 ĐIỂM DỪNG — 06/09/2026 sáng: backfill KHÉP, hai cổng nữa, và một luật hàng đợi
 
 > **PHIÊN SAU ĐỌC KHỐI NÀY TRƯỚC.** Backfill (mục 1 của khối 05/09) và mục 2 (hai tài liệu TA)
 > đều đã đóng. Không còn tài liệu quyết định nào chờ đọc.
