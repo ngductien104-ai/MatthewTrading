@@ -113,7 +113,7 @@ ROUTES: dict[str, Route] = {
         vndata="gas",
         vndata_kwargs={"market": "VN"},
         vn_proxies=("PLX", "OIL", "COM"),
-        notes="Chuoi dieu hanh Bo Cong Thuong. Cot: ron95 / ron92 / oil_do.",
+        notes="Chuoi dieu hanh Bo Cong Thuong. Cot: ron95 / ron92 / oil_do. CANH BAO: field ron95 DUNG YEN o 23.23 tu 04/06/2026 (74 phien tinh den 07/09/2026) trong khi ron92 va oil_do van doi - field chet, khong phai gia dung yen. Dung ron92/oil_do, hoac crawl gia dieu hanh tu bao chi.",
     ),
     "copper": Route(
         label="Dong",

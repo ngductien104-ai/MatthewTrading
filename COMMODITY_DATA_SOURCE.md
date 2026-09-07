@@ -91,6 +91,13 @@ cuối cùng rơi vào thứ Hai–thứ Sáu**; cùng dữ liệu đó cho 0,00
 Sau khi sửa, `oil_crude` khớp `CL=F` **đến từng cent ở mọi phiên giao dịch** (0,000%
 suốt 28/08–04/09) — đúng như ghi chú route: cùng một feed.
 
+**Field `ron95` của `gas_vn` đã chết, hai field kia thì không.** Đổi lần cuối
+03/06/2026 (25,05 → 23,23 hôm 04/06) rồi đứng yên **74 phiên** tính đến 07/09/2026,
+trong khi cùng kỳ `ron92` có 15 giá trị khác nhau và `oil_do` có 14. Giá điều hành
+thật thì vẫn chạy (báo chí 04/09/2026 ghi E10 lên 25.000 đ/lít). Đây là **chết ở mức
+field**, không phải chết ở mức series — `_staleness()` chấm cả route là LIVE vì nó
+chỉ nhìn ngày của bar cuối. Dùng `ron92` / `oil_do`, hoặc cào giá điều hành.
+
 **`macro.currency('exchange_rate')` chết từ 09/07/2026** và bỏ qua `start=`. Tỷ giá
 sống lấy từ Yahoo `USDVND=X`. Chi tiết ở `VN_DATA_SOURCE.md` §4.
 
