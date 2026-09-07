@@ -419,8 +419,20 @@ def build(key: str, years: int = DEFAULT_YEARS) -> dict:
             "skipped": "hai nguon la hai chuan hop dong khac nhau - xem notes",
         }
     elif y and v and y["status"] == "LIVE" and v["status"] == "LIVE":
-        ly, lv = y["series"][-1], v["series"][-1]
-        if ly["close"] and lv["close"]:
+        # So o NGAY CHUNG cuoi cung va phai la NGAY TRONG TUAN. Yahoo dan mot
+        # bar cuoi tuan bang cach lap lai gia dong cua thu Sau, trong khi vndata
+        # co phien dien tu that - so thang bar cuoi voi bar cuoi bien cai do
+        # thanh "lech nguon" gia. Vi du 06/09/2026 la Chu nhat: Yahoo 91,48 (lap
+        # lai thu Sau) vs vndata 91,96 -> bao lech 0,52%, trong khi moi phien
+        # giao dich that hai ben khop den tung cent (0,000%).
+        vmap = {r["time"]: r for r in v["series"]}
+        common = [
+            r for r in y["series"]
+            if r["time"] in vmap and date.fromisoformat(r["time"]).weekday() < 5
+        ]
+        ly = common[-1] if common else None
+        lv = vmap[ly["time"]] if ly else None
+        if ly and lv and ly["close"] and lv["close"]:
             diff = abs(ly["close"] - lv["close"]) / ly["close"]
             pack["crosscheck"] = {
                 "yahoo": ly, "vndata": lv, "rel_diff": round(diff, 6),

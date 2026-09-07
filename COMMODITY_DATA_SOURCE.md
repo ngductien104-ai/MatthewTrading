@@ -81,9 +81,15 @@ giá xăng nằm ở route riêng `gas_vn`.
 (CNY/tấn, 5.437). Chênh trắng–thô là **white premium**, không phải lỗi dữ liệu. Route
 `sugar` đặt `crosscheck=False` — nếu không, kiểm chéo báo động giả 2.802% mỗi lần chạy.
 
-**"Cùng feed" không phải tính chất bền.** Ngày 04/09/2026 `oil_crude` khớp `CL=F` tuyệt
-đối (91,48 = 91,48), nhưng ngày 06/09 hai bên lệch 0,52% (91,48 vs 91,96). Ngưỡng
-`CROSSCHECK_TOL = 1%` vẫn cho qua, nhưng đừng ghi vào tài liệu là "luôn khớp".
+**Bar cuối tuần của Yahoo là bản sao thứ Sáu.** Yahoo dán một bar cho ngày cuối tuần
+bằng cách lặp lại giá đóng cửa thứ Sáu, trong khi vndata có phiên điện tử thật. So thẳng
+bar-cuối-với-bar-cuối vì thế biến chuyện đó thành "lệch nguồn" giả. Đo ngày 07/09/2026
+(Chủ nhật 06/09 là bar cuối): `oil_crude` báo lệch 0,52%, `gas` 1,51%, `steel` 1,37% —
+tức **3 trong 6** route có kiểm chéo đều báo động giả. Kiểm chéo nay so ở **ngày chung
+cuối cùng rơi vào thứ Hai–thứ Sáu**; cùng dữ liệu đó cho 0,00% / 0,17% / 0,00%.
+
+Sau khi sửa, `oil_crude` khớp `CL=F` **đến từng cent ở mọi phiên giao dịch** (0,000%
+suốt 28/08–04/09) — đúng như ghi chú route: cùng một feed.
 
 **`macro.currency('exchange_rate')` chết từ 09/07/2026** và bỏ qua `start=`. Tỷ giá
 sống lấy từ Yahoo `USDVND=X`. Chi tiết ở `VN_DATA_SOURCE.md` §4.
