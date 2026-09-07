@@ -59,8 +59,15 @@ không phải quyết định, và nạp chúng làm hỏng số liệu:
 | Không nạp | Vì sao |
 |---|---|
 | `BULL.md` · `BEAR.md` · `RISK.md` | lập trường của một vai, không phải kết luận của bàn |
-| `raw_*.md` · `_crawl_*.md` · `_data_brief.md` | dữ liệu đầu vào |
+| `raw_*.md` · `_crawl_*.md` · `_data_brief.md` · `datapack.md` | dữ liệu đầu vào |
 | `client_report.md` · `BAO_CAO_TONG_HOP*.md` · bản dựng để render PDF | **bản kể lại** một quyết định sổ đã giữ |
+
+Riêng `datapack.md`: các thư mục `_commodity_<mặt hàng>_<ngày>/` do
+`agent/scripts/commodity_datapack.py` sinh ra chỉ chứa **giá thô đã kéo về**, và một
+thư mục chỉ có data pack thì **không phải episode** — nó chưa có quyết định nào. Ngày
+07/09/2026 hàng đợi nhận năm thư mục như vậy (`gas`, `iron_ore`, `rubber`, `steel`,
+`sugar`) vì `iter_research_documents()` quét mọi `.md`; đó là hành vi đúng của hàng
+đợi, không phải lỗi. Chỉ nạp `chien_luoc.md` — tài liệu kết luận của hội đồng hàng hoá.
 
 Loại thứ ba là cái bẫy đắt nhất. Ngày 06/09/2026 hàng đợi backfill được lập
 theo **tài liệu**, và 3 trong 5 mục hoá ra là bản kể lại — chúng vào sổ rồi
