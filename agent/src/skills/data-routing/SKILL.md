@@ -16,10 +16,11 @@ Thị trường Việt Nam có **4 nguồn sự thật, không chồng lấn**. 
 | Khối ngoại mua/bán ròng | **DataPro** | `vndata.price.foreign_flow()` |
 | Tự doanh mua/bán ròng | **DataPro** | `vndata.price.proprietary_flow()` |
 | Thoả thuận, chủ động mua/bán | **DataPro** | `vndata.price.ohlcv()` |
-| Chỉ số, phái sinh, ETF, forex | **DataPro** | `vndata.price.ohlcv()` |
+| Chỉ số, phái sinh, ETF | **DataPro** | `vndata.price.ohlcv()` |
 | BCTC (KQKD, CĐKT, LCTT), thuyết minh | **vnstock_data** | `vndata.fundamental.statement()` |
 | Chỉ số tài chính, định giá | **vnstock_data** | `vndata.fundamental.ratios()` |
-| Vĩ mô, lãi suất, tỷ giá, hàng hoá | **vnstock_data** | `vndata.macro.*` |
+| Vĩ mô, lãi suất, hàng hoá | **vnstock_data** | `vndata.macro.*` |
+| Tỷ giá, DXY | **Yahoo** (`yfinance` trong `.venv` dự án) | `USDVND=X`, `DX-Y.NYB` — DataPro trả 0 dòng |
 | Danh sách mã, ICB, rổ chỉ số, cổ đông | **vnstock_data** | `vndata.reference.*` |
 | Chỉ báo kỹ thuật | **vnstock_ta** (tính trên giá DataPro) | `vndata.ta.indicator()` |
 | Tin tức, nội dung bài báo | **vnstock_news** | `vndata.news.*` |

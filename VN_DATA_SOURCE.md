@@ -11,10 +11,11 @@ không "thử nguồn nào có trước".
 | Khối ngoại mua/bán ròng | **DataPro** | `vndata.price.foreign_flow()` |
 | Tự doanh (tự doanh CTCK) | **DataPro** | `vndata.price.proprietary_flow()` |
 | Thoả thuận, chủ động mua/bán | **DataPro** | cột `put_through_*`, `active_*` |
-| Chỉ số, phái sinh, ETF, forex | **DataPro** | `vndata.price.ohlcv()` |
+| Chỉ số, phái sinh, ETF | **DataPro** | `vndata.price.ohlcv()` |
 | BCTC + thuyết minh | **vnstock_data** | `vndata.fundamental.statement()` |
 | Chỉ số tài chính, định giá | **vnstock_data** | `vndata.fundamental.ratios()` |
-| Vĩ mô, lãi suất, tỷ giá, hàng hoá | **vnstock_data** | `vndata.macro.*` |
+| Vĩ mô, lãi suất, hàng hoá | **vnstock_data** | `vndata.macro.*` |
+| Tỷ giá, DXY | **Yahoo** (`yfinance`) — DataPro không có FX | `USDVND=X`, `DX-Y.NYB` |
 | Danh sách mã, ICB, rổ, cổ đông | **vnstock_data** | `vndata.reference.*` |
 | Chỉ báo kỹ thuật | **vnstock_ta** (trên giá DataPro) | `vndata.ta.indicator()` |
 | Tin tức + nội dung bài báo | **vnstock_news** | `vndata.news.*` |
@@ -123,6 +124,14 @@ Bản đặc tả nằm ở `agent/vndata/normalize.py` và được **cả** pr
 - **Các method phẳng `Macro().gdp()`, `.cpi()`, `.interest_rate()`… bị DEPRECATED,
   gỡ sau 31/08/2026.** `vndata.macro` chỉ bọc API sub-domain mới, nên không cần sửa lại.
 - `vnstock_pipeline` cần tier golden/diamond — silver chưa có.
+- **DataPro không có tape FX — `SOURCE_MAP["forex"]` từng nói sai (sửa 07/09/2026).**
+  `vndata.price.ohlcv()` trả **0 dòng** cho `USDVND`, `XAUUSD`, `DXY`, `USDJPY`, và
+  chưa từng có accessor `vndata.forex` đứng sau key đó. Tỷ giá sống lấy từ Yahoo:
+  `USDVND=X` (26.054 ngày 07/09/2026), `DX-Y.NYB` (99,20 ngày 06/09/2026).
+- **`macro.currency("exchange_rate")` chỉ còn dùng cho lịch sử.** Có tỷ giá trung tâm /
+  VCB / thị trường tự do từ 2020 (1.622 dòng) nhưng **dừng ở 09/07/2026** — trễ 60 ngày
+  tính đến 07/09/2026. Tham số `start=` cũng không được tôn trọng (`start=2026-08-01`
+  vẫn trả dữ liệu từ 08/01/2026). Đừng dùng nó cho tỷ giá hiện hành.
 
 ## 5. Quy ước mã
 

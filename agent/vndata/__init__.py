@@ -96,7 +96,14 @@ SOURCE_MAP: dict[str, str] = {
     "index": "datapro",
     "futures": "datapro",
     "etf_price": "datapro",
-    "forex": "datapro",
+    # Not DataPro: its tape carries no FX at all. USDVND, XAUUSD, DXY and
+    # USDJPY each return 0 rows (checked 2026-09-07), and there is no
+    # vndata.forex accessor behind this key either. vnstock_data's
+    # macro.currency("exchange_rate") holds the official centre/VCB rates
+    # back to 2020 but stops dead at 2026-07-09, so it is history only.
+    # Live FX comes from Yahoo (USDVND=X, DX-Y.NYB) - see
+    # commodity_datapack.py MACRO_CONTEXT.
+    "forex": "yahoo (yfinance)",
     "income_statement": "vnstock_data",
     "balance_sheet": "vnstock_data",
     "cash_flow": "vnstock_data",
