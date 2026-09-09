@@ -175,9 +175,17 @@ def main() -> int:
         print(f"LOI: khong thay so khuyen nghi {path}", file=sys.stderr)
         return 1
     entries = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
     if not entries:
-        print(f"LOI: so {path} rong - khong co tin hieu nao de theo doi.", file=sys.stderr)
-        return 1
+        # So rong la trang thai HOP LE - mot ngay khong co khuyen nghi. Ghi file
+        # rong roi thoat 0 de batch khong canh bao nham; renderer se hien khoi
+        # "chua co tin hieu" thay vi bang trong.
+        (outdir / "signals.csv").write_text("", encoding="utf-8")
+        (outdir / "signals.json").write_text("[]", encoding="utf-8")
+        print(f"So {path.name} dang rong - chua co tin hieu nao cho hom nay.")
+        return 0
 
     if not vndata.price.datapro_available():
         print("LOI: DataPro khong tra loi.", file=sys.stderr)
@@ -189,8 +197,6 @@ def main() -> int:
         print("LOI: khong do duoc ma nao.", file=sys.stderr)
         return 1
 
-    outdir = Path(args.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
     keys = list(max(rows, key=len).keys())
     with (outdir / "signals.csv").open("w", newline="", encoding="utf-8-sig") as fh:
         w = csv.DictWriter(fh, fieldnames=keys, extrasaction="ignore")

@@ -543,8 +543,16 @@ def block_sector_flow():
 
 def block_signals(rows):
     if not rows:
-        return ('<div class="empty">Sổ khuyến nghị trống — thêm một mục vào '
-                'agent/data/signals.yaml để thẻ này có nội dung.</div>')
+        return ('<div class="empty" style="text-align:left;padding:var(--s3)">'
+                '<div class="label acc" style="margin-bottom:var(--s2)">'
+                'Chưa có tín hiệu nào</div>'
+                '<div style="font-size:var(--fs-xs);line-height:1.7;color:var(--muted)">'
+                'Sổ <b style="color:var(--fg)">agent/data/signals.yaml</b> đang trống. '
+                'Đây là trạng thái hợp lệ — một ngày không có khuyến nghị thì thẻ này '
+                'trống, không phải bịa ra tín hiệu cho đủ chỗ.<br><br>'
+                'Thêm bằng cách nói với Claude trong phiên, hoặc chèn một mục vào sổ với '
+                '<b style="color:var(--fg)">mã · hành động · vùng mua · cắt lỗ · chốt lời</b>. '
+                'Lịch nhắc 11h25 và 14h55 sẽ hỏi trước mỗi lần bản tin chạy.</div></div>')
     scored = [r for r in rows if r.get("verdict") in ("ĐÚNG", "SAI", "ĐI NGANG")]
     right = sum(1 for r in scored if r["verdict"] == "ĐÚNG")
     alphas = [num(r["alpha_pct"]) for r in scored if r.get("alpha_pct") not in ("", None)]
@@ -675,6 +683,17 @@ def block_rail(idx, breadth, sector, nar, session, signals):
         parts.append(R("Tâm lý tin",
                        f'<div class="gauge"><i style="left:{(num(sent)+1)/2*100:.0f}%"></i></div>'
                        f'<b class="{cls(sent)}" style="font-size:var(--fs-lg)">{vn(sent, 2, True)}</b>'))
+    # Trang thai nguon phai doc tu suc khoe feed THAT. Ban truoc o nay la chu
+    # chet: VnEconomy da duoc va o tang du lieu va dang chay, nhung o nay van
+    # ghi "Loi parser" vi khong ai cap nhat no. Mot o trang thai khong the tu
+    # cap nhat thi khong phai o trang thai.
+    srcs = nar.get("news_desk", {}).get("sources") or []
+    if srcs:
+        parts.append(R("Trạng thái nguồn", "".join(
+            kv(esc(x.get("name", "")),
+               "OK" if x.get("ok") else esc(x.get("error", "LỖI")),
+               "up" if x.get("ok") else "down") for x in srcs)))
+
     if signals:
         scored = [r for r in signals if r.get("verdict") in ("ĐÚNG", "SAI", "ĐI NGANG")]
         right = sum(1 for r in scored if r["verdict"] == "ĐÚNG")
@@ -796,6 +815,11 @@ def build(pack: Path, session: str, nar: dict) -> str:
 
     rail = block_rail(idx, breadth, sector, nar, session, signals)
     payload = json.dumps(sector_payload(pack), ensure_ascii=False)
+    srcs = nar.get("news_desk", {}).get("sources") or []
+    ok_n = sum(1 for x in srcs if x.get("ok"))
+    news_chip = (f'<div class="chip {"on" if ok_n == len(srcs) else "act"}">'
+                 f'Tin {ok_n}/{len(srcs)} nguồn</div>') if srcs else ""
+
     prop_note = ("Tự doanh ghi N/A vì DataPro chưa công bố cho ngày này. "
                  if any(str(r.get("prop_net_ty")) == "N/A" for r in sector) else "")
 
@@ -811,6 +835,7 @@ def build(pack: Path, session: str, nar: dict) -> str:
   <div class="chip act">{label} · {day}</div>
   <div class="chip">Chốt {stamp}</div>
   <div class="chip on">DataPro</div>
+  {news_chip}
 </div>
 {block_tape(idx)}
 <div class="wrap"><div class="col">{left}</div>{rail}</div>

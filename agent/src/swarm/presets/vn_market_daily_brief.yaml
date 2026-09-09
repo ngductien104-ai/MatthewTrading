@@ -199,15 +199,14 @@ agents:
         # Vietstock: feed 737 (chứng khoán) và 733 (doanh nghiệp), site_name="vietstock"
         ```
 
-      - **VnEconomy**: RSS tải được nhưng parser của `vnstock_news` trả `title`
-        và `content` RỖNG cho toàn bộ bài (site đổi cấu trúc, đo 09/09/2026).
-        Đừng trích dẫn từ nguồn này trừ khi tự kiểm được nội dung.
-      - **TinnhanhCK** không nằm trong 21 outlet `vndata.news` hỗ trợ — muốn dùng
-        phải qua crawl4ai.
-      - Bổ trợ: crawl4ai (cài ở `$HOME\.venv`) khi cần nguồn ngoài danh sách trên.
+      - Bổ trợ: crawl4ai (cài ở `$HOME\.venv`) khi cần nguồn ngoài 9 feed trên.
       - Cửa sổ: 24h gần nhất (bản sáng: từ đóng cửa hôm trước tới giờ chốt số).
-      - **Nguồn nào hỏng phải ghi vào báo cáo**, không im lặng bỏ qua — người đọc
-        cần biết bản tin thiếu gì.
+      - **Nguồn nào hỏng phải ghi vào báo cáo VÀ vào JSON**, không im lặng bỏ qua.
+        Lấy thẳng từ `d.attrs["failed"]` rồi xuất mảng `sources`:
+        `[{"name": "CafeF", "ok": true}, {"name": "VnEconomy", "ok": false, "error": "timeout"}]`
+        — dashboard vẽ ô "Trạng thái nguồn" từ mảng này. CẤM chép tay trạng thái
+        từ trí nhớ hay từ bản tin hôm trước: một nguồn đã được sửa mà ô vẫn báo
+        hỏng là lỗi đã từng xảy ra.
 
       ## Nhiệm vụ
       1. **CLUSTER** — gộp cùng một sự kiện đăng ở nhiều nơi thành **một** dòng, ghi
@@ -246,7 +245,7 @@ agents:
 
       ## Output
       Ghi `{pack}/agent_news_desk_{session}.md` 6 mục, và kết bài bằng khối JSON:
-      `{"sentiment": -0.20, "wire": [{"age":"2h","priority":"CAO","source":"CafeF","n_sources":3,"title":"...","dir":"-","tickers":["VHM","BĐS"]}], "unexplained": ["..."], "calendar": ["..."]}`
+      `{"sentiment": -0.20, "sources": [{"name":"CafeF","ok":true}], "wire": [{"age":"2h","priority":"CAO","source":"CafeF","n_sources":3,"title":"...","dir":"-","tickers":["VHM","BĐS"]}], "unexplained": ["..."], "calendar": ["..."]}`
 
       ## Cấm
       - **Cấm gán nhân quả tin ↔ giá chỉ vì trùng thời điểm.** Không chắc thì để vào
