@@ -14,8 +14,10 @@ anh xa san + nganh ICB cap 2.
 
 Bay da kiem chung (do 09/09/2026)
 ---------------------------------
-* ``prop_*`` = 0 SUOT PHIEN, chi co so sau khi dong cua. Ghi 0 o ban 11h30 la
-  bao sai; script danh dau N/A theo ``--session morning``.
+* ``prop_*`` (tu doanh) ve TRE hon ca gio dong cua - do 09/09/2026 luc 15:11,
+  sau ATC, moi ma van tra 0 trong khi 07/09 va 08/09 co so that. Vi vay script
+  KHONG tin vao co ``--session`` ma hoi chinh du lieu: khong ma nao co
+  ``prop_net`` khac 0 thi ca cot ghi ``N/A``, khong ghi 0.
 * ``foreign_*`` NGUOC LAI - song trong phien, dung duoc o ban 11h30.
 * Thang ``value`` KHAC NHAU: co phieu = nghin VND, chi so = trieu VND. Quy het
   ve ty VND o mot cho duy nhat (``_to_ty``).
@@ -268,7 +270,7 @@ def ad_line_rows(frames, universe, sessions):
     return rows
 
 
-def sector_rows(stocks, session):
+def sector_rows(stocks, prop_available):
     df = pd.DataFrame(stocks)
     df = df[(df["volume"] > 0) & (df["is_etf"] == 0)]
     total_val = df["value_ty"].sum()
@@ -292,7 +294,7 @@ def sector_rows(stocks, session):
             "market_cap_ty": round(float(cap.sum()), 1) if pd.notna(cap.sum()) else "",
             "foreign_net_ty": round(float(g["foreign_net_ty"].sum()), 3),
             "foreign_net_30d_ty": round(float(g["foreign_net_30d_ty"].sum()), 3),
-            "prop_net_ty": "N/A" if session == "morning" else round(float(g["prop_net_ty"].sum()), 3),
+            "prop_net_ty": round(float(g["prop_net_ty"].sum()), 3) if prop_available else "N/A",
             "prop_net_30d_ty": round(float(g["prop_net_30d_ty"].sum()), 3),
             "put_through_ty": round(float(g["put_through_ty"].sum()), 3),
         })
@@ -341,7 +343,7 @@ def leader_rows(stocks, index_level, top=25):
     return rows, movers
 
 
-def flow_rows(stocks, session, top=30):
+def flow_rows(stocks, prop_available, top=30):
     df = pd.DataFrame(stocks)
     df = df[df["volume"] > 0]
     sess, cum = [], []
@@ -353,7 +355,7 @@ def flow_rows(stocks, session, top=30):
             "foreign_net_ty": r["foreign_net_ty"],
             "foreign_net_pct_of_value": round(
                 r["foreign_net_ty"] / r["value_ty"] * 100, 1) if r["value_ty"] else "",
-            "prop_net_ty": "N/A" if session == "morning" else r["prop_net_ty"],
+            "prop_net_ty": r["prop_net_ty"] if prop_available else "N/A",
             "put_through_ty": r["put_through_ty"],
             "active_buy_ty": r["active_buy_ty"], "active_sell_ty": r["active_sell_ty"],
             "is_etf": r["is_etf"],
@@ -403,8 +405,10 @@ MANIFEST_TEMPLATE = """# Data pack thi truong VN - {end}
 
 1. **Chi duoc dung so trong cac file CSV nay.** Thieu thi ghi `N/A` kem ly do,
    khong uoc, khong lay tu tri nho mo hinh.
-2. **Tu doanh o phien sang la N/A that su**, khong phai 0. DataPro chi cong bo
-   `prop_*` sau dong cua - da do 09/09/2026.
+2. **`prop_net_ty = N/A` la du lieu CHUA VE, khong phai 0.** DataPro cong bo
+   tu doanh tre hon ca gio dong cua (do 09/09/2026 15:11: van 0). Cam dien giai
+   N/A thanh "tu doanh dung ngoai" hay "tu doanh can bang". Cot
+   `prop_net_30d_ty` VAN co so that (luy ke cac phien da chot) - dung duoc.
 3. **`idx_points_est` la UOC LUONG** theo von hoa niem yet, khong phai so
    free-float cua HOSE. Dung de xep hang, khong trich nhu so chinh thuc.
 4. GTGD da quy ve **ty VND** o tang script (co phieu nghin VND, chi so trieu VND).
@@ -475,13 +479,23 @@ def main() -> int:
         return 1
 
     equities = [s for s in stocks if not s["is_etf"]]
+
+    # Tu doanh: hoi CHINH DU LIEU, dung tin vao co --session. DataPro cong bo
+    # `prop_*` TRE hon ca gio dong cua - do 09/09/2026 luc 15:11 (sau ATC) moi
+    # ma van tra 0 trong khi 07/09 va 08/09 deu co so that. Neu chay `--session
+    # close` luc 15h10 va tin vao co phien, ban tin se in "tu doanh 0 ty" - dung
+    # loai so gia ma ca lop nay sinh ra de chan. Toan bo thi truong khop lenh
+    # ma tu doanh mua va ban deu bang 0 khong phai "tu doanh dung ngoai", do la
+    # du lieu chua ve.
+    prop_gross = sum((s["prop_net_ty"] != 0) for s in equities)
+    prop_available = prop_gross > 0
     vni_df = frames.get("VNINDEX")
     sessions = list(vni_df.index[-LOOKBACK:]) if vni_df is not None else []
 
     write_csv(outdir / "index.csv", idx_rows)
     write_csv(outdir / "breadth.csv", breadth_rows(equities, frames, today, universe))
     write_csv(outdir / "ad_line.csv", ad_line_rows(frames, universe, sessions))
-    write_csv(outdir / "sector.csv", sector_rows(stocks, args.session))
+    write_csv(outdir / "sector.csv", sector_rows(stocks, prop_available))
 
     print("[4/5] Xep hang dan dat va dong tien...", flush=True)
     leaders, movers = leader_rows(stocks, vni["close"] if vni else None)
@@ -489,7 +503,7 @@ def main() -> int:
     write_csv(outdir / "index_movers.csv",
               [dict(side="keo", **r) for r in movers["top_up"]]
               + [dict(side="dim", **r) for r in movers["top_down"]])
-    sess_flow, cum_flow = flow_rows(stocks, args.session)
+    sess_flow, cum_flow = flow_rows(stocks, prop_available)
     write_csv(outdir / "flow_session.csv", sess_flow)
     write_csv(outdir / "flow_30d.csv", cum_flow)
 
@@ -498,8 +512,8 @@ def main() -> int:
     traded = dfe[dfe["volume"] > 0]
     frn_total = round(float(traded["foreign_net_ty"].sum()), 1)
     frn_30 = round(float(traded["foreign_net_30d_ty"].sum()), 1)
-    prop_total = ("N/A (chua cong bo trong phien)" if args.session == "morning"
-                  else round(float(traded["prop_net_ty"].sum()), 1))
+    prop_total = (round(float(traded["prop_net_ty"].sum()), 1) if prop_available
+                  else "N/A (DataPro chua cong bo tu doanh cho ngay nay)")
     (outdir / "MANIFEST.md").write_text(MANIFEST_TEMPLATE.format(
         end=end, session=args.session,
         session_note=("giua phien, chua dong cua" if args.session == "morning"
