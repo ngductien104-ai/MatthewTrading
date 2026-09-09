@@ -13,7 +13,7 @@ REM   2. claude -p chay preset vn_market_daily_brief bang 4 subagent
 REM      Sonnet, roi dung dashboard.
 REM ===================================================================
 
-setlocal
+setlocal EnableDelayedExpansion
 set SESSION=%~1
 if "%SESSION%"=="" set SESSION=close
 
@@ -28,6 +28,33 @@ set LOG=%REPO%\_market_logs\%TODAY%_%SESSION%.log
 if not exist "%REPO%\_market_logs" mkdir "%REPO%\_market_logs"
 
 echo [%date% %time%] === Bat dau %SESSION% === >> "%LOG%"
+
+REM DataPro khong tu khoi dong cung Windows (da kiem 09/09/2026: khong co
+REM trong Run key lan Startup folder). Neu no khong tra loi thi bat len va
+REM cho, chu khong bo cuoc - toan bo gia va dong tien di qua cong 6789 nay.
+REM Do 09/09/2026: khoi dong nguoi API mat 72s khi may am, 213s khi nguoi.
+REM Nen han cho la 6 phut, va co them loi tat o Startup de no am san.
+set DATAPRO=%LOCALAPPDATA%\DataPro\DataPro.Client.exe
+call :ping_datapro
+if "%DPOK%"=="0" (
+  if exist "%DATAPRO%" (
+    echo [%date% %time%] DataPro khong tra loi - dang bat... >> "%LOG%"
+    start "" "%DATAPRO%"
+    for /l %%i in (1,1,55) do (
+      if "!DPOK!"=="0" (
+        %SystemRoot%\System32\ping.exe -n 7 127.0.0.1 >nul
+        call :ping_datapro
+      )
+    )
+  ) else (
+    echo [%date% %time%] LOI: khong thay %DATAPRO% >> "%LOG%"
+  )
+)
+if "%DPOK%"=="0" (
+  echo [%date% %time%] LOI: DataPro van khong tra loi sau 6 phut. Dung. >> "%LOG%"
+  exit /b 1
+)
+echo [%date% %time%] DataPro san sang. >> "%LOG%"
 
 set PYTHONPATH=%REPO%\agent
 "%PY%" agent\scripts\market_datapack.py --session %SESSION% --outdir "%PACK%" >> "%LOG%" 2>&1
@@ -52,3 +79,11 @@ if errorlevel 1 (
 
 echo [%date% %time%] === XONG %SESSION% -> %PACK%\BRIEF_%SESSION%.html === >> "%LOG%"
 endlocal
+exit /b 0
+
+:ping_datapro
+set DPOK=0
+set DPCODE=
+for /f "usebackq delims=" %%r in (`powershell -NoProfile -Command "try{(Invoke-WebRequest -Uri 'http://localhost:6789/api/ping' -TimeoutSec 4 -UseBasicParsing).StatusCode}catch{0}"`) do set DPCODE=%%r
+if "%DPCODE%"=="200" set DPOK=1
+exit /b 0
