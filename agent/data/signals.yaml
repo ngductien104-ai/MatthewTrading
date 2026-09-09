@@ -1,0 +1,131 @@
+# Sổ khuyến nghị — nguồn sự thật DUY NHẤT cho thẻ "Tín hiệu giao dịch".
+#
+# Vì sao là file chứ không phải trí nhớ: bản tin chạy tự động lúc 11h40 và
+# 15h10 không hỏi được ai. Nó đọc file này. Muốn thêm tín hiệu mới thì thêm
+# một mục ở đây (hoặc nhờ Claude thêm trong phiên tương tác).
+#
+# ⚠️ `price_quoted` là giá NIÊM YẾT lúc ra khuyến nghị (thô, chưa điều chỉnh).
+# TUYỆT ĐỐI không lấy nó chia cho giá hôm nay để tính lãi lỗ.
+# `signal_tracker.py` đo hiệu quả trên chuỗi giá ĐÃ ĐIỀU CHỈNH của DataPro ở
+# cả hai đầu. Bằng chứng vì sao điều này bắt buộc — PET, đo 09/09/2026:
+#   giá niêm yết 18/06/2026 = 54,80 · close điều chỉnh = 37,80 · adj_rate 1,4496
+#   so ngây thơ 37,95 / 54,80 → −30,7%   (SAI, đó là pha loãng thưởng cổ phiếu)
+#   so đúng    37,95 / 37,80 → +0,4%    (ĐÚNG)
+#
+# action: MUA | BAN | NAM_GIU | TICH_LUY | CHO | TRUNG_LAP | SWITCH
+# status: open | closed
+
+- symbol: MWG
+  date: 2026-09-08
+  action: NAM_GIU
+  price_quoted: 72.00
+  buy_zone: [64.0, 67.0]
+  target: 78.0
+  stop: null
+  confidence: 0.58
+  status: open
+  source: _mwg_research_20260907
+  note: >-
+    Không giải ngân ở 72. Thang gom 64–67 thăm dò, 58–62 chủ lực. Lý do không
+    mua là phần bù rủi ro chỉ 2–3,6 điểm % cho doanh nghiệp hào hẹp, không phải
+    định giá. Cấm đặt stop cứng chồng lên vùng gom.
+
+- symbol: VRE
+  date: 2026-07-31
+  action: MUA
+  price_quoted: 24.30
+  buy_zone: [null, 22.30]
+  target: 26.20
+  stop: 20.30
+  confidence: 0.61
+  status: open
+  source: _vre_committee
+  note: >-
+    Mua CÓ ĐIỀU KIỆN: giá vào tối đa 22.300, trần 2,0% NAV trước khi đọc được
+    thuyết minh gốc. Ngày 31/07 giải ngân 0%. Kế hoạch hết hạn 31/10/2026.
+    Cắt hai tầng: <20.900 cắt một nửa, <20.300 thoát hết.
+
+- symbol: PHR
+  date: 2026-06-30
+  action: MUA
+  price_quoted: 62.00
+  buy_zone: [61.5, 62.5]
+  target: 72.0
+  stop: 56.0
+  confidence: 0.61
+  status: open
+  source: _phr_committee
+  note: >-
+    Mua theo đợt, mua-khi-yếu. Đợt 1 1,5% NAV @ 61,5–62,5. Case RNAV/đền bù
+    ~4.700 tỷ chờ GVR, không phải case P/E rẻ (P/E sạch ~22x).
+
+- symbol: HDB
+  date: 2026-06-29
+  action: SWITCH
+  price_quoted: 25.80
+  buy_zone: [24.5, 25.0]
+  target: 28.50
+  stop: 23.0
+  confidence: 0.62
+  status: open
+  source: _switch_tpb_hdb
+  note: >-
+    Switch MỘT PHẦN từ TPB, tối đa một nửa vị thế TPB, giữ tối thiểu một nửa.
+    Không full-switch ở 25,8 — tỷ lệ HDB/TPB ở phân vị 82, điểm vào tương đối đắt.
+
+- symbol: TPB
+  date: 2026-06-29
+  action: BAN
+  price_quoted: null
+  buy_zone: null
+  target: 18.4
+  stop: null
+  confidence: 0.62
+  status: open
+  source: _switch_tpb_hdb
+  note: >-
+    Chốt dần phần bán vào vùng hợp lý 18,3–18,5. Thoát hẳn nếu chi phí tín dụng
+    TPB ≥1,7% (bẫy giá trị về book ~14,3).
+
+- symbol: PET
+  date: 2026-06-18
+  action: CHO
+  price_quoted: 54.80
+  buy_zone: [50.5, 51.8]
+  target: null
+  stop: 45.0
+  confidence: null
+  status: open
+  source: _pet_committee
+  note: >-
+    KHÔNG mua đuổi ở 54,8 (giá niêm yết lúc đó). Giá trị hợp lý 44–48. Doanh
+    nghiệp tự guidance LNST 2026 giảm 9%; OCF 2025 âm 1.389 tỷ.
+    Đã thưởng cổ phiếu sau đó — mọi so sánh phải dùng giá điều chỉnh.
+
+- symbol: NLG
+  date: 2026-06-16
+  action: TICH_LUY
+  price_quoted: 27.30
+  buy_zone: null
+  target: 31.0
+  stop: null
+  confidence: null
+  status: open
+  source: _nlg_research
+  note: >-
+    RNAV base ~39.400 chiết khấu 20–25%. Tâm điểm FY2025 là giảm hợp nhất Izumi,
+    one-off ròng chỉ ~132 tỷ chứ không phải +35% như tiêu đề.
+
+- symbol: LPB
+  date: 2026-06-23
+  action: TRUNG_LAP
+  price_quoted: null
+  buy_zone: null
+  target: null
+  stop: null
+  confidence: null
+  status: open
+  source: _social_alpha_lpb
+  note: >-
+    Không đuổi trần. Trần +6,91% do Phạm Nhật Vượng lộ diện cổ đông 4,894%
+    (thoả thuận ~6.725 tỷ), không phải đội lái.

@@ -172,8 +172,18 @@ agents:
       mà đi tìm tin), cùng kết quả 3 agent kia nếu đã có.
 
       ## Thu thập
-      - Xương sống: `vndata.news` (vnstock_news) — chạy bằng
-        `PYTHONPATH=agent $HOME/.venv/Scripts/python.exe`.
+      - **Xương sống: `vndata.news.rss()`** — đọc thẳng feed của nhà xuất bản,
+        mặc định quét cả 9 feed đã kiểm chứng (CafeF, VnEconomy, Vietstock,
+        TinnhanhCK, VnExpress). Đo 09/09/2026: 198 bài/24h, 0 feed lỗi.
+
+        ```python
+        d = vndata.news.rss(hours=24, limit=40)   # DataFrame: title, link,
+        # published_at, summary, site, feed, kind
+        d.attrs["failed"]   # feed nào không trả lời -> PHẢI ghi vào báo cáo
+        ```
+
+      - `vndata.news.crawl()` chỉ dùng khi cần THÂN BÀI. Nó không lấy được
+        VnEconomy (parser hỏng, trả trường rỗng) — dòng tin không cần thân bài.
 
         ⚠️ **BẪY ĐÃ KIỂM CHỨNG 09/09/2026** — gọi bằng *tên site* trả về
         DataFrame **rỗng** (`crawl(["cafef"])` → 0 dòng). Phải truyền **URL feed**
@@ -205,7 +215,12 @@ agents:
          và thổi phồng độ nóng.
       2. Chấm từng cụm theo **anatomy dòng wire**: `age` (vd "2h") · `priority`
          (FLASH/CAO/TB/THAP) · `source` · `title` · `dir` (`+`/`-`/`0`) ·
-         `tickers` (mã và/hoặc ngành cụ thể).
+         `tickers` (mã và/hoặc ngành cụ thể) · **`tab`**.
+         `tab` nhận đúng một trong ba giá trị `vi_mo` / `nganh` / `doanh_nghiep`
+         — dashboard chia dòng tin thành ba tab theo trường này. Phân loại theo
+         NỘI DUNG tin, không theo chuyên mục của feed: chính sách, lãi suất, tỷ
+         giá, số vĩ mô → `vi_mo`; diễn biến nhóm ngành hoặc toàn thị trường →
+         `nganh`; sự kiện của một doanh nghiệp cụ thể → `doanh_nghiep`.
       3. **Sentiment tổng** = `(số cụm tích cực − số cụm tiêu cực) ÷ tổng cụm`,
          làm tròn 2 chữ số, dải −1,00…+1,00.
       4. **Spike badge** — ngành nào có số tin hôm nay vượt bội số Z lần tần suất
@@ -259,9 +274,14 @@ agents:
          **đưa ra mặt báo** trong mảng `contradictions`, KHÔNG được im lặng chọn một bên.
       2. **Tóm lược 5 dòng** — mỗi dòng một câu, **mỗi câu ít nhất một con số** lấy từ
          file agent hoặc CSV. Đây là phần duy nhất người đọc chắc chắn đọc hết.
-      3. Ghi `{pack}/narrative_{session}.json` đúng schema dưới. Chỉ chữ; số duy nhất được phép là
+      3. **Thẻ Tín hiệu giao dịch tự lo phần của nó.** `signal_tracker.py` đã ghi
+         `{pack}/signals.csv` từ sổ `agent/data/signals.yaml`, và renderer đọc
+         thẳng file đó. Bạn KHÔNG viết gì cho thẻ này, KHÔNG chép số của nó vào
+         narrative. Nếu `signals.csv` thiếu thì nói rõ trong báo cáo.
+
+      4. Ghi `{pack}/narrative_{session}.json` đúng schema dưới. Chỉ chữ; số duy nhất được phép là
          `sentiment` của news_desk. Mọi số khác trên dashboard do renderer đọc thẳng từ CSV.
-      4. Dựng trang:
+      5. Dựng trang:
          `$HOME/.venv/Scripts/python.exe agent/scripts/market_dashboard.py {pack} --session {session}`
       5. Ghi thêm bản `{pack}/BRIEF_{session}.md` (cùng nội dung, dạng markdown) để lưu Obsidian.
 
@@ -273,7 +293,7 @@ agents:
         "market_action": {"verdict": "xac_nhan|phan_ky|ru_bo", "text": "..."},
         "flow_desk": {"text": "..."},
         "sector_desk": {"matrix": {"tang_vao": [], "tang_ra": [], "giam_vao": [], "giam_ra": []}, "text": "..."},
-        "news_desk": {"sentiment": 0.0, "wire": [], "unexplained": [], "calendar": []},
+        "news_desk": {"sentiment": 0.0, "note": "...", "wire": [{"age":"2h","source":"CafeF","n_sources":2,"title":"...","dir":"-","tickers":["VHM"],"tab":"doanh_nghiep"}], "unexplained": [], "calendar": []},
         "contradictions": [],
         "sources_note": "..."
       }

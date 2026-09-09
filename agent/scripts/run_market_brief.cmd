@@ -36,6 +36,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
+REM So khuyen nghi khong phu thuoc phien giao dich, nhung neu no hong thi
+REM the "Tin hieu giao dich" trong - canh bao chu khong dung ca ban tin.
+"%PY%" agent\scripts\signal_tracker.py --outdir "%PACK%" >> "%LOG%" 2>&1
+if errorlevel 1 echo [%date% %time%] CANH BAO: signal_tracker that bai, the tin hieu se trong. >> "%LOG%"
+
 echo [%date% %time%] Data pack xong, goi Claude... >> "%LOG%"
 
 "%CLAUDE%" -p "Chay preset agent/src/swarm/presets/vn_market_daily_brief.yaml cho data pack %PACK%, session=%SESSION%. Data pack DA DUNG XONG, dung chay lai market_datapack.py. Spawn 4 subagent Sonnet song song (market_action, flow_desk, sector_desk, news_desk) voi dung system_prompt trong preset, doi ca 4 xong, roi tu dong vai editor: kiem mau thuan cheo, ghi %PACK%/narrative.json, chay agent/scripts/market_dashboard.py %PACK% --session %SESSION%, va ghi %PACK%/BRIEF_%SESSION%.md. Bao cao ngan gon ket qua." --permission-mode acceptEdits >> "%LOG%" 2>&1
