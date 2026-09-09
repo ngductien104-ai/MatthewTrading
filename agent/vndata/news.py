@@ -56,8 +56,12 @@ def crawl(
     """Fetch full article text from Vietnamese outlets.
 
     Args:
-        sources: Site names from :func:`supported_sites` (``"cafef"``,
-            ``"vietstock"``, ...) or article URLs.
+        sources: **Feed or article URLs**, plus ``site_name=`` naming the outlet.
+            Bare site names from :func:`supported_sites` are accepted by the
+            upstream signature but return an EMPTY frame without raising --
+            measured 09/09/2026: ``crawl(["cafef"])`` -> 0 rows, while
+            ``crawl(["https://cafef.vn/thi-truong-chung-khoan.rss"],
+            site_name="cafef")`` -> 3 rows. Use the URL form.
         max_articles: Cap per source.
         time_frame: Lookback window understood upstream, e.g. ``"1d"``, ``"7d"``.
         clean_content: Strip boilerplate from the article body.
@@ -77,7 +81,7 @@ def crawl(
 
     crawler = EnhancedNewsCrawler()
     try:
-        return crawler.fetch_articles(
+        result = crawler.fetch_articles(
             sources=list(sources),
             max_articles=max_articles,
             time_frame=time_frame,
@@ -86,3 +90,17 @@ def crawl(
         )
     except Exception as exc:
         raise SourceUnavailable(f"vnstock_news crawl failed for {list(sources)}: {exc}") from exc
+
+    # Bare site names return an empty frame instead of raising. Twenty-one
+    # outlets producing literally nothing in a day is not a quiet news day, it
+    # is the wrong call shape -- say so rather than handing back an empty frame
+    # a caller will read as "no news".
+    bare = [s for s in sources if "://" not in str(s)]
+    if bare and len(result) == 0:
+        raise SourceUnavailable(
+            "vnstock_news returned 0 articles for bare site name(s) "
+            f"{bare}. Pass the feed URL instead, with site_name=, e.g. "
+            'crawl(["https://cafef.vn/thi-truong-chung-khoan.rss"], '
+            'site_name="cafef").'
+        )
+    return result

@@ -109,3 +109,7 @@ Database/
 VNDIRECT/
 BCCL2026/
 DichVuSSE/
+
+# Data pack ban tin thi truong hang ngay (sinh lai duoc tu market_datapack.py)
+_market_*/
+_market_logs/
