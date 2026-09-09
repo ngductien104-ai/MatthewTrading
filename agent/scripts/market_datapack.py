@@ -62,6 +62,9 @@ BAND_TOL = 0.005
 HISTORY_DAYS = 420
 # So phien luy ke, dung chung cho flow_30d va A/D line.
 LOOKBACK = 30
+# Widget Sector Flow co nut '1 QUY' = 60 phien, nen chuoi theo nganh phai
+# dai gap doi LOOKBACK. Cac chan troi 1/5/10/20/30 deu cat tu chuoi nay.
+SECTOR_HORIZON = 60
 # Chi so theo doi. Ma DataPro cua ro VN30 la "VN30INDEX" - "VN30" tra 0 dong.
 INDICES = ["VNINDEX", "VN30INDEX", "HNXINDEX", "UPCOMINDEX"]
 # ETF thanh khoan - phai tach khoi dong ngoai CHU DONG.
@@ -301,6 +304,76 @@ def sector_rows(stocks, prop_available):
     return sorted(out, key=lambda r: -r["value_ty"])
 
 
+def sector_series_rows(frames, universe, sessions):
+    """Dong tien ngoai va tu doanh theo NGAY cho tung nganh ICB cap 2.
+
+    Widget Sector Flow ve duong luy ke, nen no can chuoi theo phien chu khong
+    phai mot con so tong. Bang nay la dau vao duy nhat cua no; khong co nó thi
+    phan detail cua widget khong ve duoc.
+
+    Don vi: ty VND, cung thang voi moi cot ``*_ty`` khac trong pack.
+    """
+    meta = universe.set_index("symbol")[["icb_code_lv2", "icb_name"]].to_dict("index")
+    day_index = {d: i for i, d in enumerate(sessions)}
+    # sector -> [ [frn, prop], ... ] theo thu tu sessions
+    acc = {}
+    for sym, df in frames.items():
+        m = meta.get(sym)
+        if m is None:
+            continue
+        key = (m["icb_code_lv2"], m["icb_name"])
+        slot = acc.setdefault(key, [[0.0, 0.0] for _ in sessions])
+        sub = df[df.index.isin(day_index)]
+        if sub.empty:
+            continue
+        frn = (sub.get("foreign_buy_value", pd.Series(dtype=float)).fillna(0)
+               - sub.get("foreign_sell_value", pd.Series(dtype=float)).fillna(0))
+        prp = (sub.get("prop_buy_value", pd.Series(dtype=float)).fillna(0)
+               - sub.get("prop_sell_value", pd.Series(dtype=float)).fillna(0))
+        for day, fv, pv in zip(sub.index, frn.to_numpy(), prp.to_numpy()):
+            i = day_index[day]
+            slot[i][0] += float(fv)
+            slot[i][1] += float(pv)
+
+    rows = []
+    for (code, name), vals in sorted(acc.items()):
+        for i, day in enumerate(sessions):
+            rows.append({
+                "date": day.strftime("%Y-%m-%d"),
+                "icb_code": code,
+                "icb_name": name,
+                "foreign_net_ty": round(_to_ty(vals[i][0], "equity"), 4),
+                "prop_net_ty": round(_to_ty(vals[i][1], "equity"), 4),
+            })
+    return rows
+
+
+def sector_member_rows(stocks, sessions):
+    """Ma trong tung nganh voi dong tien luy ke - bang duoi cua Sector Flow.
+
+    ``observations`` la so phien ma co bar trong cua so, de widget loc bo ma
+    khong giao dich thay vi hien mot dong toan so 0.
+    """
+    rows = []
+    for s in stocks:
+        if s["is_etf"]:
+            continue
+        rows.append({
+            "icb_code": s["icb_code"],
+            "icb_name": s["icb_name"],
+            "symbol": s["symbol"],
+            "foreign_net_30d_ty": s["foreign_net_30d_ty"],
+            "prop_net_30d_ty": s["prop_net_30d_ty"],
+            "combined_net_30d_ty": round(
+                s["foreign_net_30d_ty"] + s["prop_net_30d_ty"], 4),
+            "foreign_net_ty": s["foreign_net_ty"],
+            "prop_net_ty": s["prop_net_ty"],
+            "value_ty": s["value_ty"],
+            "pct_change": s["pct_change"],
+        })
+    return sorted(rows, key=lambda r: (r["icb_name"], -abs(r["combined_net_30d_ty"])))
+
+
 def leader_rows(stocks, index_level, top=25):
     """Top GTGD + dong gop diem so uoc luong vao VN-Index.
 
@@ -431,6 +504,8 @@ MANIFEST_TEMPLATE = """# Data pack thi truong VN - {end}
 | `index_movers.csv` | Top 10 keo / top 10 dim VN-Index |
 | `flow_session.csv` | Ngoai/tu doanh rong theo ma trong phien (top 30 moi chieu) |
 | `flow_30d.csv` | Luy ke {lookback} phien + co `DOI CHIEU` |
+| `sector_series.csv` | Ngoai va tu doanh theo NGAY cho tung nganh, 60 phien |
+| `sector_members.csv` | Ma trong tung nganh + dong tien luy ke |
 """
 
 
@@ -496,6 +571,12 @@ def main() -> int:
     write_csv(outdir / "breadth.csv", breadth_rows(equities, frames, today, universe))
     write_csv(outdir / "ad_line.csv", ad_line_rows(frames, universe, sessions))
     write_csv(outdir / "sector.csv", sector_rows(stocks, prop_available))
+    long_sessions = (list(vni_df.index[-SECTOR_HORIZON:])
+                     if vni_df is not None else sessions)
+    write_csv(outdir / "sector_series.csv",
+              sector_series_rows(frames, universe, long_sessions))
+    write_csv(outdir / "sector_members.csv",
+              sector_member_rows(stocks, long_sessions))
 
     print("[4/5] Xep hang dan dat va dong tien...", flush=True)
     leaders, movers = leader_rows(stocks, vni["close"] if vni else None)
