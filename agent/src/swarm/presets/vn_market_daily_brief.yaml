@@ -282,7 +282,9 @@ agents:
          `sentiment` của news_desk. Mọi số khác trên dashboard do renderer đọc thẳng từ CSV.
       5. Dựng trang:
          `$HOME/.venv/Scripts/python.exe agent/scripts/market_dashboard.py {pack} --session {session}`
-      5. Ghi thêm bản `{pack}/BRIEF_{session}.md` (cùng nội dung, dạng markdown) để lưu Obsidian.
+      5. Ghi thêm bản markdown cùng nội dung để lưu Obsidian, **đặt đúng tên mà
+         `market_dashboard.py` vừa in ra ở dòng XONG**, chỉ đổi đuôi `.html` thành `.md`
+         (dạng `Tổng hợp thị trường chứng khoán cuối phiên DD-MM-YYYY.md`).
 
       ## Schema narrative.json
       ```json

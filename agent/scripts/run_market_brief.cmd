@@ -70,14 +70,14 @@ if errorlevel 1 echo [%date% %time%] CANH BAO: signal_tracker that bai, the tin 
 
 echo [%date% %time%] Data pack xong, goi Claude... >> "%LOG%"
 
-"%CLAUDE%" -p "Chay preset agent/src/swarm/presets/vn_market_daily_brief.yaml cho data pack %PACK%, session=%SESSION%. Data pack DA DUNG XONG, dung chay lai market_datapack.py. Spawn 4 subagent Sonnet song song (market_action, flow_desk, sector_desk, news_desk) voi dung system_prompt trong preset, doi ca 4 xong, roi tu dong vai editor: kiem mau thuan cheo, ghi %PACK%/narrative.json, chay agent/scripts/market_dashboard.py %PACK% --session %SESSION%, va ghi %PACK%/BRIEF_%SESSION%.md. Bao cao ngan gon ket qua." --permission-mode acceptEdits >> "%LOG%" 2>&1
+"%CLAUDE%" -p "Chay preset agent/src/swarm/presets/vn_market_daily_brief.yaml cho data pack %PACK%, session=%SESSION%. Data pack DA DUNG XONG, dung chay lai market_datapack.py. Spawn 4 subagent Sonnet song song (market_action, flow_desk, sector_desk, news_desk) voi dung system_prompt trong preset, doi ca 4 xong, roi tu dong vai editor: kiem mau thuan cheo, ghi %PACK%/narrative_%SESSION%.json, chay agent/scripts/market_dashboard.py %PACK% --session %SESSION%, va ghi ban markdown cung ten voi file HTML ma script vua in ra. Bao cao ngan gon ket qua." --permission-mode acceptEdits >> "%LOG%" 2>&1
 
 if errorlevel 1 (
   echo [%date% %time%] Claude tra loi. Xem log tren. >> "%LOG%"
   exit /b 1
 )
 
-echo [%date% %time%] === XONG %SESSION% -> %PACK%\BRIEF_%SESSION%.html === >> "%LOG%"
+echo [%date% %time%] === XONG %SESSION% -> xem ten file o dong XONG cua market_dashboard.py === >> "%LOG%"
 endlocal
 exit /b 0
 

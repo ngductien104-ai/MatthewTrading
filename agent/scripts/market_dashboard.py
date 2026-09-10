@@ -75,6 +75,31 @@ def cls(v):
     return "up" if f > 0 else "down" if f < 0 else "flat"
 
 
+def ty(v):
+    """Doi so ty VND sang nhan gon: 1234.5 -> "1,2 nghin ty"."""
+    a = abs(v)
+    if not a:
+        return "—"
+    if a >= 1e6:
+        return vn(v / 1e6, 2) + " triệu tỷ"
+    if a >= 1e3:
+        return vn(v / 1e3, 1) + " nghìn tỷ"
+    return vn(v, 1) + " tỷ"
+
+
+def mix(base, pct, onto):
+    """Tron hai mau hex theo ty le phan tram.
+
+    Ban CSS dung color-mix(); o day tron san ra hex de o nhiet hien dung mau
+    ngay ca tren trinh duyet chua ho tro color-mix().
+    O nhiet phai hien duoc ca khi trinh duyet khong biet color-mix().
+    """
+    b = [int(base[i:i + 2], 16) for i in (1, 3, 5)]
+    o = [int(onto[i:i + 2], 16) for i in (1, 3, 5)]
+    k = pct / 100
+    return "#%02x%02x%02x" % tuple(round(b[i] * k + o[i] * (1 - k)) for i in range(3))
+
+
 def bn(v):
     """Feed.fmt.bn cua Fincept: ty -> nghin ty -> trieu ty; 0 hien dau gach."""
     f = num(v, float("nan"))
@@ -151,8 +176,10 @@ def table(cols, rows, limit=None, zebra=True):
                 tds.append(f"<td>{esc(v)}</td>")
         body.append("<tr>" + "".join(tds) + "</tr>")
     z = " zebra" if zebra else ""
-    return (f'<table class="t{z}"><thead><tr>{head}</tr></thead>'
-            f'<tbody>{"".join(body)}</tbody></table>')
+    # Boc trong .tw de bang tu cuon ngang tren man hinh hep thay vi day ca
+    # trang tran ra - cot so deu la white-space:nowrap nen khong the co lai.
+    return (f'<div class="tw"><table class="t{z}"><thead><tr>{head}</tr></thead>'
+            f'<tbody>{"".join(body)}</tbody></table></div>')
 
 
 def panel(title, note, body, foot=""):
@@ -273,8 +300,15 @@ table.t.zebra tbody tr:nth-child(even) td{background:color-mix(in oklab,var(--su
 .q .qw{font-size:var(--fs-lg);font-weight:700;line-height:1;text-align:right}
 .q .qwl{font-size:var(--fs-micro);color:var(--muted);text-align:right}
 .q ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
-.q li{font-size:var(--fs-xs);display:flex;justify-content:space-between;gap:var(--s2)}
-.q li em{font-style:normal;color:var(--muted);font-size:var(--fs-micro);white-space:nowrap}
+/* Bon cot co be rong co dinh de so thang hang giua cac dong va giua bon o. */
+.q li{font-size:var(--fs-xs);display:grid;gap:var(--s2);align-items:baseline;
+  grid-template-columns:minmax(0,1fr) 52px 56px 54px}
+.q li>b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q li>span{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.q li.mt-h{font-size:var(--fs-micro);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);padding-bottom:2px;border-bottom:var(--bw) solid var(--hairline)}
+.q li.mt-h>b{font-weight:600}
+.q li.mt-empty{grid-template-columns:1fr}
 .call{border:var(--bw) solid var(--accent);background:var(--accent-wash);
   padding:var(--s2) var(--s3);margin-top:var(--s3);display:flex;gap:var(--s3)}
 .call .k{font-size:var(--fs-micro);font-weight:700;letter-spacing:.14em;color:var(--accent);
@@ -313,7 +347,63 @@ table.t.zebra tbody tr:nth-child(even) td{background:color-mix(in oklab,var(--su
 footer{padding:var(--s4);border-top:var(--bw) solid var(--border);color:var(--muted);
   font-size:var(--fs-micro);line-height:1.8}
 footer b{color:var(--fg);font-weight:600}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* Radio dieu khien tab va o nhiet: an khoi mat nhung van bat duoc ban phim. */
+.vh{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.seg label.btn{display:inline-flex;align-items:center;height:20px;padding:0 var(--s2);
+  border:0;border-right:var(--bw) solid var(--border);cursor:pointer}
+.seg label.btn:last-child{border-right:0}
+.vh:focus-visible ~ .sf-body .seg label,.vh:focus-visible ~ .nw-body .seg label{outline:1px solid var(--fg)}
+.split2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s5)}
+.grid6.g4{grid-template-columns:repeat(4,1fr)}
+.heat-sf{grid-template-columns:repeat(5,minmax(0,1fr));height:190px}
+.sf-chart{width:100%;height:260px;display:block}
 @media print{body{background:#fff}}
+
+/* ── man hinh hep ────────────────────────────────────────────────────────
+   Trang nay dung tren ban lam viec la chinh, nhung doc tren dien thoai thi
+   bo cuc hai cot 268px cua .wrap va cac luoi 4-6 cot day noi dung tran ra
+   ngoai khung nhin. Hai nguong: 900px dua Market Pulse rail xuong duoi,
+   560px xep lai moi luoi thanh mot cot. Khong mot con so nao doi - chi bo cuc. */
+@media (max-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr);padding:var(--s3) var(--s3) var(--s5)}
+  .rail{border-left:0;border-top:var(--bw) solid var(--border);
+    padding-left:0;padding-top:var(--s3)}
+  .tape{grid-template-columns:repeat(2,1fr)}
+  .grid6{grid-template-columns:repeat(3,1fr)}
+  .heat-sf{grid-template-columns:repeat(4,minmax(0,1fr));height:220px}
+}
+@media (max-width:560px){
+  .top{height:auto;flex-wrap:wrap;padding:var(--s2) var(--s3);row-gap:var(--s1)}
+  .top .ttl{flex-basis:100%;order:9}
+  .ix{padding:var(--s2)}
+  .ix .px{font-size:var(--fs-lg)}
+  .panel-body{padding:var(--s2)}
+  .grid6,.grid6.g4{grid-template-columns:repeat(2,1fr)}
+  .mx{grid-template-columns:minmax(0,1fr)}
+  .split2{grid-template-columns:minmax(0,1fr);gap:var(--s4)}
+  /* Ban do nhiet: 19 o trong luoi trên man hinh rong doc duoc, nhung ep xuong
+     360px thi moi o con ~40px va ten nganh dai (Dien, nuoc & xang dau khi dot)
+     bi cat cut. Tren dien thoai doi hinh thanh danh sach hang - ten trai, so
+     phai - van giu nguyen mau nen nen van la ban do nhiet. */
+  .heat-sf{grid-template-columns:minmax(0,1fr);grid-auto-rows:auto;height:auto}
+  .heat-sf .heat-cell{flex-direction:row;justify-content:space-between;
+    align-items:baseline;gap:var(--s2);text-align:left;padding:var(--s2)}
+  .heat-sf .heat-cell b{font-size:var(--fs-xs);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .heat-sf .heat-cell span{white-space:nowrap;font-size:var(--fs-xs)}
+  .sf-chart{height:200px}
+  /* Dong tin: tuoi + nguon mot hang, tieu de va tag xuong hang rieng,
+     thay vi bon cot chen nhau con 40px moi cot. */
+  .w2{grid-template-columns:44px minmax(0,1fr);gap:var(--s1) var(--s2);
+    padding:var(--s2) 0}
+  .w2 .tt{grid-column:1/-1}
+  .w2 .tk{grid-column:1/-1;justify-content:flex-start}
+  .call{flex-direction:column;gap:var(--s1)}
+  .q li{flex-wrap:wrap}
+  .lede p{padding-left:var(--s4)}
+  footer{padding:var(--s3)}
+}
 """
 
 
@@ -344,83 +434,11 @@ def sector_payload(pack: Path):
     return out
 
 
-WIDGET_JS = """
-const F=(v)=>{if(!v||!isFinite(v))return "\\u2014";const n=(d)=>new Intl.NumberFormat("vi-VN",
-{minimumFractionDigits:d,maximumFractionDigits:d});
-if(Math.abs(v)>=1e6)return n(2).format(v/1e6)+" tri\\u1ec7u t\\u1ef7";
-if(Math.abs(v)>=1e3)return n(1).format(v/1e3)+" ngh\\u00ecn t\\u1ef7";return n(1).format(v)+" t\\u1ef7";};
-const D=(v)=>v>0?"up":v<0?"down":"flat";
-let H=30,SEL=0,HOV=-1;
-function draw(){
-  const nets=SECTORS.map(x=>x.series.slice(-H).reduce((a,r)=>a+r[1]+r[2],0));
-  const scale=Math.max(1,...nets.map(Math.abs));
-  document.getElementById("sf-scale").textContent="THANG "+F(scale)+" \\u00b7 "+SECTORS.length+" NG\\u00c0NH ICB C\\u1ea4P 2";
-  document.getElementById("sf-heat").innerHTML=SECTORS.map((x,i)=>{
-    const v=nets[i],mag=Math.min(1,Math.abs(v)/scale);
-    const base=v>0?"var(--up)":v<0?"var(--down)":"var(--border)";
-    const ceil=v<0?34:58;
-    return `<div class="heat-cell" data-sel="${i===SEL}" data-i="${i}" tabindex="0" title="${x.name} ${F(v)}"
-      style="background:color-mix(in oklab, ${base} ${Math.round(8+mag*ceil)}%, var(--surface))">
-      <b>${x.name}</b><span class="${D(v)}">${F(v)}</span></div>`;}).join("");
-  document.querySelectorAll("#sf-heat .heat-cell").forEach(el=>{
-    el.onclick=()=>{SEL=+el.dataset.i;HOV=-1;draw();};});
-  document.querySelectorAll("#sf-hz .btn").forEach(el=>{
-    el.dataset.on=(+el.dataset.h===H);el.onclick=()=>{H=+el.dataset.h;HOV=-1;draw();};});
-  detail();
-}
-function detail(){
-  const s=SECTORS[SEL],sl=s.series.slice(-H);let cf=0,cp=0;
-  const pts=sl.map(r=>{cf+=r[1];cp+=r[2];return{t:r[0],f:cf,p:cp};});
-  const W=920,HT=260,L=62,R=18,T=18,B=38,pw=W-L-R,ph=HT-T-B;
-  const vals=pts.flatMap(p=>[p.f,p.p]);
-  const mn=Math.min(0,...vals),mx=Math.max(0,...vals);
-  const pad=Math.max((mx-mn)*.12,Math.abs(mx||mn||1)*.03,1e-9),lo=mn-pad,hi=mx+pad;
-  const X=(i)=>L+(pts.length===1?pw/2:i*pw/(pts.length-1));
-  const Y=(v)=>T+(hi-v)/Math.max(hi-lo,1e-9)*ph;
-  let g="";for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=Y(v);
-    g+=`<line x1="${L}" x2="${W-R}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)"/>`
-     + `<text x="${L-7}" y="${(y+3).toFixed(1)}" text-anchor="end" fill="var(--muted)" font-size="9">${F(v)}</text>`;}
-  if(lo<0&&hi>0)g+=`<line x1="${L}" x2="${W-R}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="var(--fg)"/>`;
-  const ln=(k)=>pts.map((p,i)=>X(i).toFixed(1)+","+Y(p[k]).toFixed(1)).join(" ");
-  const area="M"+X(0).toFixed(1)+" "+Y(0).toFixed(1)+" L"+pts.map((p,i)=>X(i).toFixed(1)+" "+Y(p.f).toFixed(1)).join(" L")
-    +" L"+X(pts.length-1).toFixed(1)+" "+Y(0).toFixed(1)+" Z";
-  const every=Math.max(1,Math.ceil(pts.length/8));
-  let xl="";pts.forEach((p,i)=>{if(i%every===0||i===pts.length-1)
-    xl+=`<text x="${X(i).toFixed(1)}" y="${HT-12}" text-anchor="middle" fill="var(--muted)" font-size="9">${p.t}</text>`;});
-  const step=pw/Math.max(pts.length-1,1);
-  let hits="";pts.forEach((p,i)=>{hits+=`<rect x="${(X(i)-step/2).toFixed(1)}" y="${T}" width="${Math.max(step,6).toFixed(1)}"
-    height="${ph}" fill="transparent" data-i="${i}" tabindex="0"></rect>`;});
-  document.getElementById("sf-svg").innerHTML=g+
-    `<path d="${area}" fill="var(--live)" opacity="0.1"></path>`+
-    `<polyline points="${ln("f")}" fill="none" stroke="var(--live)" stroke-width="2"></polyline>`+
-    `<polyline points="${ln("p")}" fill="none" stroke="var(--fg)" stroke-width="2" stroke-dasharray="6 4"></polyline>`+
-    xl+hits;
-  const tip=document.getElementById("sf-tip");
-  document.querySelectorAll("#sf-svg rect").forEach(el=>{
-    const i=+el.dataset.i,p=pts[i];
-    const show=()=>{tip.innerHTML=`<b>${p.t}</b><br>Kh\\u1ed1i ngo\\u1ea1i l\\u0169y k\\u1ebf: <b class="${D(p.f)}">${F(p.f)}</b>`
-      +`<br>T\\u1ef1 doanh l\\u0169y k\\u1ebf: <b class="${D(p.p)}">${F(p.p)}</b>`;
-      tip.style.display="block";tip.style.left=Math.min(76,Math.max(2,X(i)/W*100))+"%";};
-    el.addEventListener("mousemove",show);el.addEventListener("focus",show);
-    el.addEventListener("mouseleave",()=>{tip.style.display="none";});});
-  const cum=pts.length?pts[pts.length-1].f+pts[pts.length-1].p:0;
-  document.getElementById("sf-name").textContent=s.name;
-  document.getElementById("sf-meta").textContent=s.n+" M\\u00c3 \\u00b7 "+pts.length+" PHI\\u00caN";
-  const c=document.getElementById("sf-cum");c.textContent=F(cum);c.className=D(cum);
-  document.getElementById("sf-mcount").textContent=s.members.length;
-  document.getElementById("sf-members").innerHTML=s.members.map(m=>
-    `<tr><td class="sym">${m.s}</td><td class="${D(m.f)}">${F(m.f)}</td>`
-    +`<td class="${D(m.p)}">${F(m.p)}</td><td class="${D(m.c)}">${F(m.c)}</td></tr>`).join("");
-}
-function tab(k,el){
-  document.querySelectorAll("#nw-tabs .btn").forEach(b=>b.dataset.on=(b===el));
-  document.querySelectorAll("[data-tab]").forEach(d=>{d.style.display=(d.dataset.tab===k?"":"none");});
-  document.getElementById("nw-note").textContent="\\u0110ANG XEM "+
-    document.querySelectorAll('[data-tab="'+k+'"]').length+" TIN";
-}
-document.addEventListener("DOMContentLoaded",()=>{draw();
-  const f=document.querySelector("#nw-tabs .btn");if(f)tab(f.dataset.k,f);});
-"""
+# WIDGET_JS da bi go bo 11/09/2026: toan bo tuong tac nay gio chay bang
+# CSS thuan (radio an + bo chon ~), xem sf_css() va nw_css(). Ly do: app
+# dien thoai nguoi dung mo bang khong chay JavaScript, nen moi thu do JS dung
+# len deu mat. Bo JS luon thi desktop va mobile chay cung mot duong.
+
 
 
 # ── cac khoi trang ───────────────────────────────────────────────────────
@@ -486,6 +504,19 @@ def block_breadth(rows, ad):
     return bar + f'<div class="grid6">{stats}</div>' + chart
 
 
+def brief_name(pack: Path, session: str) -> str:
+    """Ten file ban tin, khong keo duoi.
+
+    Quy uoc nguoi dung chot 11/09/2026: "Tong hop thi truong chung khoan
+    cuoi phien" + ngay/thang/nam. Ban giua phien goi la "phien sang" cho dung
+    su that - luc do phien chua dong cua.
+    """
+    d = pack.name.replace("_market_", "")
+    day = f"{d[6:8]}-{d[4:6]}-{d[0:4]}" if len(d) == 8 and d.isdigit() else d
+    ky = "cuối phiên" if session == "close" else "phiên sáng"
+    return f"Tổng hợp thị trường chứng khoán {ky} {day}"
+
+
 def block_matrix(matrix, sector):
     """Bon o Gia x Tien. Ty trong GTGD tinh tu sector.csv, khong lay tu agent."""
     share = {}
@@ -497,48 +528,188 @@ def block_matrix(matrix, sector):
             ("tang_ra", "q-weak", "", "Giá tăng · Tiền ra", "tăng yếu — cảnh báo"),
             ("giam_vao", "q-accum", "dim", "Giá giảm · Tiền vào", "tích luỹ / bắt đáy"),
             ("giam_ra", "q-dist", "down", "Giá giảm · Tiền ra", "phân phối")]
+    # So trong o lay thang tu sector.csv chu khong boc tach chuoi cua agent.
+    # Truoc day moi dong la "ten nganh" + mot cuc chu "(+2,78% · GTGD 892 tỷ ·
+    # ngoai +219)" day sang phai, nen cac cot so khong bao gio thang hang. Nay
+    # tach thanh bon cot co be rong co dinh; agent chi con quyet dinh nganh nao
+    # thuoc o nao, dung voi quy tac chung cua file: agent viet chu, script viet so.
+    by_name = {r["icb_name"]: r for r in sector}
     cells = []
     for key, klass, tone, title, sub in meta:
         items = matrix.get(key) or []
-        lis = "".join(
-            f'<li>{esc(str(x).split("(")[0].strip())}'
-            f'<em>{esc(str(x).split("(", 1)[1].rstrip(")")) if "(" in str(x) else ""}</em></li>'
-            for x in items) or '<li class="dim">—</li>'
+        lis = []
+        for x in items:
+            nm = str(x).split("(")[0].strip()
+            r = by_name.get(nm)
+            if r:
+                nums = (f'<span class="{cls(r["pct_change_wavg"])}">{vn(r["pct_change_wavg"], 2, True)}%</span>'
+                        f'<span>{vn(r["value_ty"], 0)}</span>'
+                        f'<span class="{cls(r["foreign_net_ty"])}">{vn(r["foreign_net_ty"], 0, True)}</span>')
+            else:
+                nums = '<span class="dim">—</span><span class="dim">—</span><span class="dim">—</span>'
+            lis.append(f'<li><b>{esc(nm)}</b>{nums}</li>')
+        body = ("".join(lis) if lis else '<li class="mt-empty dim">—</li>')
+        head = ('<li class="mt-h"><b>Ngành</b><span>%</span><span>GTGD</span>'
+                '<span>Ngoại</span></li>') if lis else ""
         cells.append(
             f'<div class="q {klass}"><div class="qh">'
             f'<div><div class="qt {tone}">{title}</div>'
             f'<div class="qs">{sub} · {len(items)} ngành</div></div>'
             f'<div><div class="qw {tone}">{vn(share[key], 1)}%</div>'
-            f'<div class="qwl">GTGD</div></div></div><ul>{lis}</ul></div>')
+            f'<div class="qwl">GTGD</div></div></div><ul>{head}{body}</ul></div>')
     return '<div class="mx">' + "".join(cells) + "</div>"
 
 
-def block_sector_flow():
-    hz = "".join(f'<button class="btn" data-h="{n}">{"1 QUÝ" if n == 60 else str(n) + "P"}</button>'
-                 for n in (1, 5, 10, 20, 30, 60))
-    return f'''
-      <div class="row" style="margin-bottom:var(--s2)">
-        <div class="seg" id="sf-hz">{hz}</div>
-        <span class="right dim" id="sf-scale" style="font-size:var(--fs-micro)"></span>
-      </div>
-      <div class="heat" id="sf-heat" style="grid-template-columns:repeat(5,minmax(0,1fr));height:190px"></div>
-      <div class="row" style="margin-top:var(--s3)">
-        <b id="sf-name" style="font-size:var(--fs-md)"></b>
-        <span class="right dim" id="sf-meta" style="font-size:var(--fs-micro)"></span>
-      </div>
-      <div class="sf-wrap">
-        <svg id="sf-svg" viewBox="0 0 920 260" style="width:100%;height:260px;display:block" role="img"></svg>
-        <div class="sf-tip" id="sf-tip"></div>
-      </div>
-      <div class="row" style="font-size:var(--fs-xs);margin-top:var(--s2)">
-        <span>Lũy kế <b id="sf-cum"></b></span>
-        <span class="right dim" style="font-size:var(--fs-micro)">
-          <span style="color:var(--live)">━</span> khối ngoại &nbsp;
-          <span style="color:var(--fg)">╌</span> tự doanh</span>
-      </div>
-      <div class="label" style="margin:var(--s3) 0 var(--s1)">Mã trong ngành · <span id="sf-mcount"></span></div>
-      <table class="t zebra"><thead><tr><th>Mã</th><th>Khối ngoại</th><th>Tự doanh</th><th>Tổng</th></tr></thead>
-        <tbody id="sf-members"></tbody></table>'''
+HORIZONS = (1, 5, 10, 20, 30, 60)
+HZ_DEFAULT = 30
+
+
+def chart_svg(series, h):
+    """Ve duong luy ke ngoai/tu doanh cho mot nganh o mot chan troi.
+
+    Ban Python cua ham detail() cu ben JS. Ve san o day vi trang phai chay
+    duoc trong webview khong co JavaScript (do 11/09/2026 tren dien thoai).
+    """
+    sl = series[-h:]
+    W, HT, L, R, T, B = 920, 260, 62, 18, 18, 38
+    pw, ph = W - L - R, HT - T - B
+    cf = cp = 0.0
+    pts = []
+    for t, f, p in sl:
+        cf += f
+        cp += p
+        pts.append((t, cf, cp))
+    if not pts:
+        return f'<svg class="sf-chart" viewBox="0 0 {W} {HT}" role="img"></svg>'
+    vals = [v for _, a, b in pts for v in (a, b)]
+    mn, mx = min([0.0] + vals), max([0.0] + vals)
+    pad = max((mx - mn) * .12, abs(mx or mn or 1) * .03, 1e-9)
+    lo, hi = mn - pad, mx + pad
+    span = max(hi - lo, 1e-9)
+    n = len(pts)
+
+    def X(i):
+        return L + (pw / 2 if n == 1 else i * pw / (n - 1))
+
+    def Y(v):
+        return T + (hi - v) / span * ph
+
+    g = []
+    for i in range(5):
+        v = lo + (hi - lo) * i / 4
+        y = Y(v)
+        g.append(f'<line x1="{L}" x2="{W - R}" y1="{y:.1f}" y2="{y:.1f}" stroke="var(--border)"/>'
+                 f'<text x="{L - 7}" y="{y + 3:.1f}" text-anchor="end" fill="var(--muted)" '
+                 f'font-size="9">{esc(ty(v))}</text>')
+    if lo < 0 < hi:
+        g.append(f'<line x1="{L}" x2="{W - R}" y1="{Y(0):.1f}" y2="{Y(0):.1f}" stroke="var(--fg)"/>')
+    fl = " ".join(f"{X(i):.1f},{Y(p[1]):.1f}" for i, p in enumerate(pts))
+    pl = " ".join(f"{X(i):.1f},{Y(p[2]):.1f}" for i, p in enumerate(pts))
+    area = ("M" + f"{X(0):.1f} {Y(0):.1f}"
+            + "".join(f" L{X(i):.1f} {Y(p[1]):.1f}" for i, p in enumerate(pts))
+            + f" L{X(n - 1):.1f} {Y(0):.1f} Z")
+    every = max(1, -(-n // 8))
+    xl = "".join(f'<text x="{X(i):.1f}" y="{HT - 12}" text-anchor="middle" fill="var(--muted)" '
+                 f'font-size="9">{esc(p[0])}</text>'
+                 for i, p in enumerate(pts) if i % every == 0 or i == n - 1)
+    return (f'<svg class="sf-chart" viewBox="0 0 {W} {HT}" role="img">{"".join(g)}'
+            f'<path d="{area}" fill="var(--live)" opacity="0.1"></path>'
+            f'<polyline points="{fl}" fill="none" stroke="var(--live)" stroke-width="2"></polyline>'
+            f'<polyline points="{pl}" fill="none" stroke="var(--fg)" stroke-width="2" '
+            f'stroke-dasharray="6 4"></polyline>{xl}</svg>')
+
+
+def block_sector_flow(payload):
+    """Ban do nhiet dong tien nganh - tuong tac bang CSS thuan, khong JavaScript.
+
+    Hai nhom radio an (chan troi va nganh) dieu khien toan bo widget qua bo
+    chon anh em `~`. Truoc day viec nay do JS lam, nhung app dien thoai anh
+    dung khong chay script nen o nhiet dung im o nganh dau bang va nut chon ky
+    bien mat. Dung san moi to hop 6 chan troi x N nganh thi
+    khong con phu thuoc script nao.
+    """
+    if not payload:
+        return '<div class="empty">Không có dữ liệu dòng tiền ngành.</div>'
+    ns = len(payload)
+    rad = "".join(f'<input type="radio" class="vh" name="sfhz" id="hz-{h}"'
+                  f'{" checked" if h == HZ_DEFAULT else ""}>' for h in HORIZONS)
+    rad += "".join(f'<input type="radio" class="vh" name="sfsec" id="sc-{i}"'
+                   f'{" checked" if i == 0 else ""}>' for i in range(ns))
+
+    hz_btn = "".join(f'<label class="btn" for="hz-{h}">{"1 QUÝ" if h == 60 else str(h) + "P"}</label>'
+                     for h in HORIZONS)
+
+    heats, scales = [], []
+    for h in HORIZONS:
+        nets = [sum(r[1] + r[2] for r in s["series"][-h:]) for s in payload]
+        scale = max([1.0] + [abs(v) for v in nets])
+        scales.append(f'<span class="sf-scale dim" data-h="{h}">THANG {esc(ty(scale))} · '
+                      f'{ns} NGÀNH ICB CẤP 2</span>')
+        cells = []
+        for i, (s, v) in enumerate(zip(payload, nets)):
+            base = "#00dd66" if v > 0 else "#ff7722" if v < 0 else "#302a22"
+            mag = min(1.0, abs(v) / scale)
+            bgc = mix(base, 8 + mag * (34 if v < 0 else 58), "#0d0b0a")
+            cells.append(
+                f'<label class="heat-cell" for="sc-{i}" data-i="{i}" '
+                f'title="{esc(s["name"])} {esc(ty(v))}" style="background:{bgc}">'
+                f'<b>{esc(s["name"])}</b><span class="{cls(v)}">{esc(ty(v))}</span></label>')
+        heats.append(f'<div class="heat heat-sf" data-h="{h}">{"".join(cells)}</div>')
+
+    # Ten nganh + bang ma: doi theo nganh, khong doi theo chan troi.
+    dets = []
+    for i, s in enumerate(payload):
+        rows = "".join(
+            f'<tr><td class="sym">{esc(m["s"])}</td><td class="{cls(m["f"])}">{esc(ty(m["f"]))}</td>'
+            f'<td class="{cls(m["p"])}">{esc(ty(m["p"]))}</td>'
+            f'<td class="{cls(m["c"])}">{esc(ty(m["c"]))}</td></tr>' for m in s["members"])
+        dets.append(
+            f'<div class="sf-det" data-i="{i}">'
+            f'<div class="row" style="margin-top:var(--s3)">'
+            f'<b style="font-size:var(--fs-md)">{esc(s["name"])}</b>'
+            f'<span class="right dim" style="font-size:var(--fs-micro)">{s["n"]} MÃ</span></div>'
+            f'<div class="label" style="margin:var(--s3) 0 var(--s1)">Mã trong ngành · '
+            f'{len(s["members"])} · luỹ kế 30 phiên</div>'
+            f'<div class="tw"><table class="t zebra"><thead><tr><th>Mã</th><th>Khối ngoại</th>'
+            f'<th>Tự doanh</th><th>Tổng</th></tr></thead><tbody>{rows}</tbody></table></div></div>')
+
+    # Bieu do + luy ke: doi theo CA hai truc.
+    charts = []
+    for i, s in enumerate(payload):
+        for h in HORIZONS:
+            sl = s["series"][-h:]
+            cum = sum(r[1] + r[2] for r in sl)
+            charts.append(
+                f'<div class="sf-ch" data-i="{i}" data-h="{h}">{chart_svg(s["series"], h)}'
+                f'<div class="row" style="font-size:var(--fs-xs);margin-top:var(--s2)">'
+                f'<span>Luỹ kế {len(sl)} phiên <b class="{cls(cum)}">{esc(ty(cum))}</b></span>'
+                f'<span class="right dim" style="font-size:var(--fs-micro)">'
+                f'<span style="color:var(--live)">━</span> khối ngoại &nbsp;'
+                f'<span style="color:var(--fg)">╌</span> tự doanh</span></div></div>')
+
+    return (f'<div class="sf">{rad}<div class="sf-body">'
+            f'<div class="row" style="margin-bottom:var(--s2)">'
+            f'<div class="seg">{hz_btn}</div>'
+            f'<span class="right" style="font-size:var(--fs-micro)">{"".join(scales)}</span></div>'
+            f'{"".join(heats)}{"".join(charts)}{"".join(dets)}</div></div>')
+
+
+def sf_css(ns):
+    """Sinh bo chon CSS cho widget dong tien nganh (phu thuoc so nganh)."""
+    out = [".sf-scale,.heat-sf,.sf-det,.sf-ch{display:none}"]
+    for h in HORIZONS:
+        out.append(f'#hz-{h}:checked ~ .sf-body .sf-scale[data-h="{h}"]{{display:inline}}')
+        out.append(f'#hz-{h}:checked ~ .sf-body .heat-sf[data-h="{h}"]{{display:grid}}')
+        out.append(f'#hz-{h}:checked ~ .sf-body label[for="hz-{h}"]'
+                   '{color:var(--accent);border-color:var(--accent)}')
+    for i in range(ns):
+        out.append(f'#sc-{i}:checked ~ .sf-body .sf-det[data-i="{i}"]{{display:block}}')
+        out.append(f'#sc-{i}:checked ~ .sf-body .heat-cell[data-i="{i}"]'
+                   '{outline:1px solid var(--accent);outline-offset:-1px}')
+        for h in HORIZONS:
+            out.append(f'#hz-{h}:checked ~ #sc-{i}:checked ~ .sf-body '
+                       f'.sf-ch[data-i="{i}"][data-h="{h}"]{{display:block}}')
+    return "\n".join(out)
 
 
 def block_signals(rows):
@@ -598,44 +769,63 @@ def block_signals(rows):
         "Lệnh BÁN và khuyến nghị TRÁNH (CHỜ, TRUNG LẬP) được chấm ngược dấu — giá giảm là "
         "kết quả <b>đúng</b> của lệnh bán, không phải khoản lỗ. Alpha đo trên đúng cửa sổ "
         "thời gian của từng khuyến nghị so với VN-Index.", muted=True)
-    return (f'<div class="grid6" style="margin-top:0;grid-template-columns:repeat(4,1fr)">{stats}</div>'
-            f'<table class="t zebra" style="margin-top:var(--s3)"><thead>{head}</thead>'
-            f'<tbody>{"".join(body)}</tbody></table>{notes}')
+    return (f'<div class="grid6 g4" style="margin-top:0">{stats}</div>'
+            f'<div class="tw"><table class="t zebra" style="margin-top:var(--s3)"><thead>{head}</thead>'
+            f'<tbody>{"".join(body)}</tbody></table></div>{notes}')
 
 
 TAB_LABEL = {"vi_mo": "Vĩ mô", "nganh": "Ngành", "doanh_nghiep": "Doanh nghiệp"}
 
 
 def block_wire(items):
+    """Dong tin chia ba tab - tach hoan toan, dieu khien bang radio CSS.
+
+    Ban truoc dua vao JS de an/hien tung nhom; app dien thoai khong chay
+    script nen ca ba nhom do xuong cung mot cho. Radio an + bo chon `~` lam
+    dung viec do ma khong can JavaScript.
+    """
     if not items:
         return '<div class="empty">Không có tin trong cửa sổ theo dõi.</div>'
     groups = defaultdict(list)
     for it in items:
         groups[str(it.get("tab") or "nganh")].append(it)
-    tabs, rows = [], []
-    for key in ("vi_mo", "nganh", "doanh_nghiep"):
-        g = groups.get(key) or []
-        if not g:
-            continue
-        tabs.append(f'<button class="btn" data-k="{key}" onclick="tab(\'{key}\',this)">'
-                    f'{TAB_LABEL[key]} · {len(g)}</button>')
+    keys = [k for k in ("vi_mo", "nganh", "doanh_nghiep") if groups.get(k)]
+    if not keys:
+        return '<div class="empty">Không có tin phân loại được.</div>'
+    rad, tabs, blocks = [], [], []
+    for j, key in enumerate(keys):
+        g = groups[key]
+        rad.append(f'<input type="radio" class="vh" name="nw" id="nw-{key}"'
+                   f'{" checked" if j == 0 else ""}>')
+        tabs.append(f'<label class="btn" for="nw-{key}">{TAB_LABEL[key]} · {len(g)}</label>')
+        rows = []
         for it in g:
             tk = "".join(f'<span class="tag">{esc(t)}</span>' for t in (it.get("tickers") or []))
             src = esc(it.get("source", ""))
             if int(num(it.get("n_sources"), 1)) > 1:
                 src += f' +{int(num(it["n_sources"])) - 1}'
             rows.append(
-                f'<div class="w2" data-tab="{key}" style="display:none">'
+                f'<div class="w2">'
                 f'<span class="ag">{esc(it.get("age", ""))}</span>'
                 f'<span class="sr">{src}</span>'
                 f'<span class="tt">{esc(it.get("title", ""))}</span>'
                 f'<span class="tk">{tk}</span></div>')
-    if not tabs:
-        return '<div class="empty">Không có tin phân loại được.</div>'
-    return (f'<div class="row" style="margin-bottom:var(--s2)">'
-            f'<div class="seg" id="nw-tabs">{"".join(tabs)}</div>'
-            f'<span class="right dim" id="nw-note" style="font-size:var(--fs-micro)"></span></div>'
-            + "".join(rows))
+        blocks.append(f'<div class="nwg" data-k="{key}">{"".join(rows)}'
+                      f'<div class="dim" style="font-size:var(--fs-micro);margin-top:var(--s2)">'
+                      f'ĐANG XEM {len(g)} TIN · {TAB_LABEL[key].upper()}</div></div>')
+    return (f'<div class="nw">{"".join(rad)}<div class="nw-body">'
+            f'<div class="row" style="margin-bottom:var(--s2)">'
+            f'<div class="seg">{"".join(tabs)}</div></div>'
+            f'{"".join(blocks)}</div></div>')
+
+
+def nw_css():
+    out = [".nwg{display:none}"]
+    for key in ("vi_mo", "nganh", "doanh_nghiep"):
+        out.append(f'#nw-{key}:checked ~ .nw-body .nwg[data-k="{key}"]{{display:block}}')
+        out.append(f'#nw-{key}:checked ~ .nw-body label[for="nw-{key}"]'
+                   '{color:var(--accent);border-color:var(--accent)}')
+    return "\n".join(out)
 
 
 def block_rail(idx, breadth, sector, nar, session, signals):
@@ -736,6 +926,7 @@ def build(pack: Path, session: str, nar: dict) -> str:
     contra = "".join(call(f"Mâu thuẫn {i}", esc(c))
                      for i, c in enumerate(nar.get("contradictions") or [], 1))
 
+    sectors = sector_payload(pack)
     frn_buy = sorted(fsess, key=lambda r: -num(r["foreign_net_ty"]))
     frn_sell = sorted(fsess, key=lambda r: num(r["foreign_net_ty"]))
     flips = [r for r in f30 if r.get("flip")]
@@ -757,7 +948,7 @@ def build(pack: Path, session: str, nar: dict) -> str:
               + contra),
         panel("Bản đồ nhiệt ngành · Sector Flow",
               "Khối ngoại + tự doanh · lũy kế theo chân trời",
-              block_sector_flow(),
+              block_sector_flow(sectors),
               '<span>Nguồn DataPro · lũy kế theo chân trời đang chọn</span>'
               '<span class="right">Ô nhiệt tô theo dòng tiền ròng, không phải %thay đổi giá</span>'),
         panel("Độ rộng thị trường",
@@ -779,13 +970,13 @@ def build(pack: Path, session: str, nar: dict) -> str:
               '<span>Cột "Điểm ước" tính theo vốn hoá niêm yết, không phải free-float của HOSE '
               '— dùng để xếp hạng, không phải số chính thức</span>'),
         panel("Kéo & dìm chỉ số", "Đóng góp điểm ước lượng vào VN-Index",
-              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s5)">'
+              '<div class="split2">'
               f'<div><div class="label up" style="margin-bottom:var(--s1)">Kéo lên</div>'
               f'{bar_rows(keo, "idx_points_est")}</div>'
               f'<div><div class="label down" style="margin-bottom:var(--s1)">Dìm xuống</div>'
               f'{bar_rows(dim_, "idx_points_est")}</div></div>'),
         panel("Khối ngoại", "Đã tách thoả thuận và ETF khỏi dòng chủ động",
-              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s5)">'
+              '<div class="split2">'
               f'<div><div class="label up" style="margin-bottom:var(--s1)">Gom mạnh nhất</div>'
               + table([("symbol", "Mã", "sym"), ("icb_name", "Ngành", "name"),
                        ("pct_change", "%", "signed"), ("foreign_net_ty", "Ròng tỷ", "signed"),
@@ -814,7 +1005,6 @@ def build(pack: Path, session: str, nar: dict) -> str:
     ])
 
     rail = block_rail(idx, breadth, sector, nar, session, signals)
-    payload = json.dumps(sector_payload(pack), ensure_ascii=False)
     srcs = nar.get("news_desk", {}).get("sources") or []
     ok_n = sum(1 for x in srcs if x.get("ok"))
     news_chip = (f'<div class="chip {"on" if ok_n == len(srcs) else "act"}">'
@@ -827,7 +1017,9 @@ def build(pack: Path, session: str, nar: dict) -> str:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bản tin thị trường VN {day} · {label}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap">
-<style>{CSS}</style></head><body>
+<style>{CSS}
+{sf_css(len(sectors))}
+{nw_css()}</style></head><body>
 <div class="top">
   <div class="wm"><i>X</i>SIGMA</div><div style="color:var(--border)">/</div>
   <div class="ttl">Market Desk · Bản tin thị trường Việt Nam</div>
@@ -849,7 +1041,6 @@ free-float của HOSE. Hiệu quả khuyến nghị đo trên chuỗi giá đã 
 {prop_note}Bản tin mô tả trạng thái thị trường, không chứa khuyến nghị mua bán.
 {esc(nar.get("sources_note", ""))}
 </footer>
-<script>const SECTORS={payload};{WIDGET_JS}</script>
 </body></html>"""
 
 
@@ -881,7 +1072,7 @@ def main() -> int:
         print("CANH BAO: khong co signals.csv - the tin hieu se trong. "
               "Chay agent/scripts/signal_tracker.py.", file=sys.stderr)
 
-    out = Path(args.out) if args.out else pack / f"BRIEF_{args.session}.html"
+    out = Path(args.out) if args.out else pack / (brief_name(pack, args.session) + ".html")
     out.write_text(build(pack, args.session, nar), encoding="utf-8")
     print(f"XONG -> {out}")
     return 0
