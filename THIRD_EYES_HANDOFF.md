@@ -1,6 +1,6 @@
 # Third Eyes — bàn giao để tiếp tục sau khi đổi tài khoản
 
-Ngày rà soát: 14/09/2026, Asia/Bangkok. Workspace: `C:\Users\VVVZV\MatthewTrading`.
+Ngày rà soát: 15/09/2026, Asia/Bangkok. Workspace: `C:\Users\VVVZV\MatthewTrading`.
 
 ## Cảnh báo bảo toàn công việc
 
@@ -13,11 +13,11 @@ Toàn bộ `agent/src/third_eyes/`, hai preset Third Eyes, test, script chạy v
 | Giai đoạn | Trạng thái | Bằng chứng / phần còn thiếu |
 |---|---|---|
 | P0 — chốt nền | Hoàn tất cho phạm vi cấu hình hiện tại | Có kiến trúc, 18 source, 23 rule, inventory, live verification và khoảng thiếu được ghi rõ |
-| P1 — quan sát ổn định | Hoàn tất code và gate dữ liệu watchlist, chưa nghiệm thu production | 12/12 source động FPT/HPG/MWG đã verify bằng dữ liệu thật; có freshness theo phiên/lịch nghỉ, retry/backoff/jitter, circuit breaker, queue age và log rotation. Còn xử lý CPI/điểm mù và soak/restart/mất mạng trên tiến trình thật |
-| P2 — Quant Lab | Hoàn tất hạ tầng, chưa có rule được chứng nhận | Có dataset builder/manifest/feature registry, walk-forward/embargo/bootstrap, certificate store, lifecycle và Bonferroni. `research_csv` vẫn trống, report thật = 0, toàn bộ 41 rule (gồm rule động của watchlist) vẫn candidate |
+| P1 — quan sát ổn định | Đạt code/live-source/short-UAT, chưa nghiệm thu production | 12/12 source watchlist và 4/4 source bổ sung đã verify thật. UAT 75 giây + restart 15 giây đạt; shadow soak 30 ngày đang chạy. Còn quan sát dài hạn và diễn tập mất mạng tiến trình thật |
+| P2 — Quant Lab | Hoàn tất hạ tầng, đang tích lũy shadow, chưa có rule được chứng nhận | Có dataset builder/manifest/feature registry, walk-forward/embargo/bootstrap, certificate store, lifecycle và Bonferroni. `research_csv` vẫn trống, report thật = 0; rule vẫn candidate cho tới khi đủ vintage shadow |
 | P3 — đội Swarm | Preset và executor đã có, chưa nghiệm thu AI live | Watch có 6 agent/task; Research có 7 agent/task; local-only evidence contract có test. Chưa chạy một DAG thật qua Ollama và đánh giá chất lượng/độ trễ; executor hiện chạy tuần tự |
 | P4 — Fincept | Chỉ có contract tích hợp | REST/SSE/ack và TypeScript client đã có; chưa có checkout Fincept trong workspace, chưa có màn hình native hay kiểm thử E2E desktop |
-| P5 — shadow/golive | Chưa bắt đầu | Monitor offline, chưa có token runtime, watchlist đã cấu hình nhưng source động chưa verify, chưa chạy 20 phiên |
+| P5 — shadow/golive | Đã bắt đầu shadow, production vẫn khóa | Collector shadow 30 ngày chạy state riêng, không API/AI/token; chưa đủ 20 phiên và chưa go-live |
 
 Mức sẵn sàng: backend quan sát thử nghiệm có thể khởi chạy local; chưa đủ điều kiện gọi là monitor production trên Fincept.
 
@@ -27,12 +27,14 @@ Mức sẵn sàng: backend quan sát thử nghiệm có thể khởi chạy loca
 - Auth state đã tái xác nhận: tài khoản `silver`; `show_api()` và `show_doc("Market.equity")` chạy thành công trong project venv. Không query source trong bước discovery.
 - Đã thử `vnstock_data 3.2.9`, nhưng BCTC VCB lỗi ở route mặc định và KBS; đã rollback 3.2.8. Không tự nâng lại trước khi regression test BCTC thành công.
 - Ollama đang chạy và có `qwen2.5:3b-16k`, đúng model trong config.
-- Monitor báo `offline`, không có heartbeat. `.third-eyes/access-token` chưa tồn tại.
+- Monitor production vẫn `offline`; `.third-eyes/access-token` chưa tồn tại. Collector shadow riêng được khởi động lại lúc 00:39 ngày 15/09/2026 với hợp đồng point-in-time, PID `15148`, PID file `.third-eyes-shadow/process-id`; không mở cổng HTTP.
 - Portfolio Excel vẫn `not_configured`; watchlist thật đã chốt là `FPT`, `HPG`, `MWG`. Hai source mẫu VCB đã disabled vì VCB không thuộc phạm vi thật.
 - Store hiện có 1 signal Radar, 1 event, 30 feature registration, 41 rule candidate và 0 research certificate. Không coi signal này là tín hiệu đầu tư đã kiểm định.
-- Inventory sau live verification: 23 available, 1 stale (`vn_cpi` mới nhất 30/06/2026), 6 disabled (gồm 2 mẫu VCB), 0 pending. Cả 12 source động FPT/HPG/MWG đều `ready_for_detection`; readiness không thay cho chứng nhận backtest.
+- Inventory sau live verification bổ sung: 27 available, 3 disabled (hai mẫu VCB và placeholder `company_earnings`), 0 stale/pending. CPI mới nhất là tháng 08/2026 từ API chính thức của Cục Thống kê. Fed/DXY/company-disclosures đều available; Fed mới có 10 kỳ nên chưa đủ history cho rule window 24.
 - Live verification một lần, không bật monitor/AI: 6 nguồn giá/volume đều 276 hàng và `session_fresh=true`; ba nguồn lợi nhuận đều trả 850 hàng thô, kỳ mới nhất 30/06/2026; news trả lần lượt FPT 18, HPG 12, MWG 35 hàng. Báo cáo private nằm ở `.third-eyes/watchlist-market-verification.json` và `.third-eyes/watchlist-fundamental-news-verification.json`.
-- Test Python: 34 passed, 2 warning thư viện phụ thuộc. Test mới bao phủ lịch phiên, freshness intraday sau đóng cửa, retry/jitter/circuit, queue age/job restart, log rotation, dataset PIT, multiple testing, certificate, lifecycle, materialize watchlist và bảo toàn coverage qua restart.
+- Supplemental live verification: CPI 16 kỳ, Fed 10 kỳ, DXY 147 phiên, disclosure tổng hợp 65 hàng; báo cáo private `.third-eyes/supplemental-sources-verification.json`.
+- UAT state riêng `.third-eyes-uat`: lượt 75 giây có heartbeat, 6 queue samples, max queue age 0,33 giây và 173 observation định lượng; lượt restart 15 giây giữ nguyên observation/job store, heartbeat tăng thêm và lease được giải phóng sạch.
+- Test Python liên quan: 96 passed, 2 warning thư viện phụ thuộc, gồm toàn bộ Third Eyes và truth-source router.
 - Test TypeScript client: 2 passed bằng Node 26 với `--experimental-strip-types`. `node_modules` chưa cài nên `npm test` chưa chạy được.
 
 ## File cần bảo toàn
@@ -68,7 +70,7 @@ Mức sẵn sàng: backend quan sát thử nghiệm có thể khởi chạy loca
 3. Thêm retry/backoff/jitter, giới hạn lỗi liên tiếp, queue-age metric và log rotation. Chạy restart/gián đoạn mạng thật để xác minh job store, lease và SSE cursor.
 4. Xử lý CPI stale bằng nguồn được xác minh hoặc giữ disabled/stale; không nới tuổi dữ liệu để che khoảng thiếu. Quyết định có bật các placeholder USD/policy rate/disclosure hay hiển thị rõ điểm mù.
 
-Trạng thái 14/09/2026: watchlist thật là FPT/HPG/MWG; VCB mẫu đã disabled. CLI đã đồng bộ source động trước khi kiểm tra `scan --source`, và `inventory` materialize source watchlist mà không query vendor. 12/12 source động đã vượt live data gate; trạng thái coverage được bảo toàn khi CLI khởi động lại. Freshness bar một phút dùng contract cuối feed hiện tại là 14:46 Asia/Bangkok, nên bar cuối phiên hợp lệ không bị đánh dấu stale chỉ vì đã qua `max_age_seconds`. Mục 2–3 đã hoàn tất ở mức code/test và one-shot verification. `third-eyes.json` có lịch nghỉ 2026 theo thông báo HNX, gồm 02/01 điều chỉnh; Saturday làm bù vẫn không phải phiên. CPI/điểm mù và UAT tiến trình thật còn chờ. Chưa chạy monitor production; test mất mạng/restart hiện là mô phỏng cô lập.
+Trạng thái 15/09/2026: watchlist thật là FPT/HPG/MWG; VCB mẫu đã disabled. 12/12 source động và 4/4 source bổ sung đã vượt live data gate. CPI chuyển sang API `nso.gov.vn`; DXY/Fed dùng `Macro.global`; disclosure tổng hợp chỉ ghi coverage để không nhân đôi signal từng mã. UAT ngắn và restart tiến trình thật đã đạt. Collector shadow 30 ngày đang chạy bằng `scripts/start-third-eyes-shadow.ps1`, state `.third-eyes-shadow`, AI/API tắt; rule vẫn candidate. Freshness bar một phút dùng contract cuối feed hiện tại là 14:46 Asia/Bangkok. `third-eyes.json` có lịch nghỉ 2026 theo thông báo HNX, gồm 02/01 điều chỉnh; Saturday làm bù vẫn không phải phiên. Chưa chạy monitor production; diễn tập mất mạng tiến trình thật và đủ 20 phiên shadow còn chờ.
 
 ### Gate 3 — kiểm định signal
 
@@ -76,7 +78,7 @@ Trạng thái 14/09/2026: watchlist thật là FPT/HPG/MWG; VCB mẫu đã disab
 2. Chạy backtest 1/5/20 phiên, lưu certificate; bổ sung registry `candidate → shadow → validated → retired` và kiểm soát multiple testing.
 3. Giữ mọi rule chưa đạt ở Radar. Chỉ Priority khi certificate hợp lệ và có xác nhận độc lập theo contract hiện tại.
 
-Trạng thái 14/09/2026: hạ tầng của mục 1–3 đã triển khai. Dataset builder giữ cadence phiên và chỉ đánh dấu ngày vintage mới là `event_eligible`; synthetic không được chứng nhận. Registry bắt buộc chuyển có lý do và không cho nhảy `candidate → validated`. Chưa có dữ liệu PIT thật nên không tạo certificate giả và không nâng rule.
+Trạng thái 15/09/2026: hạ tầng của mục 1–3 đã triển khai. Dataset builder giữ cadence phiên và chỉ đánh dấu ngày vintage mới là `event_eligible`; synthetic không được chứng nhận. Registry bắt buộc chuyển có lý do và không cho nhảy `candidate → validated`. Shadow collector ép `point_in_time=true` trong state cô lập và ghi `received_at`; dataset join theo `max(published_at, received_at)`, nên dữ liệu backfill cũ không được giả lập thành vintage lịch sử. Chưa tạo certificate và không nâng rule trước khi đủ dữ liệu.
 
 ### Gate 4 — nghiệm thu Swarm thật
 

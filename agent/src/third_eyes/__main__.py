@@ -103,7 +103,11 @@ def main(argv=None):
         state_dir = Path(args.state_dir).resolve()
         if state_dir == service.store.root:
             parser.error("UAT state directory must be isolated from the configured monitor state")
-        sources = [source for source in settings.sources if source.id in selected]
+        # The isolated collector establishes the first verifiable receipt time.
+        # Backfilled rows still cannot leak into earlier decisions because the
+        # dataset joins on max(published_at, received_at).
+        sources = [source.model_copy(update={"point_in_time": True})
+                   for source in settings.sources if source.id in selected]
         indicators = {source.indicator for source in sources}
         uat_settings = settings.model_copy(update={
             "state_dir": str(state_dir), "sources": sources,
@@ -121,7 +125,7 @@ def main(argv=None):
                 await uat.stop()
             result = {
                 "mode": "uat_soak", "production": False, "ai_enabled": False,
-                "process_stopped": True,
+                "process_stopped": True, "point_in_time_collection": True,
                 "started_at": started, "completed_at": pd.Timestamp.now(tz="UTC").isoformat(),
                 "duration_seconds": args.seconds, "state_dir": str(state_dir),
                 "sources": sorted(selected), "last_heartbeat_health": uat.health(),
