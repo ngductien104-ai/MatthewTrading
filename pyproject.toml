@@ -90,6 +90,7 @@ include = ["src*", "backtest*", "cli*", "vndata*"]
 "backtest" = ["*.py"]
 "vndata" = ["*.py"]
 "src.factors" = ["zoo/**/*.yaml", "zoo/**/*.md", "zoo/**/NOTICE"]
+"src.third_eyes" = ["dashboard.html"]
 
 [project.optional-dependencies]
 ibkr = [

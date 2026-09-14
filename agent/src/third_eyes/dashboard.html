@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Third Eyes — Radar</title>
+<style>
+:root{color-scheme:dark;font:15px system-ui;background:#0b111b;color:#e1e9f5}body{margin:24px auto;max-width:1400px;padding:0 20px}
+header{display:flex;align-items:center;gap:24px;flex-wrap:wrap}h1{letter-spacing:.08em;font-size:24px}small{color:#a6b5c9}
+input,button{background:#162235;color:inherit;border:1px solid #3d526f;padding:10px;border-radius:5px}button{cursor:pointer}section{margin:24px 0;background:#111d2d;padding:20px;border-radius:8px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid #29364a}th{color:#94b4da}tr[data-id]{cursor:pointer}tr[data-id]:hover{background:#1c2c42}
+pre{white-space:pre-wrap;word-break:break-word;color:#b7d2ea}.priority{color:#ffca80}#health{color:#7fd7c0}#error{color:#ffaaaa}h2{font-size:18px}a{color:#9bbff4}
+</style>
+<header><div><h1>THIRD EYES</h1><small>Cảnh báo và bằng chứng · Việt Nam</small></div>
+<input id="token" type="password" placeholder="Token kết nối" autocomplete="off" aria-label="Token kết nối">
+<button id="connect">Kết nối</button><span id="health">Chưa kết nối</span></header><p id="error" role="alert"></p>
+<section><h2 class="priority">Ưu tiên</h2><div id="priority"></div></section>
+<section><h2>Radar</h2><small>Dấu hiệu sớm; kiểm tra thời điểm dữ liệu và giới hạn kiểm định.</small><div id="radar"></div></section>
+<section><h2>Bằng chứng</h2><button id="ack" hidden>Đánh dấu đã xem</button><pre id="detail">Chọn một cảnh báo để xem nguồn, quy tắc và kết quả kiểm định.</pre></section>
+<section><h2>Sức khỏe dữ liệu</h2><div id="coverage"></div><pre id="portfolio"></pre></section>
+<script>
+let token='', selected=null, timer;
+const $=id=>document.getElementById(id);
+async function api(path,method='GET'){const r=await fetch('/third-eyes/v1'+path,{method,headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('Kết nối HTTP '+r.status);return r.json()}
+function table(target,rows,cols){const table=document.createElement('table'),head=document.createElement('tr');for(const [key,label] of cols){const th=document.createElement('th');th.textContent=label;head.append(th)}table.append(head);
+for(const row of rows){const tr=document.createElement('tr');for(const [key] of cols){const td=document.createElement('td');td.textContent=row[key]??'Chưa có';tr.append(td)}if(row.snapshot){tr.dataset.id=row.id;tr.onclick=()=>{selected=row.id;$('detail').textContent=JSON.stringify(row,null,2);$('ack').hidden=false}}table.append(tr)}
+$(target).replaceChildren(table);if(!rows.length)$(target).textContent='Chưa có dữ liệu phù hợp.'}
+async function refresh(){try{const [health,signals,portfolio]=await Promise.all([api('/health'),api('/signals?limit=500'),api('/portfolio')]);$('error').textContent='';$('health').textContent=health.status+' · '+(health.heartbeat||'Chưa có nhịp giám sát');
+const cols=[['entity','Đối tượng'],['indicator','Chỉ báo'],['value','Giá trị'],['threshold','Ngưỡng'],['trend','Xu hướng'],['pattern','Mẫu'],['observed_at','Dữ liệu lúc'],['ai_status','Phân tích']];
+table('radar',signals.items.filter(s=>s.tier==='radar'),cols);table('priority',signals.items.filter(s=>s.tier==='priority'),cols);
+table('coverage',health.coverage,[['id','Nguồn'],['status','Trạng thái'],['last_observed','Dữ liệu mới nhất'],['detail','Ghi chú']]);$('portfolio').textContent='Danh mục: '+JSON.stringify(portfolio,null,2);
+}catch(e){$('error').textContent=e.message;$('health').textContent='Mất kết nối'}}
+$('connect').onclick=()=>{token=$('token').value;clearInterval(timer);refresh();timer=setInterval(refresh,5000)};
+$('ack').onclick=async()=>{if(selected){await api('/signals/'+selected+'/ack','POST');await refresh()}};
+</script></html>

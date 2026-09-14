@@ -3064,6 +3064,10 @@ async def stop_runner_endpoint(payload: LiveRunnerControlRequest):
 from src.api.alpha_routes import register_alpha_routes  # noqa: E402
 register_alpha_routes(app)
 
+# Third Eyes reads the standalone monitor's durable store when configured.
+from src.third_eyes.api import register as register_third_eyes  # noqa: E402
+register_third_eyes(app, require_auth, require_event_stream_auth)
+
 
 # ============================================================================
 # Main Entry Point
