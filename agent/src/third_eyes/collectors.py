@@ -59,11 +59,52 @@ def latest_completed_session(now: datetime, holidays=()) -> datetime:
     raise ValueError("No completed trading session found in configured calendar")
 
 
+def latest_expected_intraday_bar(spec: SourceSpec, now: datetime, holidays=()) -> datetime:
+    interval = spec.kwargs.get("interval", "1m")
+    if interval not in {"1m", "5m", "15m"}:
+        raise ValueError("Supported intraday intervals: 1m, 5m, 15m")
+    step = timedelta(minutes=int(interval[:-1]))
+    final_time = time.fromisoformat(spec.kwargs.get("session_final_bar_close", "15:15"))
+    local = now.astimezone(VN)
+    day = local.date()
+
+    def final_close(value):
+        return datetime.combine(value, final_time, VN)
+
+    if not is_trading_day(day, holidays) or local.time().replace(tzinfo=None) < time(9):
+        day -= timedelta(days=1)
+        while not is_trading_day(day, holidays):
+            day -= timedelta(days=1)
+        return final_close(day).astimezone(timezone.utc)
+    if local.time().replace(tzinfo=None) >= final_time:
+        return final_close(day).astimezone(timezone.utc)
+
+    morning_open = datetime.combine(day, time(9), VN)
+    morning_close = datetime.combine(day, time(11, 30), VN)
+    afternoon_open = datetime.combine(day, time(13), VN)
+    if local < morning_close:
+        completed = int((local - morning_open) // step)
+        if completed == 0:
+            previous = day - timedelta(days=1)
+            while not is_trading_day(previous, holidays):
+                previous -= timedelta(days=1)
+            return final_close(previous).astimezone(timezone.utc)
+        return (morning_open + completed * step).astimezone(timezone.utc)
+    if local < afternoon_open:
+        return morning_close.astimezone(timezone.utc)
+    completed = int((local - afternoon_open) // step)
+    if completed == 0:
+        return morning_close.astimezone(timezone.utc)
+    return min(afternoon_open + completed * step, final_close(day)).astimezone(timezone.utc)
+
+
 def session_freshness(spec: SourceSpec, latest: datetime | None, now: datetime, holidays=()) -> dict:
     """Evaluate EOD freshness independently from a coarse max-age threshold."""
-    if spec.kind not in {"price", "sector"} or spec.kwargs.get("interval", "1D") != "1D":
+    if spec.kind not in {"price", "sector"}:
         return {"session_fresh": None, "expected_session_close": None}
-    expected = latest_completed_session(now, holidays)
+    interval = spec.kwargs.get("interval", "1D")
+    expected = (latest_completed_session(now, holidays) if interval == "1D"
+                else latest_expected_intraday_bar(spec, now, holidays))
     actual = latest.astimezone(timezone.utc) if latest else None
     return {"session_fresh": actual is not None and actual >= expected,
             "expected_session_close": expected.isoformat()}

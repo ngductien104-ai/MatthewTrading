@@ -96,10 +96,12 @@ class Service:
             specs = [
                 SourceSpec(id=f"company_{symbol}_price", kind="price", domain="company", indicator=f"company_{symbol}_price",
                            entity=symbol, unit="thousand_VND", group="price", value_column="close",
-                           cadence_seconds=60, kwargs={"interval":"1m", "history_days":7}, max_age_seconds=600),
+                           cadence_seconds=60, kwargs={"interval":"1m", "history_days":7,
+                           "session_final_bar_close":"14:46"}, max_age_seconds=600),
                 SourceSpec(id=f"company_{symbol}_volume", kind="price", domain="company", indicator=f"company_{symbol}_volume",
                            entity=symbol, unit="shares", group="liquidity", value_column="volume",
-                           cadence_seconds=60, kwargs={"interval":"1m", "history_days":7}, max_age_seconds=600),
+                           cadence_seconds=60, kwargs={"interval":"1m", "history_days":7,
+                           "session_final_bar_close":"14:46"}, max_age_seconds=600),
                 SourceSpec(id=f"company_{symbol}_profit", kind="fundamental", domain="company", indicator=f"company_{symbol}_profit",
                            entity=symbol, unit="VND", group="earnings", method="income_statement", date_column="period",
                            filter_column="id", filter_value="IS_NET_PROFIT_AFTER_TAX", kwargs={"period":"quarter"},
@@ -120,8 +122,9 @@ class Service:
                         self.store.register_rule(rule, reason="Portfolio/watchlist source")
                 self.store.register_feature(FeatureSpec(id=source.indicator, indicator=source.indicator,
                                             family="threshold", unit=source.unit, description=source.id))
-                self.store.set("coverage:"+source.id, {"id":source.id,"domain":source.domain,
-                                                      "indicator":source.indicator,"status":"pending"})
+                if not self.store.get("coverage:" + source.id):
+                    self.store.set("coverage:"+source.id, {"id":source.id,"domain":source.domain,
+                                                          "indicator":source.indicator,"status":"pending"})
                 self.scheduler.add_job(Job(source.id, int(utcnow().timestamp()*1000), f"interval:{source.cadence_seconds*1000}"))
 
     def research(self, now):
@@ -167,6 +170,8 @@ class Service:
                     meta.update(session_freshness(source, latest, now, self.settings.holidays))
                     if meta.get("session_fresh") is False:
                         meta["status"] = "stale"
+                    elif meta.get("session_fresh") is True and observations:
+                        meta["status"] = "available"
                 meta.update(consecutive_failures=0, attempts=attempt, retry_after=None,
                             last_success_at=now.isoformat())
                 self.store.set("coverage:" + source.id, meta)
@@ -265,15 +270,18 @@ class Service:
             history = [o for o in history if o.closed]
         if not history:
             return []
-        if session_freshness(source, history[-1].observed_at, now,
-                             self.settings.holidays)["session_fresh"] is False:
+        session = session_freshness(source, history[-1].observed_at, now, self.settings.holidays)
+        if session["session_fresh"] is False:
             return []
         # Snapshot the exact as-of history, not just the latest fetched delta.
         window = max((r.window for r in self.settings.rules if r.indicator == source.indicator), default=60)
         history = history[-window-6:]
         snapshot = self.store.snapshot_rows([o.model_dump(mode="json") for o in history])
+        effective_age = source.max_age_seconds
+        if session["session_fresh"] is True:
+            effective_age = max(effective_age, int((now-history[-1].published_at).total_seconds()) + 1)
         indicator = Indicator(id=source.indicator, domain=source.domain, group=source.group,
-                              unit=source.unit, description=source.id, max_age_seconds=source.max_age_seconds,
+                              unit=source.unit, description=source.id, max_age_seconds=effective_age,
                               closed_only=source.closed_only)
         for original in self.settings.rules:
             if original.indicator != source.indicator:

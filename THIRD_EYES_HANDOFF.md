@@ -13,7 +13,7 @@ Toàn bộ `agent/src/third_eyes/`, hai preset Third Eyes, test, script chạy v
 | Giai đoạn | Trạng thái | Bằng chứng / phần còn thiếu |
 |---|---|---|
 | P0 — chốt nền | Hoàn tất cho phạm vi cấu hình hiện tại | Có kiến trúc, 18 source, 23 rule, inventory, live verification và khoảng thiếu được ghi rõ |
-| P1 — quan sát ổn định | Hoàn tất phần code, chưa nghiệm thu production | Watchlist thật FPT/HPG/MWG đã cấu hình; có freshness theo phiên/lịch nghỉ, retry/backoff/jitter, circuit breaker, queue age và log rotation. Còn verify 12 source động, xử lý CPI/điểm mù và soak/restart/mất mạng trên tiến trình thật |
+| P1 — quan sát ổn định | Hoàn tất code và gate dữ liệu watchlist, chưa nghiệm thu production | 12/12 source động FPT/HPG/MWG đã verify bằng dữ liệu thật; có freshness theo phiên/lịch nghỉ, retry/backoff/jitter, circuit breaker, queue age và log rotation. Còn xử lý CPI/điểm mù và soak/restart/mất mạng trên tiến trình thật |
 | P2 — Quant Lab | Hoàn tất hạ tầng, chưa có rule được chứng nhận | Có dataset builder/manifest/feature registry, walk-forward/embargo/bootstrap, certificate store, lifecycle và Bonferroni. `research_csv` vẫn trống, report thật = 0, toàn bộ 41 rule (gồm rule động của watchlist) vẫn candidate |
 | P3 — đội Swarm | Preset và executor đã có, chưa nghiệm thu AI live | Watch có 6 agent/task; Research có 7 agent/task; local-only evidence contract có test. Chưa chạy một DAG thật qua Ollama và đánh giá chất lượng/độ trễ; executor hiện chạy tuần tự |
 | P4 — Fincept | Chỉ có contract tích hợp | REST/SSE/ack và TypeScript client đã có; chưa có checkout Fincept trong workspace, chưa có màn hình native hay kiểm thử E2E desktop |
@@ -29,9 +29,10 @@ Mức sẵn sàng: backend quan sát thử nghiệm có thể khởi chạy loca
 - Ollama đang chạy và có `qwen2.5:3b-16k`, đúng model trong config.
 - Monitor báo `offline`, không có heartbeat. `.third-eyes/access-token` chưa tồn tại.
 - Portfolio Excel vẫn `not_configured`; watchlist thật đã chốt là `FPT`, `HPG`, `MWG`. Hai source mẫu VCB đã disabled vì VCB không thuộc phạm vi thật.
-- Store hiện có 1 signal Radar, 1 event, 30 feature registration, 41 rule candidate và 0 research certificate sau khi materialize 12 source FPT/HPG/MWG ở trạng thái pending. Không coi signal này là tín hiệu đầu tư đã kiểm định.
-- Inventory sau materialize watchlist: 13 available, 1 stale (`vn_cpi` mới nhất 30/06/2026), 6 disabled (gồm 2 mẫu VCB), 12 source động pending.
-- Test Python: 33 passed, 2 warning thư viện phụ thuộc. Test mới bao phủ lịch phiên, retry/jitter/circuit, queue age/job restart, log rotation, dataset PIT, multiple testing, certificate, lifecycle và materialize watchlist qua CLI không query vendor.
+- Store hiện có 1 signal Radar, 1 event, 30 feature registration, 41 rule candidate và 0 research certificate. Không coi signal này là tín hiệu đầu tư đã kiểm định.
+- Inventory sau live verification: 23 available, 1 stale (`vn_cpi` mới nhất 30/06/2026), 6 disabled (gồm 2 mẫu VCB), 0 pending. Cả 12 source động FPT/HPG/MWG đều `ready_for_detection`; readiness không thay cho chứng nhận backtest.
+- Live verification một lần, không bật monitor/AI: 6 nguồn giá/volume đều 276 hàng và `session_fresh=true`; ba nguồn lợi nhuận đều trả 850 hàng thô, kỳ mới nhất 30/06/2026; news trả lần lượt FPT 18, HPG 12, MWG 35 hàng. Báo cáo private nằm ở `.third-eyes/watchlist-market-verification.json` và `.third-eyes/watchlist-fundamental-news-verification.json`.
+- Test Python: 34 passed, 2 warning thư viện phụ thuộc. Test mới bao phủ lịch phiên, freshness intraday sau đóng cửa, retry/jitter/circuit, queue age/job restart, log rotation, dataset PIT, multiple testing, certificate, lifecycle, materialize watchlist và bảo toàn coverage qua restart.
 - Test TypeScript client: 2 passed bằng Node 26 với `--experimental-strip-types`. `node_modules` chưa cài nên `npm test` chưa chạy được.
 
 ## File cần bảo toàn
@@ -67,7 +68,7 @@ Mức sẵn sàng: backend quan sát thử nghiệm có thể khởi chạy loca
 3. Thêm retry/backoff/jitter, giới hạn lỗi liên tiếp, queue-age metric và log rotation. Chạy restart/gián đoạn mạng thật để xác minh job store, lease và SSE cursor.
 4. Xử lý CPI stale bằng nguồn được xác minh hoặc giữ disabled/stale; không nới tuổi dữ liệu để che khoảng thiếu. Quyết định có bật các placeholder USD/policy rate/disclosure hay hiển thị rõ điểm mù.
 
-Trạng thái 14/09/2026: watchlist thật là FPT/HPG/MWG; VCB mẫu đã disabled. CLI đã đồng bộ source động trước khi kiểm tra `scan --source`, và `inventory` materialize source watchlist mà không query vendor. Mục 2–3 đã hoàn tất ở mức code/test. `third-eyes.json` có lịch nghỉ 2026 theo thông báo HNX, gồm 02/01 điều chỉnh; Saturday làm bù vẫn không phải phiên. CPI/điểm mù và UAT tiến trình thật còn chờ. Chưa chạy monitor production; test mất mạng/restart hiện là mô phỏng cô lập.
+Trạng thái 14/09/2026: watchlist thật là FPT/HPG/MWG; VCB mẫu đã disabled. CLI đã đồng bộ source động trước khi kiểm tra `scan --source`, và `inventory` materialize source watchlist mà không query vendor. 12/12 source động đã vượt live data gate; trạng thái coverage được bảo toàn khi CLI khởi động lại. Freshness bar một phút dùng contract cuối feed hiện tại là 14:46 Asia/Bangkok, nên bar cuối phiên hợp lệ không bị đánh dấu stale chỉ vì đã qua `max_age_seconds`. Mục 2–3 đã hoàn tất ở mức code/test và one-shot verification. `third-eyes.json` có lịch nghỉ 2026 theo thông báo HNX, gồm 02/01 điều chỉnh; Saturday làm bù vẫn không phải phiên. CPI/điểm mù và UAT tiến trình thật còn chờ. Chưa chạy monitor production; test mất mạng/restart hiện là mô phỏng cô lập.
 
 ### Gate 3 — kiểm định signal
 

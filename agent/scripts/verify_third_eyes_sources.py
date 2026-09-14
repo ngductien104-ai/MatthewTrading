@@ -19,11 +19,13 @@ def main():
     parser.add_argument("--source", action="append")
     args = parser.parse_args()
     settings = load_settings(args.config)
+    service = Service(settings)
+    service.refresh_portfolio()
+    service.sync_company_sources()
     selected = set(args.source or [])
     unknown = selected - {s.id for s in settings.sources}
     if unknown:
         parser.error(f"Unknown source IDs: {sorted(unknown)}")
-    service = Service(settings)
     started = utcnow().isoformat()
     versions = {}
     for package in ("vnstock", "vnstock_data", "vnai"):

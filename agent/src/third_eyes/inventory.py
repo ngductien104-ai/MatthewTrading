@@ -41,6 +41,9 @@ def inventory(settings, store, now=None):
             latest = max((row.published_at for row in rows), default=None)
             age = (now - latest).total_seconds() if latest else None
             session = session_freshness(source, latest, now, settings.holidays)
+            fresh = age is not None and 0 <= age <= source.max_age_seconds
+            if session["session_fresh"] is True:
+                fresh = True
             checks = []
             for rule in rules:
                 # Mirrors the detector's conservative history requirement.
@@ -53,7 +56,7 @@ def inventory(settings, store, now=None):
                            "first_observed": min((r.observed_at.isoformat() for r in rows), default=None),
                            "last_observed": max((r.observed_at.isoformat() for r in rows), default=None),
                            "publication_age_seconds": age,
-                           "fresh": age is not None and 0 <= age <= source.max_age_seconds,
+                           "fresh": fresh,
                            **session,
                            "rules": checks})
         reasons = []

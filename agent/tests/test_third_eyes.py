@@ -311,6 +311,10 @@ def test_company_sources_added_without_persisting_account(tmp_path):
     service.sync_company_sources()
     assert len(service.settings.sources) == 4
     assert {s.kind for s in service.settings.sources} == {"price", "fundamental", "news"}
+    service.store.set("coverage:company_VCB_price", {"status": "available", "rows": 42})
+    restarted = Service(Settings(state_dir=str(tmp_path), watchlist=["VCB"]))
+    restarted.sync_company_sources()
+    assert restarted.store.get("coverage:company_VCB_price") == {"status": "available", "rows": 42}
 
 
 def test_cli_inventory_materializes_watchlist_sources_without_vendor_calls(tmp_path, capsys):

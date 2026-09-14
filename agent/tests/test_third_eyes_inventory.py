@@ -101,3 +101,15 @@ def test_eod_freshness_uses_completed_sessions_and_configured_holidays():
     assert session_freshness(source, expected, before_open, holidays)["session_fresh"] is True
     after_close = datetime(2026, 9, 3, 9, tzinfo=timezone.utc)  # 16:00 Vietnam
     assert session_freshness(source, expected, after_close, holidays)["session_fresh"] is False
+
+
+def test_intraday_freshness_uses_vendor_final_bar_contract_after_close():
+    source = SourceSpec(id="fpt", kind="price", domain="company", indicator="fpt",
+                        entity="FPT", unit="thousand_VND", group="price",
+                        kwargs={"interval": "1m", "session_final_bar_close": "14:46"})
+    after_close = datetime(2026, 9, 14, 9, tzinfo=timezone.utc)
+    final_bar = datetime(2026, 9, 14, 7, 46, tzinfo=timezone.utc)
+    result = session_freshness(source, final_bar, after_close)
+    assert result["session_fresh"] is True
+    assert result["expected_session_close"] == final_bar.isoformat()
+    assert session_freshness(source, final_bar-timedelta(minutes=1), after_close)["session_fresh"] is False
