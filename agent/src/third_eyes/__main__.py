@@ -69,17 +69,20 @@ def main(argv=None):
     settings = load_settings(path)
     service = Service(settings)
     if args.command == "scan":
+        service.refresh_portfolio()
+        service.sync_company_sources()
         selected = set(args.source or [])
         unknown = selected - {s.id for s in settings.sources}
         if unknown:
             parser.error("Unknown source IDs: " + ", ".join(sorted(unknown)))
-        service.refresh_portfolio()
         for source in settings.sources:
             if source.enabled and (not selected or source.id in selected):
                 service.scan(source)
         print(json.dumps(service.health(), ensure_ascii=False, indent=2))
     elif args.command == "inventory":
         from .inventory import inventory
+        service.refresh_portfolio()
+        service.sync_company_sources()
         print(json.dumps(inventory(settings, service.store), ensure_ascii=False, indent=2))
     elif args.command == "status":
         print(json.dumps(service.health(), ensure_ascii=False, indent=2))

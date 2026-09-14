@@ -19,6 +19,7 @@ from src.third_eyes.api import router
 from src.third_eyes.agents import local_endpoint, run_agents
 from src.third_eyes.portfolio import optional_number
 from src.third_eyes.datasets import build_dataset
+from src.third_eyes.__main__ import main
 from src.live.runtime.scheduler import Job
 from src.swarm.presets import inspect_preset
 
@@ -310,6 +311,18 @@ def test_company_sources_added_without_persisting_account(tmp_path):
     service.sync_company_sources()
     assert len(service.settings.sources) == 4
     assert {s.kind for s in service.settings.sources} == {"price", "fundamental", "news"}
+
+
+def test_cli_inventory_materializes_watchlist_sources_without_vendor_calls(tmp_path, capsys):
+    config = tmp_path / "config.json"
+    settings = Settings(state_dir="state", watchlist=["FPT"])
+    config.write_text(settings.model_dump_json(), encoding="utf-8")
+    assert main(["--config", str(config), "inventory"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert {item["id"] for item in report["items"]} == {
+        "company_FPT_price", "company_FPT_volume", "company_FPT_profit", "company_FPT_news"
+    }
+    assert report["live_query_performed"] is False
 
 
 def test_lease_and_restart_releases(tmp_path):
