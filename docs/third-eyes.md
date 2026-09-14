@@ -8,6 +8,8 @@ Từ thư mục `agent`, chạy `..\.venv\Scripts\python.exe -m src.third_eyes -
 
 Để lấy lại một nguồn, chạy `..\.venv\Scripts\python.exe -m src.third_eyes --config ../third-eyes.json scan --source vnindex_close`. Có thể lặp `--source` để chọn nhiều nguồn. Không truyền lựa chọn này thì giữ hành vi quét tất cả nguồn đã bật. Lệnh scan gọi nguồn thật; không chạy AI. Lỗi schema được lưu cùng danh sách cột có/thiếu để sửa mapping.
 
+UAT có lệnh `soak`, bắt buộc dùng state directory khác monitor chính và danh sách source tường minh. Lệnh ép `ai_enabled=false`, không mở HTTP API và không cần token. Ví dụ: `python -m agent.src.third_eyes --config third-eyes.json soak --seconds 75 --state-dir .third-eyes-uat --source vn_cpi`. Launcher `scripts/start-third-eyes-shadow.ps1` dùng cùng cơ chế để tích lũy 30 ngày trong `.third-eyes-shadow`; đây không phải monitor production và không tự chuyển rule khỏi `candidate`.
+
 Third Eyes giám sát dữ liệu, phát hiện bất thường và gọi đội chuyên gia AI local để giải thích bằng chứng. Hệ thống không đưa lệnh giao dịch. Bản đầu chạy một tiến trình trên Windows; máy ngủ/tắt thì việc giám sát ngừng và được ghi nhận khi phục hồi.
 
 ## Khởi chạy
@@ -32,6 +34,7 @@ Nguồn mặc định:
 
 - DataPro: bốn chỉ số, giá và khối lượng. Bar ngày chưa đóng không được dùng cho quy tắc cuối ngày. Giá danh mục dùng bar một phút khi nguồn hỗ trợ; thiếu intraday được báo là thiếu nguồn.
 - `vnstock_data`: CPI (`time`, `cpi_total` đã được kiểm tra bằng dữ liệu thật); nguồn khác truy cập qua adapter `vndata` hiện có.
+- CPI hiện dùng WordPress API công khai của Cục Thống kê, giữ `published_at`, URL và tiêu đề công bố; lịch sử backfill chỉ dùng được sau `received_at` đầu tiên. DXY dùng `Macro.global.index(symbol="DXY")`; lãi suất chính sách Mỹ dùng `Macro.global.fed_rate()`. Hai chuỗi toàn cầu là retrospective cho tới khi shadow ghi nhận vintage mới.
 - Ngành/độ rộng: quét cổ phiếu HOSE/HNX/UPCOM, ánh xạ ICB, dùng lợi suất bình quân đều trên mã có giao dịch và tỷ lệ trên MA50. Cache 5 phút, lấy bù 5 ngày sau lần tải đầu. Dưới 80% số mã truy vấn thành công thì không tạo chỉ báo tổng hợp.
 - Doanh nghiệp: giá, khối lượng, lợi nhuận sau thuế quý và công bố cho danh mục/watchlist. Công bố mới xuất hiện ở Radar như sự kiện định tính; không có xác suất hay hướng tác động giả định.
 - Chuỗi quốc tế và chỉ tiêu bổ sung chưa nối nguồn hiển thị `disabled` cho đến khi cấu hình adapter và schema. Đây là khoảng trống độ phủ, không phải dữ liệu bằng 0.

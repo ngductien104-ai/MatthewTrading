@@ -89,6 +89,19 @@ class Service:
     def sync_company_sources(self):
         positions = self.store.get("portfolio", {}).get("positions", [])
         symbols = sorted(set(self.settings.watchlist) | {p["symbol"] for p in positions if p.get("symbol")})
+        aggregate = next((s for s in self.settings.sources if s.id == "company_disclosures"), None)
+        if aggregate is not None and symbols and aggregate.entity == "UNCONFIGURED":
+            replacement = aggregate.model_copy(update={
+                "kind": "news", "entity": "WATCHLIST", "unit": "event", "enabled": True,
+                "entity_column": "symbol", "kwargs": {"symbols": symbols, "coverage_only": True},
+            })
+            self.settings.sources[self.settings.sources.index(aggregate)] = replacement
+            previous = self.store.get("coverage:" + replacement.id, {})
+            if previous.get("status") in {None, "disabled"}:
+                self.store.set("coverage:" + replacement.id, {
+                    "id": replacement.id, "domain": replacement.domain,
+                    "indicator": replacement.indicator, "status": "pending",
+                })
         existing = {s.id for s in self.settings.sources}
         for symbol in symbols:
             if not symbol.isalnum() or len(symbol) > 12:
@@ -223,9 +236,12 @@ class Service:
                 continue
             evidence = {key: str(item[key]) if pd.notna(item.get(key)) else None
                         for key in ("id", "title", "summary", "content", "publish_time", "source", "url")}
+            if source.kwargs.get("coverage_only"):
+                continue
             snapshot = self.store.document(evidence)
+            entity = str(item.get(source.entity_column, source.entity)) if source.entity_column else source.entity
             signal = Signal(id=digest([source.id, evidence["id"]]), indicator=source.indicator,
-                            entity=source.entity, domain="company", group="disclosures", observed_at=published,
+                            entity=entity, domain="company", group="disclosures", observed_at=published,
                             detected_at=now, value=1, threshold=0, trend="new_disclosure", pattern="disclosure",
                             rule_id="new_disclosure", rule_version="1", snapshot=snapshot, source=source.id,
                             unit="event", source_detail=evidence,

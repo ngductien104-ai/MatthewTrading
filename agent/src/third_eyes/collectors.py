@@ -116,6 +116,9 @@ def source_frame(spec: SourceSpec, now) -> pd.DataFrame:
     if spec.kind == "sector":
         from .sector import frame
         return frame(now)
+    if spec.kind == "nso_cpi":
+        from .official import nso_cpi
+        return nso_cpi(**spec.kwargs)
     if spec.kind == "price":
         from vndata.price import ohlcv
         interval = spec.kwargs.get("interval", "1D")
@@ -135,7 +138,17 @@ def source_frame(spec: SourceSpec, now) -> pd.DataFrame:
         return ratios(spec.entity, **spec.kwargs) if spec.method == "ratios" else statement(
             spec.entity, which=spec.method, **spec.kwargs)
     from vndata.news import company_news
-    return company_news(spec.entity, **spec.kwargs)
+    symbols = spec.kwargs.get("symbols")
+    vendor_kwargs = {key: value for key, value in spec.kwargs.items()
+                     if key not in {"symbols", "coverage_only"}}
+    if not symbols:
+        return company_news(spec.entity, **vendor_kwargs)
+    frames = []
+    for symbol in symbols:
+        frame = company_news(symbol, **vendor_kwargs).copy()
+        frame["symbol"] = symbol
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
 def collect(spec: SourceSpec, now) -> tuple[list[Observation], dict]:
@@ -185,11 +198,13 @@ def collect(spec: SourceSpec, now) -> tuple[list[Observation], dict]:
         out.append(Observation(indicator=spec.indicator, entity=entity, observed_at=observed,
                                published_at=published, received_at=now, value=float(value),
                                source=spec.id, unit=spec.unit, closed=closed, revision=revision,
-                               point_in_time=False, group=spec.group))
+                               point_in_time=spec.point_in_time, group=spec.group))
     meta.update(status="available" if out else "unavailable",
                 first_observed=min((o.observed_at.isoformat() for o in out), default=None),
                 last_observed=max((o.observed_at.isoformat() for o in out), default=None),
-                limitation="Retrospective feed; historical vintages not certified")
+                limitation=("Publication timestamps retained; history received before shadow start "
+                            "is not reconstructed" if spec.point_in_time else
+                            "Retrospective feed; historical vintages not certified"))
     if out and (now-max(o.published_at for o in out)).total_seconds() > spec.max_age_seconds:
         meta["status"] = "stale"
     return out, meta

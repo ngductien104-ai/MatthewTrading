@@ -142,7 +142,7 @@ class Signal(Contract):
 
 class SourceSpec(Contract):
     id: str
-    kind: Literal["csv", "price", "macro", "fundamental", "news", "sector"]
+    kind: Literal["csv", "price", "macro", "fundamental", "news", "sector", "nso_cpi"]
     domain: Literal["macro", "market", "sector", "company"]
     indicator: str
     entity: str
@@ -162,6 +162,7 @@ class SourceSpec(Contract):
     enabled: bool = True
     closed_only: bool = True
     entity_column: str | None = None
+    point_in_time: bool = False
 
 
 class Settings(Contract):

@@ -20,6 +20,9 @@ from src.third_eyes.agents import local_endpoint, run_agents
 from src.third_eyes.portfolio import optional_number
 from src.third_eyes.datasets import build_dataset
 from src.third_eyes.__main__ import main
+from src.third_eyes.collectors import collect
+from src.third_eyes.defaults import default_settings
+from src.third_eyes.official import parse_cpi_post
 from src.live.runtime.scheduler import Job
 from src.swarm.presets import inspect_preset
 
@@ -315,6 +318,46 @@ def test_company_sources_added_without_persisting_account(tmp_path):
     restarted = Service(Settings(state_dir=str(tmp_path), watchlist=["VCB"]))
     restarted.sync_company_sources()
     assert restarted.store.get("coverage:company_VCB_price") == {"status": "available", "rows": 42}
+
+
+def test_watchlist_materializes_aggregate_disclosure_coverage(tmp_path, monkeypatch):
+    settings = default_settings().model_copy(update={"state_dir": str(tmp_path), "watchlist": ["FPT", "HPG"]})
+    service = Service(settings)
+    service.sync_company_sources()
+    aggregate = next(source for source in settings.sources if source.id == "company_disclosures")
+    assert aggregate.enabled is True
+    assert aggregate.entity == "WATCHLIST"
+    assert aggregate.entity_column == "symbol"
+    assert aggregate.kwargs == {"symbols": ["FPT", "HPG"], "coverage_only": True}
+    frame = pd.DataFrame([
+        {"id": "a", "title": "FPT disclosure", "publish_time": NOW, "symbol": "FPT"},
+        {"id": "b", "title": "HPG disclosure", "publish_time": NOW, "symbol": "HPG"},
+    ])
+    monkeypatch.setattr("src.third_eyes.collectors.source_frame", lambda source, now: frame)
+    service.scan_news(aggregate, NOW)
+    assert service.store.get("coverage:company_disclosures")["rows"] == 2
+    assert service.store.signals() == []
+
+
+def test_official_cpi_parser_and_point_in_time_collection(monkeypatch):
+    row = parse_cpi_post(
+        "Chỉ số giá tiêu dùng (CPI) tháng Tám và 8 tháng năm 2026",
+        "<p>Chỉ số giá tiêu dùng (CPI) tháng Tám tăng 0,47% so với tháng trước; "
+        "tăng 4,89% so với cùng kỳ năm trước.</p>",
+        "2026-09-03T09:01:50", "https://www.nso.gov.vn/cpi-8-2026/",
+    )
+    assert row["time"] == "2026-08-31"
+    assert row["cpi_total"] == 4.89
+    source = SourceSpec(id="vn_cpi", kind="nso_cpi", domain="macro", indicator="vn_cpi",
+                        entity="Vietnam", unit="percent_yoy", group="inflation",
+                        value_column="cpi_total", published_column="published_at",
+                        point_in_time=True, max_age_seconds=86400 * 45)
+    monkeypatch.setattr("src.third_eyes.collectors.source_frame",
+                        lambda spec, now: pd.DataFrame([row]))
+    observations, meta = collect(source, NOW)
+    assert meta["status"] == "available"
+    assert observations[0].point_in_time is True
+    assert observations[0].published_at.isoformat() == "2026-09-03T02:01:50+00:00"
 
 
 def test_cli_inventory_materializes_watchlist_sources_without_vendor_calls(tmp_path, capsys):

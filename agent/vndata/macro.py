@@ -38,7 +38,13 @@ COMMODITY = (
     "oil_crude", "pork", "soybean", "steel", "sugar",
 )
 
-_DOMAINS = {"economy": ECONOMY, "currency": CURRENCY, "commodity": COMMODITY}
+#: Global reference series exposed through ``getattr(Macro(), "global")``.
+#: ``global`` cannot be written as normal attribute syntax because it is a
+#: Python keyword, but it is a real Unified UI domain in vnstock_data 3.2.8.
+GLOBAL = ("bond_yield", "fed_rate", "index")
+
+_DOMAINS = {"economy": ECONOMY, "currency": CURRENCY, "commodity": COMMODITY,
+            "global": GLOBAL}
 
 #: Host serving most macro series upstream.
 ASEAN_HOST = "asean-apigw.aseansc.com.vn"
@@ -82,7 +88,10 @@ def series(domain: str, name: str, **kwargs) -> pd.DataFrame:
     if name not in _DOMAINS[domain]:
         raise ValueError(f"unknown {domain} series {name!r}; expected one of {_DOMAINS[domain]}")
 
-    node = getattr(_macro(), domain)()
+    node = getattr(_macro(), domain)
+    # Economy/currency/commodity are navigation methods; the legacy global
+    # domain is exposed as a property in 3.2.8.
+    node = node() if callable(node) else node
     try:
         return getattr(node, name)(**kwargs)
     except Exception as exc:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import secrets
@@ -22,6 +23,10 @@ def main(argv=None):
     scan.add_argument("--source", action="append", help="Only collect this source ID; repeatable")
     sub.add_parser("inventory", help="Audit configured sources and local history without vendor calls")
     sub.add_parser("status")
+    soak = sub.add_parser("soak", help="Run an isolated, AI-off UAT collector for a bounded duration")
+    soak.add_argument("--seconds", type=int, default=300)
+    soak.add_argument("--state-dir", required=True)
+    soak.add_argument("--source", action="append", required=True)
     serve = sub.add_parser("serve")
     serve.add_argument("--port", type=int, default=8790)
     research = sub.add_parser("backtest")
@@ -86,6 +91,48 @@ def main(argv=None):
         print(json.dumps(inventory(settings, service.store), ensure_ascii=False, indent=2))
     elif args.command == "status":
         print(json.dumps(service.health(), ensure_ascii=False, indent=2))
+    elif args.command == "soak":
+        if args.seconds < 10:
+            parser.error("Soak duration must be at least 10 seconds")
+        service.refresh_portfolio()
+        service.sync_company_sources()
+        selected = set(args.source)
+        unknown = selected - {source.id for source in settings.sources}
+        if unknown:
+            parser.error("Unknown source IDs: " + ", ".join(sorted(unknown)))
+        state_dir = Path(args.state_dir).resolve()
+        if state_dir == service.store.root:
+            parser.error("UAT state directory must be isolated from the configured monitor state")
+        sources = [source for source in settings.sources if source.id in selected]
+        indicators = {source.indicator for source in sources}
+        uat_settings = settings.model_copy(update={
+            "state_dir": str(state_dir), "sources": sources,
+            "rules": [rule for rule in settings.rules if rule.indicator in indicators],
+            "watchlist": [], "excel_directory": None, "ai_enabled": False, "local_model": "",
+        })
+        uat = Service(uat_settings)
+
+        async def run_soak():
+            started = pd.Timestamp.now(tz="UTC").isoformat()
+            await uat.start()
+            try:
+                await asyncio.sleep(args.seconds)
+            finally:
+                await uat.stop()
+            result = {
+                "mode": "uat_soak", "production": False, "ai_enabled": False,
+                "process_stopped": True,
+                "started_at": started, "completed_at": pd.Timestamp.now(tz="UTC").isoformat(),
+                "duration_seconds": args.seconds, "state_dir": str(state_dir),
+                "sources": sorted(selected), "last_heartbeat_health": uat.health(),
+                "observations": {source.indicator: sum(
+                    len(uat.store.history(source.indicator, entity))
+                    for entity in uat.store.entities(source.indicator)) for source in sources},
+            }
+            uat.store.set("uat:last_run", result)
+            return result
+
+        print(json.dumps(asyncio.run(run_soak()), ensure_ascii=False, indent=2))
     elif args.command == "backtest":
         from .models import ResearchProtocol
         from .research import backtest

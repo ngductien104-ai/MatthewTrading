@@ -12,7 +12,25 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from vndata import normalize, price, ta
+from vndata import macro, normalize, price, ta
+
+
+def test_macro_global_property_is_dispatched_without_calling_gateway(monkeypatch):
+    class Global:
+        def index(self, **kwargs):
+            return pd.DataFrame({"symbol": [kwargs["symbol"]]})
+
+    class FakeMacro:
+        global_ref = Global()
+
+        def __getattr__(self, name):
+            if name == "global":
+                return self.global_ref
+            raise AttributeError(name)
+
+    monkeypatch.setattr(macro, "_macro", FakeMacro)
+    result = macro.series("global", "index", symbol="DXY")
+    assert result.loc[0, "symbol"] == "DXY"
 
 
 def _ratio_frame(rows: list[tuple[str, str, str, float]]) -> pd.DataFrame:
