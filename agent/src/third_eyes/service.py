@@ -368,33 +368,42 @@ class Service:
                 await asyncio.to_thread(self.scan, source, utcnow())
         self.source_tasks[source.id] = asyncio.create_task(work())
 
+    async def narrate_once(self):
+        """Process one bounded AI batch without affecting quantitative signals."""
+        if not self.settings.ai_enabled:
+            return None
+        pending = [s for s in self.store.signals()
+                   if s.ai_status == "pending" and s.state != "expired"][:3]
+        if not pending:
+            return None
+        for signal in pending:
+            signal.ai_status = "running"
+            self.store.publish(signal)
+        try:
+            result = await run_agents(self.settings, self.store, pending)
+            for old in pending:
+                signal = self.store.signal(old.id)
+                if signal is None or signal.snapshot != old.snapshot:
+                    continue
+                signal.ai_status = "completed" if result["status"] == "completed" else "failed"
+                signal.analysis = result
+                self.store.publish(signal)
+            return result
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            for old in pending:
+                signal = self.store.signal(old.id)
+                if signal is None or signal.snapshot != old.snapshot:
+                    continue
+                signal.ai_status, signal.ai_error = "failed", type(exc).__name__
+                self.store.publish(signal)
+            return {"status": "failed", "error": type(exc).__name__}
+
     async def narrate(self):
         while not self.stopping:
             await asyncio.sleep(self.settings.ai_batch_seconds)
-            if not self.settings.ai_enabled:
-                continue
-            pending = [s for s in self.store.signals() if s.ai_status == "pending" and s.state != "expired"][:3]
-            if not pending:
-                continue
-            for signal in pending:
-                signal.ai_status = "running"
-                self.store.publish(signal)
-            try:
-                result = await run_agents(self.settings, self.store, pending)
-                for old in pending:
-                    signal = self.store.signal(old.id)
-                    if signal.snapshot != old.snapshot:
-                        continue
-                    signal.ai_status = "completed" if result["status"] == "completed" else "failed"
-                    signal.analysis = result
-                    self.store.publish(signal)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                for old in pending:
-                    signal = self.store.signal(old.id)
-                    signal.ai_status, signal.ai_error = "failed", type(exc).__name__
-                    self.store.publish(signal)
+            await self.narrate_once()
 
     async def start(self):
         self.lease.acquire()

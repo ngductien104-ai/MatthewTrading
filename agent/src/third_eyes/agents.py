@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from urllib.parse import urlparse
 
 import httpx
@@ -35,6 +36,34 @@ class AgentReport(Contract):
     gaps: list[str] = Field(default_factory=list)
 
 
+DOMAIN_TASKS = {
+    "macro": "task_macro",
+    "market": "task_market",
+    "sector": "task_sector",
+    "company": "task_company",
+}
+
+
+def route_run(run, signals):
+    """Keep the evidence scout, relevant domain experts and commander only."""
+    domains = sorted({signal.domain for signal in signals})
+    unsupported = set(domains) - set(DOMAIN_TASKS)
+    if unsupported:
+        raise ValueError("Unsupported Third Eyes signal domains: " + ", ".join(sorted(unsupported)))
+    selected = {"task_scout", "task_commander"} | {DOMAIN_TASKS[domain] for domain in domains}
+    run.tasks = [task for task in run.tasks if task.id in selected]
+    for task in run.tasks:
+        if task.id == "task_commander":
+            task.depends_on = ["task_scout"] + [DOMAIN_TASKS[domain] for domain in domains]
+            task.blocked_by = list(task.depends_on)
+        else:
+            task.depends_on = [dep for dep in task.depends_on if dep in selected]
+            task.blocked_by = list(task.depends_on)
+    agent_ids = {task.agent_id for task in run.tasks}
+    run.agents = [agent for agent in run.agents if agent.id in agent_ids]
+    return domains
+
+
 def local_endpoint(url):
     parsed = urlparse(url)
     if (parsed.scheme not in {"http", "https"} or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
@@ -44,17 +73,26 @@ def local_endpoint(url):
 
 
 async def run_agents(settings, store, signals, *, preset="third_eyes_watch", client=None):
+    started = time.perf_counter()
     base = local_endpoint(settings.local_url)
     if not settings.local_model:
         raise ValueError("Configure a local model before enabling AI narration")
     run = build_run_from_preset(preset, {"pack": "inline evidence", "goal": "Cảnh báo và bằng chứng"})
+    routed_domains = route_run(run, signals)
     run.provider, run.model = "ollama", settings.local_model
     run.status = RunStatus.running
     runs = SwarmStore(store.root / "swarm" / "runs")
     runs.create_run(run)
     store.event("swarm", {"run_id": run.id, "status": "running"})
     portfolio = store.get("portfolio", {})
+    snapshots = {}
+    for signal in signals:
+        snapshot = store.evidence(signal.snapshot)
+        if snapshot is None:
+            raise ValueError(f"Missing immutable evidence snapshot: {signal.snapshot}")
+        snapshots[signal.snapshot] = snapshot
     evidence = {"signals": [s.model_dump(mode="json", exclude={"analysis"}) for s in signals],
+                "snapshots": snapshots,
                 "coverage": [{k: c.get(k) for k in ("id", "status", "last_observed", "detail")} for c in store.coverage()],
                 "portfolio": {"as_of": portfolio.get("as_of"), "nav": portfolio.get("nav"),
                               "positions": [p for p in portfolio.get("positions", [])
@@ -124,7 +162,9 @@ async def run_agents(settings, store, signals, *, preset="third_eyes_watch", cli
         run.final_report = json.dumps(reports, ensure_ascii=False)
         run.completed_at = utcnow().isoformat()
         runs.update_run(run)
-        return {"run_id": run.id, "status": run.status.value, "reports": reports}
+        return {"run_id": run.id, "status": run.status.value, "reports": reports,
+                "routed_domains": routed_domains,
+                "duration_seconds": round(time.perf_counter() - started, 3)}
     except BaseException:
         run.status = RunStatus.cancelled
         run.completed_at = utcnow().isoformat()

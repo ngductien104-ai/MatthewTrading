@@ -16,7 +16,7 @@ from src.third_eyes.detection import evaluate, confirm
 from src.third_eyes.research import backtest
 from src.third_eyes.service import Service
 from src.third_eyes.api import router
-from src.third_eyes.agents import local_endpoint, run_agents
+from src.third_eyes.agents import local_endpoint, route_run, run_agents
 from src.third_eyes.portfolio import optional_number
 from src.third_eyes.datasets import build_dataset
 from src.third_eyes.__main__ import main
@@ -274,15 +274,76 @@ def test_local_only_and_bad_citations_fail_dag(tmp_path):
     with pytest.raises(ValueError):
         local_endpoint("https://api.openai.com")
     settings = Settings(state_dir=str(tmp_path), local_model="local")
+    store = Store(tmp_path)
+    candidate = signal()
+    snapshot = store.document({"value": candidate.value, "threshold": candidate.threshold})
+    candidate = candidate.model_copy(update={"snapshot": snapshot})
     def handler(request):
         report = {"summary":"bad", "findings":[{"signal_id":"made_up", "explanation":"bad", "evidence_ids":["fake"]}], "gaps":[]}
         return httpx.Response(200, json={"message":{"content":json.dumps(report)}})
     async def execute():
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            return await run_agents(settings, Store(tmp_path), [signal()], client=client)
+            return await run_agents(settings, store, [candidate], client=client)
     result = asyncio.run(execute())
     assert result["status"] == "failed"
     assert result["reports"] == {}
+
+
+def test_third_eyes_routes_only_matching_domains_and_loads_snapshots(tmp_path):
+    settings = Settings(state_dir=str(tmp_path), local_model="local")
+    store = Store(tmp_path)
+    candidate = signal()
+    snapshot = store.document({"source": "uat", "value": candidate.value})
+    candidate = candidate.model_copy(update={"snapshot": snapshot})
+    called_agents = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        user_payload = json.loads(payload["messages"][1]["content"])
+        assert user_payload["evidence"]["snapshots"][snapshot]["source"] == "uat"
+        called_agents.append(payload["messages"][0]["content"])
+        report = {"summary": "Đã kiểm tra bằng chứng", "findings": [{
+            "signal_id": candidate.id, "explanation": "Tín hiệu thử nghiệm",
+            "evidence_ids": [snapshot], "contradictions": [], "limitations": ["UAT"],
+        }], "gaps": []}
+        return httpx.Response(200, json={"message": {"content": json.dumps(report)}})
+
+    async def execute():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await run_agents(settings, store, [candidate], client=client)
+
+    result = asyncio.run(execute())
+    assert result["status"] == "completed"
+    assert result["routed_domains"] == ["company"]
+    assert set(result["reports"]) == {"task_scout", "task_company", "task_commander"}
+    assert len(called_agents) == 3
+
+
+def test_third_eyes_rejects_missing_snapshot_before_model_call(tmp_path):
+    settings = Settings(state_dir=str(tmp_path), local_model="local")
+    with pytest.raises(ValueError, match="Missing immutable evidence snapshot"):
+        asyncio.run(run_agents(settings, Store(tmp_path), [signal()]))
+
+
+def test_ai_failure_does_not_remove_or_expire_quant_signal(tmp_path, monkeypatch):
+    service = Service(Settings(state_dir=str(tmp_path), local_model="local", ai_enabled=True))
+    candidate = signal()
+    snapshot = service.store.document({"source": "uat", "value": candidate.value})
+    candidate = candidate.model_copy(update={"snapshot": snapshot})
+    service.store.publish(candidate)
+
+    async def fail(*args, **kwargs):
+        raise TimeoutError("local model unavailable")
+
+    monkeypatch.setattr("src.third_eyes.service.run_agents", fail)
+    result = asyncio.run(service.narrate_once())
+    persisted = service.store.signal(candidate.id)
+
+    assert result == {"status": "failed", "error": "TimeoutError"}
+    assert persisted is not None
+    assert persisted.state != "expired"
+    assert persisted.ai_status == "failed"
+    assert persisted.ai_error == "TimeoutError"
 
 
 def test_presets_valid():

@@ -173,3 +173,18 @@ P1 đã bổ sung freshness EOD và intraday theo phiên/lịch nghỉ cấu hì
 Ngày 15/09/2026, gap CPI/DXY/Fed/company-disclosure được thay bằng source thật. CPI đọc bài công bố tháng từ API chính thức `nso.gov.vn`, trích CPI YoY theo schema khóa và giữ ngày công bố; DXY/Fed đi qua Unified UI `Macro.global`; disclosure tổng hợp hợp nhất ba ticker trong watchlist nhưng chỉ ghi coverage để không nhân đôi signal từng mã. UAT 75 giây và restart 15 giây chạy trong `.third-eyes-uat`, không AI/API/token: bốn source available, heartbeat/job store/lease giữ đúng và queue age tối đa 0,33 giây. Lệnh `soak` luôn từ chối state directory production.
 
 P2 đã có `datasets.py` để as-of join Observation với lịch target, nhãn 1/5/20 phiên, `event_eligible`, manifest/hash và phân tách synthetic. SQLite có feature registry, certificate store, rule lifecycle và transition history. Backtest hỗ trợ protocol nhiều biến thể với Bonferroni. Mọi rule hiện vẫn `candidate`; chưa có research CSV point-in-time thật hoặc certificate đủ điều kiện. Không phần nào của cập nhật này bật monitor production, gọi Swarm thật hay tích hợp Fincept.
+
+## 13. Cập nhật P3 UAT ngày 15/09/2026
+
+Executor Third Eyes nạp nội dung immutable snapshot vào evidence pack thay vì chỉ chuyển
+snapshot ID. DAG được route theo domain: luôn có trinh sát dữ liệu và Commander, nhưng chỉ
+gọi chuyên gia của các domain thực sự xuất hiện trong batch. Domain không hỗ trợ bị từ chối
+rõ ràng. Narration chạy thành batch riêng; timeout/lỗi model chỉ cập nhật `ai_status=failed`,
+không xóa, expire hoặc chặn signal định lượng.
+
+UAT Ollama thật với signal giả lập company/FPT đã chạy trong state cô lập
+`.third-eyes-p3-uat/company-fpt-20260915`. Ba node `scout → company → commander` hoàn tất
+trong 315,733 giây; output tiếng Việt, chỉ dùng signal/snapshot ID trong allowlist và giữ
+giới hạn không dùng dữ liệu UAT để đầu tư. Đây là bằng chứng đạt Gate 4 về chức năng và là
+baseline latency để tối ưu; không phải chứng nhận rule, SLA production hoặc cho phép go-live.
+Collector shadow P1/P2 tiếp tục chạy độc lập, không API/AI/token; Fincept chưa được tích hợp.
