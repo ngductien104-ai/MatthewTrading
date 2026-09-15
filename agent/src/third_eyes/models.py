@@ -186,6 +186,8 @@ class Settings(Contract):
     ai_enabled: bool = True
     ai_batch_seconds: int = Field(default=300, ge=1)
     ai_timeout_seconds: int = Field(default=600, ge=1, le=600)
+    ai_num_predict: int = Field(default=512, ge=128, le=4096)
+    ai_num_ctx: int = Field(default=16384, ge=4096, le=131072)
     research_csv: dict[str, str] = Field(default_factory=dict)
     research_horizons: list[int] = Field(default_factory=lambda: [1, 5, 20])
     watchlist: list[str] = Field(default_factory=list)

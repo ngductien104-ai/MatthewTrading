@@ -15,7 +15,7 @@ Toàn bộ `agent/src/third_eyes/`, hai preset Third Eyes, test, script chạy v
 | P0 — chốt nền | Hoàn tất cho phạm vi cấu hình hiện tại | Có kiến trúc, 18 source, 23 rule, inventory, live verification và khoảng thiếu được ghi rõ |
 | P1 — quan sát ổn định | Đạt code/live-source/short-UAT, chưa nghiệm thu production | 12/12 source watchlist và 4/4 source bổ sung đã verify thật. UAT 75 giây + restart 15 giây đạt; shadow soak 30 ngày đang chạy. Còn quan sát dài hạn và diễn tập mất mạng tiến trình thật |
 | P2 — Quant Lab | Hoàn tất hạ tầng, đang tích lũy shadow, chưa có rule được chứng nhận | Có dataset builder/manifest/feature registry, walk-forward/embargo/bootstrap, certificate store, lifecycle và Bonferroni. `research_csv` vẫn trống, report thật = 0; rule vẫn candidate cho tới khi đủ vintage shadow |
-| P3 — đội Swarm | Đạt Gate 4 UAT chức năng cho domain company; chưa mở rộng vận hành | Ollama thật đã chạy signal FPT giả lập có immutable evidence qua đúng `scout → company → commander`; output tiếng Việt, citation/limitation hợp lệ, signal quant được giữ khi AI lỗi. Baseline DAG tuần tự 315,733 giây còn cần tối ưu trước khi mở rộng |
+| P3 — đội Swarm | Đạt Gate 4 UAT chức năng cho cả bốn domain; chưa mở rộng vận hành | Ollama thật đã chạy macro/market/sector/company với immutable evidence và routing đúng domain. Scout/Commander deterministic giảm mỗi DAG từ khoảng 297–316 giây xuống 89–93 giây; output tiếng Việt, citation/limitation hợp lệ, signal quant được giữ khi AI lỗi |
 | P4 — Fincept | Chỉ có contract tích hợp | REST/SSE/ack và TypeScript client đã có; chưa có checkout Fincept trong workspace, chưa có màn hình native hay kiểm thử E2E desktop |
 | P5 — shadow/golive | Đã bắt đầu shadow, production vẫn khóa | Collector shadow 30 ngày chạy state riêng, không API/AI/token; chưa đủ 20 phiên và chưa go-live |
 
@@ -86,15 +86,16 @@ Trạng thái 15/09/2026: hạ tầng của mục 1–3 đã triển khai. Datas
 2. Xác minh output tiếng Việt, evidence ID, mâu thuẫn, giới hạn và thời gian toàn DAG; lỗi AI không được chặn signal định lượng.
 3. Bổ sung routing chỉ gọi agent đúng domain để giảm độ trễ trước khi mở rộng universe.
 
-Trạng thái 15/09/2026: Gate 4 đã đạt về chức năng trong state cô lập
-`.third-eyes-p3-uat/company-fpt-20260915`. Signal UAT domain company/FPT dùng snapshot
-content-addressed thật; executor nạp nội dung snapshot vào evidence pack và chỉ chạy
-`scout`, `company`, `commander`. Cả ba report trả tiếng Việt, citation nằm trong allowlist,
-giữ nguyên mâu thuẫn/giới hạn và không đưa khuyến nghị giao dịch. Tổng thời gian DAG là
-315,733 giây, vì vậy đây là baseline cần tối ưu chứ chưa phải SLA production. Test lỗi model
-xác nhận signal định lượng không bị xóa/expire. Report riêng nằm tại
-`.third-eyes-p3-uat/company-fpt-20260915/uat-report.json`. Collector shadow vẫn chạy state
-riêng; production và Fincept tiếp tục khóa.
+Trạng thái 15/09/2026: Gate 4 đã đạt về chức năng cho cả bốn domain trong state cô lập.
+Executor nạp nội dung snapshot content-addressed vào evidence pack và route theo domain.
+Scout kiểm tra evidence và Commander hợp nhất lossless bằng code deterministic; chỉ chuyên gia
+đúng domain gọi LLM. So với baseline company 315,733 giây và macro 297,065 giây, bản tối ưu
+đạt company 89,530 giây, macro 91,088 giây, market 90,744 giây và sector 93,347 giây.
+Mọi report trả tiếng Việt, citation nằm trong allowlist, giữ nguyên giới hạn và không đưa
+khuyến nghị giao dịch. Test lỗi model xác nhận signal định lượng không bị xóa/expire. Report
+riêng nằm dưới `.third-eyes-p3-uat/*-fast-20260915/uat-report.json`. Đây là baseline UAT,
+không phải SLA production. Collector shadow vẫn chạy state riêng; production và Fincept tiếp
+tục khóa.
 
 ### Gate 5 — tích hợp Fincept
 

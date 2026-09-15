@@ -286,7 +286,7 @@ def test_local_only_and_bad_citations_fail_dag(tmp_path):
             return await run_agents(settings, store, [candidate], client=client)
     result = asyncio.run(execute())
     assert result["status"] == "failed"
-    assert result["reports"] == {}
+    assert set(result["reports"]) == {"task_scout"}
 
 
 def test_third_eyes_routes_only_matching_domains_and_loads_snapshots(tmp_path):
@@ -316,7 +316,8 @@ def test_third_eyes_routes_only_matching_domains_and_loads_snapshots(tmp_path):
     assert result["status"] == "completed"
     assert result["routed_domains"] == ["company"]
     assert set(result["reports"]) == {"task_scout", "task_company", "task_commander"}
-    assert len(called_agents) == 3
+    assert set(result["task_durations_seconds"]) == {"task_scout", "task_company", "task_commander"}
+    assert len(called_agents) == 1
 
 
 def test_third_eyes_rejects_missing_snapshot_before_model_call(tmp_path):

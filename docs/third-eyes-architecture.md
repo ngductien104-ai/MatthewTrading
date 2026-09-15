@@ -182,9 +182,16 @@ gọi chuyên gia của các domain thực sự xuất hiện trong batch. Domai
 rõ ràng. Narration chạy thành batch riêng; timeout/lỗi model chỉ cập nhật `ai_status=failed`,
 không xóa, expire hoặc chặn signal định lượng.
 
-UAT Ollama thật với signal giả lập company/FPT đã chạy trong state cô lập
-`.third-eyes-p3-uat/company-fpt-20260915`. Ba node `scout → company → commander` hoàn tất
-trong 315,733 giây; output tiếng Việt, chỉ dùng signal/snapshot ID trong allowlist và giữ
-giới hạn không dùng dữ liệu UAT để đầu tư. Đây là bằng chứng đạt Gate 4 về chức năng và là
-baseline latency để tối ưu; không phải chứng nhận rule, SLA production hoặc cho phép go-live.
-Collector shadow P1/P2 tiếp tục chạy độc lập, không API/AI/token; Fincept chưa được tích hợp.
+UAT Ollama thật ban đầu với signal giả lập company/FPT chạy ba lần gọi LLM qua
+`scout → company → commander` trong 315,733 giây. Benchmark macro tương tự mất 297,065 giây,
+cho thấy context 4K và giới hạn output không xử lý được nút thắt sinh token trên CPU. Thiết kế
+được tối ưu để Scout kiểm tra sự tồn tại/allowlist evidence bằng code deterministic, chuyên gia
+domain là lần gọi LLM duy nhất, và Commander hợp nhất nguyên trạng report đã kiểm tra. Cách này
+không loại bỏ node hay dấu vết DAG nhưng tránh hai lần diễn giải lại cùng số liệu.
+
+Ma trận UAT tối ưu đạt company 89,530 giây, macro 91,088 giây, market 90,744 giây và sector
+93,347 giây. Thời gian Scout/Commander mỗi node chỉ 1–2 ms; phần còn lại là inference của
+chuyên gia domain. Output tiếng Việt, chỉ dùng signal/snapshot ID trong allowlist và giữ giới
+hạn không dùng dữ liệu UAT để đầu tư. Đây là bằng chứng đạt Gate 4 về chức năng và baseline
+latency local; không phải chứng nhận rule, SLA production hoặc cho phép go-live. Collector
+shadow P1/P2 tiếp tục chạy độc lập, không API/AI/token; Fincept chưa được tích hợp.
