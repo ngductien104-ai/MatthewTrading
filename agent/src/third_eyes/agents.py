@@ -99,6 +99,22 @@ def deterministic_watch_report(task_id, signals, reports):
     return None
 
 
+def preserve_evidence_limitations(report, request_signals, snapshots):
+    """Append immutable source limitations, including title-only news coverage."""
+    by_id = {signal.id: signal for signal in request_signals}
+    for finding in report.findings:
+        signal = by_id[finding.signal_id]
+        limitations = list(signal.limitations)
+        snapshot = snapshots[signal.snapshot]
+        if isinstance(snapshot, dict) and isinstance(snapshot.get("evidence"), dict):
+            snapshot = snapshot["evidence"].get("value", snapshot["evidence"])
+        if (isinstance(snapshot, dict) and snapshot.get("title")
+                and not snapshot.get("content") and not snapshot.get("summary")):
+            limitations.append("Chỉ có tiêu đề công bố; chưa xác minh nội dung đầy đủ hoặc nguồn gốc")
+        finding.limitations = list(dict.fromkeys([*limitations, *finding.limitations]))
+    return report
+
+
 def local_endpoint(url):
     parsed = urlparse(url)
     if (parsed.scheme not in {"http", "https"} or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
@@ -126,19 +142,8 @@ async def run_agents(settings, store, signals, *, preset="third_eyes_watch", cli
         if snapshot is None:
             raise ValueError(f"Missing immutable evidence snapshot: {signal.snapshot}")
         snapshots[signal.snapshot] = snapshot
-    evidence = {"signals": [s.model_dump(mode="json", exclude={"analysis"}) for s in signals],
-                "snapshots": snapshots,
-                "coverage": [{k: c.get(k) for k in ("id", "status", "last_observed", "detail")} for c in store.coverage()],
-                "portfolio": {"as_of": portfolio.get("as_of"), "nav": portfolio.get("nav"),
-                              "positions": [p for p in portfolio.get("positions", [])
-                                            if p["symbol"] in {s.entity for s in signals}]}}
-    allowed = {s.id for s in signals} | {s.snapshot for s in signals}
-    schema = AgentReport.model_json_schema()
-    if signals:
-        schema["$defs"]["Finding"]["properties"]["signal_id"]["enum"] = sorted({s.id for s in signals})
-        schema["$defs"]["Finding"]["properties"]["evidence_ids"]["items"]["enum"] = sorted(allowed)
-    else:
-        schema["properties"]["findings"]["maxItems"] = 0
+    coverage = [{k: c.get(k) for k in ("id", "indicator", "status", "last_observed", "detail")}
+                for c in store.coverage()]
     agents = {a.id: a for a in run.agents}
     tasks = {t.id: t for t in run.tasks}
     reports = {}
@@ -157,9 +162,44 @@ async def run_agents(settings, store, signals, *, preset="third_eyes_watch", cli
                 task_started = time.perf_counter()
                 runs.update_run(run)
                 agent = agents[task.agent_id]
-                payload = {"evidence": evidence,
-                           "upstream": {dep: reports[dep] for dep in task.depends_on}}
-                async def request_report():
+                domain = next((name for name, domain_task in DOMAIN_TASKS.items()
+                               if domain_task == task.id), None)
+                task_signals = [signal for signal in signals if signal.domain == domain] if domain else signals
+
+                async def request_report(request_signals):
+                    request_ids = {signal.id for signal in request_signals}
+                    request_indicators = {signal.indicator for signal in request_signals}
+                    allowed = request_ids | {signal.snapshot for signal in request_signals}
+                    evidence = {
+                        "signals": [signal.model_dump(mode="json", exclude={"analysis"})
+                                    for signal in request_signals],
+                        "snapshots": {signal.snapshot: snapshots[signal.snapshot]
+                                      for signal in request_signals},
+                        "coverage": [item for item in coverage
+                                     if item.get("id") in request_indicators
+                                     or item.get("indicator") in request_indicators],
+                        "portfolio": {
+                            "as_of": portfolio.get("as_of"),
+                            "nav": portfolio.get("nav"),
+                            "positions": [position for position in portfolio.get("positions", [])
+                                          if position["symbol"] in {s.entity for s in request_signals}],
+                        },
+                    }
+                    upstream = {}
+                    for dep in task.depends_on:
+                        report = reports[dep]
+                        upstream[dep] = {
+                            **report,
+                            "findings": [finding for finding in report.get("findings", [])
+                                         if finding.get("signal_id") in request_ids],
+                        }
+                    payload = {"evidence": evidence, "upstream": upstream}
+                    schema = AgentReport.model_json_schema()
+                    if request_signals:
+                        schema["$defs"]["Finding"]["properties"]["signal_id"]["enum"] = sorted(request_ids)
+                        schema["$defs"]["Finding"]["properties"]["evidence_ids"]["items"]["enum"] = sorted(allowed)
+                    else:
+                        schema["properties"]["findings"]["maxItems"] = 0
                     payload_json = json.dumps(payload, ensure_ascii=False)
                     if len(payload_json) > 24000:
                         raise ValueError("Evidence pack exceeds the local context budget; use a smaller batch")
@@ -186,8 +226,9 @@ async def run_agents(settings, store, signals, *, preset="third_eyes_watch", cli
                             response.raise_for_status()
                             report = AgentReport.model_validate_json(response.json()["message"]["content"])
                             for finding in report.findings:
-                                if finding.signal_id not in {s.id for s in signals} or not set(finding.evidence_ids) <= allowed:
+                                if finding.signal_id not in request_ids or not set(finding.evidence_ids) <= allowed:
                                     raise ValueError("Agent cited evidence outside its supplied pack")
+                            report = preserve_evidence_limitations(report, request_signals, snapshots)
                             return report.model_dump(mode="json")
                         except (httpx.HTTPError, ValueError, KeyError) as exc:
                             last_error = exc
@@ -196,7 +237,21 @@ async def run_agents(settings, store, signals, *, preset="third_eyes_watch", cli
                     report = (deterministic_watch_report(task.id, signals, reports)
                               if preset == "third_eyes_watch" else None)
                     if report is None:
-                        report = await asyncio.wait_for(request_report(), timeout=settings.ai_timeout_seconds)
+                        pieces = []
+                        # A multi-signal JSON response can exhaust a small local model's
+                        # output budget. Shard by signal, retain one bounded timeout per
+                        # inference, then combine without rewording any finding.
+                        batches = [[signal] for signal in task_signals] if len(task_signals) > 1 else [task_signals]
+                        for batch in batches:
+                            pieces.append(await asyncio.wait_for(
+                                request_report(batch), timeout=settings.ai_timeout_seconds))
+                        report = AgentReport(
+                            summary=f"Tổng hợp nguyên trạng {len(pieces)} lượt phân tích bounded.",
+                            findings=[Finding.model_validate(finding) for piece in pieces
+                                      for finding in piece.get("findings", [])],
+                            gaps=list(dict.fromkeys(gap for piece in pieces
+                                                   for gap in piece.get("gaps", []))),
+                        ).model_dump(mode="json")
                     reports[task_id] = report
                     task.summary = json.dumps(report, ensure_ascii=False)
                     task.status = TaskStatus.completed

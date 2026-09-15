@@ -195,3 +195,20 @@ chuyên gia domain. Output tiếng Việt, chỉ dùng signal/snapshot ID trong 
 hạn không dùng dữ liệu UAT để đầu tư. Đây là bằng chứng đạt Gate 4 về chức năng và baseline
 latency local; không phải chứng nhận rule, SLA production hoặc cho phép go-live. Collector
 shadow P1/P2 tiếp tục chạy độc lập, không API/AI/token; Fincept chưa được tích hợp.
+
+## 14. P3 batch tín hiệu shadow thật ngày 15/09/2026
+
+Batch UAT chỉ đọc SQLite shadow (`mode=ro`) và snapshot gốc; mọi mutation AI diễn ra trong
+state UAT riêng. Chọn signal active đa dạng analytical group, giữ signal ID gốc và bọc
+evidence projection trong snapshot mới có `shadow_snapshot_id`, số dòng đầy đủ, số dòng bị
+lược và 12 dòng cuối. Full immutable snapshot trong shadow vẫn là nguồn audit; projection không
+được diễn đạt thành lịch sử có thể chứng nhận rule. Mỗi signal được gửi tới chuyên gia đúng
+domain với citation allowlist riêng; các kết quả được hợp nhất lossless trong cùng một DAG.
+
+Lần đầu một request ba finding chạm timeout 600 giây nhưng không mất signal. Sau khi chia
+request và chiếu snapshot, batch MWG profit + HPG/FPT disclosure hoàn tất trong 518,657 giây
+với ba citation hợp lệ và không ghi shadow. Đây là kiểm chứng batch chức năng, **không đạt
+latency realtime**. Hai disclosure chỉ có title, không content, summary hoặc URL; không thể
+coi headline là xác minh nội dung doanh nghiệp. Evidence guard đã được bổ sung để giữ nguyên
+limitation gốc và bắt buộc gắn hạn chế title-only ở finding, qua test nhưng chưa benchmark lại
+trên Ollama. Mọi rule vẫn candidate/Radar; production/Fincept tiếp tục khóa.

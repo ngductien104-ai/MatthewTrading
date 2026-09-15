@@ -25,7 +25,7 @@ def main() -> int:
         Path(configured.state_dir).resolve(),
         (Path(args.config).resolve().parent / ".third-eyes-shadow").resolve(),
     }
-    if state_dir in forbidden:
+    if any(state_dir == root or state_dir.is_relative_to(root) for root in forbidden):
         parser.error("P3 UAT state must be isolated from production and shadow state")
     if state_dir.exists() and any(state_dir.iterdir()):
         parser.error("P3 UAT state directory must be new or empty")

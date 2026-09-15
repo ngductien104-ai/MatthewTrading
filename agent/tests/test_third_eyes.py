@@ -16,7 +16,8 @@ from src.third_eyes.detection import evaluate, confirm
 from src.third_eyes.research import backtest
 from src.third_eyes.service import Service
 from src.third_eyes.api import router
-from src.third_eyes.agents import local_endpoint, route_run, run_agents
+from src.third_eyes.agents import (AgentReport, local_endpoint, preserve_evidence_limitations,
+                                   run_agents)
 from src.third_eyes.portfolio import optional_number
 from src.third_eyes.datasets import build_dataset
 from src.third_eyes.__main__ import main
@@ -318,6 +319,65 @@ def test_third_eyes_routes_only_matching_domains_and_loads_snapshots(tmp_path):
     assert set(result["reports"]) == {"task_scout", "task_company", "task_commander"}
     assert set(result["task_durations_seconds"]) == {"task_scout", "task_company", "task_commander"}
     assert len(called_agents) == 1
+
+
+def test_third_eyes_shards_multi_signal_batch_and_merges_losslessly(tmp_path):
+    settings = Settings(state_dir=str(tmp_path), local_model="local")
+    store = Store(tmp_path)
+    first = signal()
+    first_snapshot = store.document({"source": "shadow", "entity": "VCB"})
+    first = first.model_copy(update={"snapshot": first_snapshot})
+    second_snapshot = store.document({"source": "shadow", "entity": "FPT"})
+    second = first.model_copy(update={"id": "second", "entity": "FPT",
+                                      "snapshot": second_snapshot})
+    calls = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        evidence = json.loads(payload["messages"][1]["content"])["evidence"]
+        assert len(evidence["signals"]) == 1
+        current = evidence["signals"][0]
+        calls.append(current["id"])
+        report = {"summary": "Một signal", "findings": [{
+            "signal_id": current["id"], "explanation": current["entity"],
+            "evidence_ids": [current["snapshot"]], "contradictions": [], "limitations": [],
+        }], "gaps": []}
+        return httpx.Response(200, json={"message": {"content": json.dumps(report)}})
+
+    async def execute():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await run_agents(settings, store, [first, second], client=client)
+
+    result = asyncio.run(execute())
+    assert result["status"] == "completed"
+    assert calls == [first.id, second.id]
+    assert {finding["signal_id"] for finding in result["reports"]["task_company"]["findings"]} == {
+        first.id, second.id,
+    }
+
+
+def test_title_only_evidence_and_original_limitations_cannot_be_hidden(tmp_path):
+    store = Store(tmp_path)
+    original = signal()
+    snapshot = store.document({"title": "Công bố thử nghiệm", "content": None, "summary": None})
+    original = original.model_copy(update={"snapshot": snapshot,
+                                           "limitations": ["Historical vintage not verified"]})
+    report = AgentReport.model_validate({"summary": "Đã xem tin", "findings": [{
+        "signal_id": original.id, "explanation": "Có công bố", "evidence_ids": [snapshot],
+        "limitations": ["Dữ liệu giới hạn"],
+    }]})
+    guarded = preserve_evidence_limitations(report, [original], {snapshot: store.evidence(snapshot)})
+    assert "Historical vintage not verified" in guarded.findings[0].limitations
+    assert any("Chỉ có tiêu đề" in item for item in guarded.findings[0].limitations)
+
+
+def test_shadow_batch_projection_retains_full_snapshot_provenance():
+    from scripts.uat_third_eyes_shadow_batch import evidence_projection
+    rows = [{"value": index} for index in range(20)]
+    projection = evidence_projection(rows)
+    assert projection["total_rows"] == 20
+    assert projection["omitted_rows"] == 8
+    assert projection["rows"] == rows[-12:]
 
 
 def test_third_eyes_rejects_missing_snapshot_before_model_call(tmp_path):

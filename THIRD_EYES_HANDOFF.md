@@ -97,6 +97,20 @@ riêng nằm dưới `.third-eyes-p3-uat/*-fast-20260915/uat-report.json`. Đây
 không phải SLA production. Collector shadow vẫn chạy state riêng; production và Fincept tiếp
 tục khóa.
 
+UAT P3 batch từ shadow ngày 15/09/2026: SQLite shadow được mở `mode=ro`; signal và
+immutable snapshot được import theo hash gốc sang state cô lập. Batch ba signal khác nhóm
+(MWG profit, HPG news, FPT news) ban đầu chạm timeout 600 giây khi ép một JSON gồm ba finding;
+signal UAT vẫn được giữ và shadow không bị ghi. Executor sau đó chia một request bounded cho
+mỗi signal, giữ allowlist citation riêng, rồi hợp nhất các finding bằng code deterministic.
+Snapshot dài được chiếu 12 dòng cuối kèm hash gốc, `total_rows` và `omitted_rows`; full snapshot
+trong shadow không thay đổi. Lượt chạy lại hoàn tất cả ba trong 518,657 giây, không lỗi AI và
+signal UAT được giữ. Report riêng là
+`.third-eyes-p3-uat/shadow-batch-projected-20260915/uat-report.json`. Source disclosure chỉ có
+tiêu đề, không có nội dung/URL; code hiện bắt buộc ghi giới hạn này và giữ nguyên limitation
+gốc ở mỗi finding. Guard vừa bổ sung đã qua test, chưa được đo lại bằng Ollama sau lượt batch
+thành công. P3 đạt đường chạy batch non-production, nhưng chưa đạt mục tiêu latency realtime
+hay xác minh chất lượng tin đầy đủ; không promote rule hoặc bật production.
+
 ### Gate 5 — tích hợp Fincept
 
 1. Đưa checkout/version Fincept Terminal vào workspace hoặc cung cấp đường dẫn repo. Xác định framework desktop, backend ownership và cách lưu secret.
