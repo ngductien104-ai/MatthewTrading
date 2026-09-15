@@ -210,5 +210,10 @@ request và chiếu snapshot, batch MWG profit + HPG/FPT disclosure hoàn tất 
 với ba citation hợp lệ và không ghi shadow. Đây là kiểm chứng batch chức năng, **không đạt
 latency realtime**. Hai disclosure chỉ có title, không content, summary hoặc URL; không thể
 coi headline là xác minh nội dung doanh nghiệp. Evidence guard đã được bổ sung để giữ nguyên
-limitation gốc và bắt buộc gắn hạn chế title-only ở finding, qua test nhưng chưa benchmark lại
-trên Ollama. Mọi rule vẫn candidate/Radar; production/Fincept tiếp tục khóa.
+limitation gốc và bắt buộc gắn hạn chế title-only ở finding. Lượt đối chứng dùng đúng signal ID
+và snapshot MWG/HPG/FPT sau guard hoàn tất trong 217,724 giây. Quality audit đọc shadow
+`mode=ro` và kiểm 3/3 signal về citation allowlist, limitation, title-only và các cụm khuyến nghị
+giao dịch bị cấm. Kết quả đóng gate chức năng batch P3 non-production, nhưng không chứng nhận
+độ đúng headline hoặc suy luận nhân quả, không đạt SLA realtime và không thay thế P2 certificate.
+Các UAT sau có thể chọn signal ID explicit để so sánh có thể tái lập. Mọi rule vẫn candidate/Radar;
+production/Fincept tiếp tục khóa.

@@ -107,9 +107,14 @@ trong shadow không thay đổi. Lượt chạy lại hoàn tất cả ba trong 
 signal UAT được giữ. Report riêng là
 `.third-eyes-p3-uat/shadow-batch-projected-20260915/uat-report.json`. Source disclosure chỉ có
 tiêu đề, không có nội dung/URL; code hiện bắt buộc ghi giới hạn này và giữ nguyên limitation
-gốc ở mỗi finding. Guard vừa bổ sung đã qua test, chưa được đo lại bằng Ollama sau lượt batch
-thành công. P3 đạt đường chạy batch non-production, nhưng chưa đạt mục tiêu latency realtime
-hay xác minh chất lượng tin đầy đủ; không promote rule hoặc bật production.
+gốc ở mỗi finding. Lượt đối chứng qua Ollama dùng đúng ba signal ID MWG/HPG/FPT của lượt
+trước hoàn tất trong 217,724 giây (so với 518,657 giây), cả ba `ai_status=completed` và signal
+UAT được giữ. Finding HPG/FPT giữ limitation gốc và ghi “Chỉ có tiêu đề công bố; chưa xác minh
+nội dung đầy đủ hoặc nguồn gốc”; MWG giữ nguyên cảnh báo vintage và quan sát trễ. Quality gate
+độc lập kiểm citation allowlist, limitation gốc, title-only và không có khuyến nghị giao dịch bị
+cấm: 3/3 signal đạt. Report là `.third-eyes-p3-uat/shadow-batch-guarded-20260915/uat-report.json`.
+Gate này chỉ chứng nhận contract giải thích UAT, không xác thực toàn bộ sự thật trong headline,
+không chứng nhận rule/SLA realtime; không promote rule hoặc bật production.
 
 ### Gate 5 — tích hợp Fincept
 

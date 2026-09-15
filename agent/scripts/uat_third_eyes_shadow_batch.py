@@ -81,12 +81,58 @@ def evidence_projection(value, tail_rows: int = 12):
     return {"projection": "complete", "value": value}
 
 
+def audit_batch_output(output: dict, shadow_root: Path) -> dict:
+    """Check UAT citations and source limitations without mutating either store."""
+    source_signals, _, _ = read_shadow(shadow_root)
+    originals = {signal.id: signal for signal in source_signals}
+    imported = {item["signal_id"]: item for item in output["signals"]}
+    reports = (output.get("result") or {}).get("reports", {})
+    commander = reports.get("task_commander", {})
+    findings = commander.get("findings", [])
+    by_id = {finding.get("signal_id"): finding for finding in findings}
+    checks = {}
+    forbidden_advice = ("khuyến nghị mua", "khuyến nghị bán", "nên mua", "nên bán",
+                        "đặt lệnh", "tăng tỷ trọng", "giảm tỷ trọng")
+    for signal_id, item in imported.items():
+        original = originals.get(signal_id)
+        finding = by_id.get(signal_id)
+        reasons = []
+        if original is None or finding is None:
+            reasons.append("missing_original_or_finding")
+        else:
+            citations = set(finding.get("evidence_ids", []))
+            if not citations or not citations <= {signal_id, item["uat_snapshot"]}:
+                reasons.append("invalid_citation")
+            limitations = set(finding.get("limitations", []))
+            original_limitations = set(item.get("original_limitations", original.limitations))
+            if not original_limitations <= limitations:
+                reasons.append("lost_original_limitation")
+            evidence = read_snapshot(shadow_root, item["original_snapshot"])
+            if (isinstance(evidence, dict) and evidence.get("title")
+                    and not evidence.get("content") and not evidence.get("summary")
+                    and not any("Chỉ có tiêu đề" in text for text in limitations)):
+                reasons.append("missing_title_only_limitation")
+            rendered = (finding.get("explanation", "") + " " +
+                        reports.get("task_company", {}).get("summary", "")).lower()
+            if any(phrase in rendered for phrase in forbidden_advice):
+                reasons.append("trading_advice")
+        checks[signal_id] = {"passed": not reasons, "reasons": reasons}
+    overall = (output.get("result") or {}).get("status") == "completed"
+    overall = overall and output.get("signals_preserved") is True
+    overall = overall and len(by_id) == len(imported) and all(value["passed"] for value in checks.values())
+    return {"passed": overall, "checks": checks,
+            "duration_seconds": (output.get("result") or {}).get("duration_seconds"),
+            "realtime_sla_certified": False}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="../third-eyes.json")
     parser.add_argument("--shadow-state", default="../.third-eyes-shadow")
     parser.add_argument("--state-dir", required=True)
     parser.add_argument("--limit", type=int, default=3, choices=(2, 3))
+    parser.add_argument("--signal-id", action="append", default=[],
+                        help="Replay a specific active shadow signal ID; repeat for each signal")
     args = parser.parse_args()
 
     config_path = Path(args.config).resolve()
@@ -100,7 +146,18 @@ def main() -> int:
         parser.error("Batch UAT state directory must be new or empty")
 
     shadow_signals, coverage, portfolio = read_shadow(shadow_root)
-    selected = diverse_active(shadow_signals, args.limit)
+    if args.signal_id:
+        if len(args.signal_id) != args.limit or len(set(args.signal_id)) != args.limit:
+            parser.error("Provide exactly --limit distinct shadow signal IDs")
+        available = {signal.id: signal for signal in shadow_signals}
+        unknown = set(args.signal_id) - set(available)
+        if unknown:
+            parser.error("Unknown shadow signal IDs: " + ", ".join(sorted(unknown)))
+        selected = [available[signal_id] for signal_id in args.signal_id]
+        if any(signal.state == "expired" for signal in selected):
+            parser.error("Explicit shadow batch requires active signals; expired history is not live UAT")
+    else:
+        selected = diverse_active(shadow_signals, args.limit)
     if len(selected) < args.limit:
         parser.error(f"Need {args.limit} diverse active shadow signals; found {len(selected)}")
     missing = [signal.snapshot for signal in selected
@@ -147,6 +204,8 @@ def main() -> int:
             "entity": candidate.entity,
             "indicator": candidate.indicator,
             "domain": candidate.domain,
+            "original_state": signal.state,
+            "original_limitations": list(signal.limitations),
             "original_snapshot": original_snapshot,
             "uat_snapshot": snapshot,
         })
@@ -166,10 +225,11 @@ def main() -> int:
         "ai_statuses": {signal.id: signal.ai_status for signal in persisted if signal},
         "result": result,
     }
+    output["quality_gate"] = audit_batch_output(output, shadow_root)
     target = state_dir / "uat-report.json"
     target.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(output, ensure_ascii=False, indent=2))
-    return 0 if result and result.get("status") == "completed" else 1
+    return 0 if output["quality_gate"]["passed"] else 1
 
 
 if __name__ == "__main__":

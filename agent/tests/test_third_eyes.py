@@ -380,6 +380,29 @@ def test_shadow_batch_projection_retains_full_snapshot_provenance():
     assert projection["rows"] == rows[-12:]
 
 
+def test_shadow_batch_quality_gate_flags_missing_title_only_limitation(tmp_path, monkeypatch):
+    from scripts import uat_third_eyes_shadow_batch as batch
+    original = signal().model_copy(update={"limitations": ["Original limitation"]})
+    monkeypatch.setattr(batch, "read_shadow", lambda root: ([original], [], {}))
+    monkeypatch.setattr(batch, "read_snapshot", lambda root, key: {
+        "title": "Tin thử nghiệm", "content": None, "summary": None,
+    })
+    output = {"signals": [{"signal_id": original.id, "original_snapshot": original.snapshot,
+                           "uat_snapshot": "new-snapshot"}],
+              "signals_preserved": True,
+              "result": {"status": "completed", "duration_seconds": 1.0,
+                         "reports": {"task_commander": {"findings": [{
+                             "signal_id": original.id, "evidence_ids": ["new-snapshot"],
+                             "limitations": ["Original limitation"], "explanation": "Có tin",
+                         }]}}}}
+    quality = batch.audit_batch_output(output, tmp_path)
+    assert not quality["passed"]
+    assert quality["checks"][original.id]["reasons"] == ["missing_title_only_limitation"]
+    output["result"]["reports"]["task_commander"]["findings"][0]["limitations"].append(
+        "Chỉ có tiêu đề công bố; chưa xác minh nội dung đầy đủ hoặc nguồn gốc")
+    assert batch.audit_batch_output(output, tmp_path)["passed"]
+
+
 def test_third_eyes_rejects_missing_snapshot_before_model_call(tmp_path):
     settings = Settings(state_dir=str(tmp_path), local_model="local")
     with pytest.raises(ValueError, match="Missing immutable evidence snapshot"):
