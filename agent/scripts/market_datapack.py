@@ -69,6 +69,11 @@ SECTOR_HORIZON = 60
 INDICES = ["VNINDEX", "VN30INDEX", "HNXINDEX", "UPCOMINDEX"]
 # ETF thanh khoan - phai tach khoi dong ngoai CHU DONG.
 ETF_SYMBOLS = {"E1VFVN30", "FUEVFVND", "FUESSVFL", "FUEVN100", "FUEMAV30", "FUEDCMID"}
+# Nguong ty le ma loi khi keo tu DataPro. Cac phien binh thuong (09-21/09/2026)
+# deu 0 loi; su co 22/09/2026 la 952/1529 = 62% do DataPro vua khoi dong lai
+# bi dong dap qua som. 10% la muc du rong cho vai chuc ma le te (mat ket noi,
+# ma moi niem yet chua co du lieu) nhung van bat duoc mot su co dien rong.
+FAIL_RATE_LIMIT = 0.10
 
 
 def _to_ty(value: float, instrument: str) -> float:
@@ -535,6 +540,27 @@ def main() -> int:
     frames, failed = scan(symbols + INDICES, start, end, args.workers)
     print("      co bar: %d, loi: %d" % (len(frames), len(failed)), flush=True)
 
+    # Do 22/09/2026: DataPro vua khoi dong lai bi 8 luong song song dong dap
+    # ngay khi chua on dinh -> 952/1529 ma loi "not answering"/503, nhung van
+    # con 571 ma co bar (qua duoc nguong len(stocks)<100 ben duoi) nen script
+    # van chay tiep va ghi MANIFEST nhu khong co gi xay ra. Ty le loi 62% do
+    # la mot lan chan rieng, khong the gop vao check so luong tuyet doi.
+    n_scanned = len(symbols) + len(INDICES)
+    fail_rate = len(failed) / n_scanned if n_scanned else 0.0
+    if fail_rate > FAIL_RATE_LIMIT:
+        (outdir / "fetch_errors.txt").write_text(
+            "\n".join(f"{sym}\t{err}" for sym, err in sorted(failed.items())),
+            encoding="utf-8",
+        )
+        print(
+            "LOI: %d/%d ma loi khi keo (%.0f%%), vuot nguong %.0f%%. "
+            "DataPro co the vua khoi dong lai / chua on dinh - dung, khong ghi "
+            "MANIFEST. Xem %s/fetch_errors.txt, doi vai phut roi chay lai."
+            % (len(failed), n_scanned, fail_rate * 100, FAIL_RATE_LIMIT * 100, outdir),
+            file=sys.stderr,
+        )
+        return 1
+
     print("[3/5] Tinh chi so, do rong, nganh...", flush=True)
     idx_rows = index_rows(frames, today)
     vni = next((r for r in idx_rows if r["index"] == "VNINDEX" and r["status"] == "OK"), None)
@@ -609,6 +635,10 @@ def main() -> int:
     if failed:
         (outdir / "fetch_errors.txt").write_text(
             "\n".join("%s\t%s" % (k, v) for k, v in sorted(failed.items())), encoding="utf-8")
+    else:
+        # Khong de file loi cua mot lan quet truoc song sot ben canh manifest
+        # moi ghi "0 loi" — agent/editor se doc nham no thanh loi hien tai.
+        (outdir / "fetch_errors.txt").unlink(missing_ok=True)
 
     print("\nXONG -> %s" % outdir)
     print("  %d ma giao dich | ngoai rong %s ty | tu doanh %s"
