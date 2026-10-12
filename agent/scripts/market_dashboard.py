@@ -409,14 +409,16 @@ footer b{color:var(--fg);font-weight:600}
 
 # ── du lieu cho widget tuong tac ─────────────────────────────────────────
 
-def sector_payload(pack: Path):
+def sector_payload(pack: Path, combined_complete=True):
     """Gop chuoi dong tien + ma trong nganh thanh khoi JSON cho Sector Flow."""
     series = defaultdict(list)
     names = {}
     for r in read_csv(pack / "sector_series.csv"):
+        # Tu doanh "N/A" (phien chua ve) giu la None, khong doc thanh 0.
         series[r["icb_code"]].append([r["date"][5:].replace("-", "/"),
                                       round(num(r["foreign_net_ty"]), 2),
-                                      round(num(r["prop_net_ty"]), 2)])
+                                      None if r["prop_net_ty"] == "N/A"
+                                      else round(num(r["prop_net_ty"]), 2)])
         names[r["icb_code"]] = r["icb_name"]
     members = defaultdict(list)
     for r in read_csv(pack / "sector_members.csv"):
@@ -427,10 +429,12 @@ def sector_payload(pack: Path):
     counts = {r["icb_code"]: int(num(r["n_symbols"])) for r in read_csv(pack / "sector.csv")}
     out = []
     for code, rows in series.items():
-        ms = sorted(members.get(code, []), key=lambda m: -abs(m["c"]))[:12]
+        rank_key = "c" if combined_complete else "f"
+        ms = sorted(members.get(code, []), key=lambda m: -abs(m[rank_key]))[:12]
         out.append({"code": code, "name": names[code], "n": counts.get(code, len(members.get(code, []))),
                     "series": rows[-60:], "members": ms})
-    out.sort(key=lambda x: -sum(r[1] + r[2] for r in x["series"][-30:]))
+    out.sort(key=lambda x: -sum(
+        r[1] + (r[2] if combined_complete else 0) for r in x["series"][-30:]))
     return out
 
 
@@ -577,11 +581,13 @@ def chart_svg(series, h):
     pts = []
     for t, f, p in sl:
         cf += f
-        cp += p
-        pts.append((t, cf, cp))
+        if p is not None:
+            cp += p
+        # Phien tu doanh N/A: khong ve diem tu doanh (khong noi phang bang 0).
+        pts.append((t, cf, cp if p is not None else None))
     if not pts:
         return f'<svg class="sf-chart" viewBox="0 0 {W} {HT}" role="img"></svg>'
-    vals = [v for _, a, b in pts for v in (a, b)]
+    vals = [v for _, a, b in pts for v in (a, b) if v is not None]
     mn, mx = min([0.0] + vals), max([0.0] + vals)
     pad = max((mx - mn) * .12, abs(mx or mn or 1) * .03, 1e-9)
     lo, hi = mn - pad, mx + pad
@@ -604,7 +610,7 @@ def chart_svg(series, h):
     if lo < 0 < hi:
         g.append(f'<line x1="{L}" x2="{W - R}" y1="{Y(0):.1f}" y2="{Y(0):.1f}" stroke="var(--fg)"/>')
     fl = " ".join(f"{X(i):.1f},{Y(p[1]):.1f}" for i, p in enumerate(pts))
-    pl = " ".join(f"{X(i):.1f},{Y(p[2]):.1f}" for i, p in enumerate(pts))
+    pl = " ".join(f"{X(i):.1f},{Y(p[2]):.1f}" for i, p in enumerate(pts) if p[2] is not None)
     area = ("M" + f"{X(0):.1f} {Y(0):.1f}"
             + "".join(f" L{X(i):.1f} {Y(p[1]):.1f}" for i, p in enumerate(pts))
             + f" L{X(n - 1):.1f} {Y(0):.1f} Z")
@@ -619,7 +625,7 @@ def chart_svg(series, h):
             f'stroke-dasharray="6 4"></polyline>{xl}</svg>')
 
 
-def block_sector_flow(payload):
+def block_sector_flow(payload, combined_complete=True):
     """Ban do nhiet dong tien nganh - tuong tac bang CSS thuan, khong JavaScript.
 
     Hai nhom radio an (chan troi va nganh) dieu khien toan bo widget qua bo
@@ -641,7 +647,8 @@ def block_sector_flow(payload):
 
     heats, scales = [], []
     for h in HORIZONS:
-        nets = [sum(r[1] + r[2] for r in s["series"][-h:]) for s in payload]
+        nets = [sum(r[1] + (r[2] if combined_complete else 0)
+                    for r in s["series"][-h:]) for s in payload]
         scale = max([1.0] + [abs(v) for v in nets])
         scales.append(f'<span class="sf-scale dim" data-h="{h}">THANG {esc(ty(scale))} · '
                       f'{ns} NGÀNH ICB CẤP 2</span>')
@@ -662,7 +669,10 @@ def block_sector_flow(payload):
         rows = "".join(
             f'<tr><td class="sym">{esc(m["s"])}</td><td class="{cls(m["f"])}">{esc(ty(m["f"]))}</td>'
             f'<td class="{cls(m["p"])}">{esc(ty(m["p"]))}</td>'
-            f'<td class="{cls(m["c"])}">{esc(ty(m["c"]))}</td></tr>' for m in s["members"])
+            + (f'<td class="{cls(m["c"])}">{esc(ty(m["c"]))}</td>'
+               if combined_complete else '')
+            + '</tr>' for m in s["members"])
+        total_head = '<th>Tổng</th>' if combined_complete else ''
         dets.append(
             f'<div class="sf-det" data-i="{i}">'
             f'<div class="row" style="margin-top:var(--s3)">'
@@ -671,18 +681,19 @@ def block_sector_flow(payload):
             f'<div class="label" style="margin:var(--s3) 0 var(--s1)">Mã trong ngành · '
             f'{len(s["members"])} · luỹ kế 30 phiên</div>'
             f'<div class="tw"><table class="t zebra"><thead><tr><th>Mã</th><th>Khối ngoại</th>'
-            f'<th>Tự doanh</th><th>Tổng</th></tr></thead><tbody>{rows}</tbody></table></div></div>')
+            f'<th>Tự doanh</th>{total_head}</tr></thead><tbody>{rows}</tbody></table></div></div>')
 
     # Bieu do + luy ke: doi theo CA hai truc.
     charts = []
     for i, s in enumerate(payload):
         for h in HORIZONS:
             sl = s["series"][-h:]
-            cum = sum(r[1] + r[2] for r in sl)
+            cum = sum(r[1] + (r[2] if combined_complete else 0) for r in sl)
+            cum_label = "ngoại + tự doanh" if combined_complete else "khối ngoại"
             charts.append(
                 f'<div class="sf-ch" data-i="{i}" data-h="{h}">{chart_svg(s["series"], h)}'
                 f'<div class="row" style="font-size:var(--fs-xs);margin-top:var(--s2)">'
-                f'<span>Luỹ kế {len(sl)} phiên <b class="{cls(cum)}">{esc(ty(cum))}</b></span>'
+                f'<span>Luỹ kế {cum_label} {len(sl)} phiên <b class="{cls(cum)}">{esc(ty(cum))}</b></span>'
                 f'<span class="right dim" style="font-size:var(--fs-micro)">'
                 f'<span style="color:var(--live)">━</span> khối ngoại &nbsp;'
                 f'<span style="color:var(--fg)">╌</span> tự doanh</span></div></div>')
@@ -923,10 +934,9 @@ def build(pack: Path, session: str, nar: dict) -> str:
 
     n_traded = sum(int(num(r["traded"])) for r in breadth if r["scope"] == "TOAN_TT")
     bullets = "".join(f"<p>{esc(b)}</p>" for b in nar.get("bullets", []))
-    contra = "".join(call(f"Mâu thuẫn {i}", esc(c))
-                     for i, c in enumerate(nar.get("contradictions") or [], 1))
 
-    sectors = sector_payload(pack)
+    prop_na = any(str(r.get("prop_net_ty")) == "N/A" for r in sector)
+    sectors = sector_payload(pack, combined_complete=not prop_na)
     frn_buy = sorted(fsess, key=lambda r: -num(r["foreign_net_ty"]))
     frn_sell = sorted(fsess, key=lambda r: num(r["foreign_net_ty"]))
     flips = [r for r in f30 if r.get("flip")]
@@ -944,13 +954,14 @@ def build(pack: Path, session: str, nar: dict) -> str:
         panel("Tóm lược phiên", f"{n_traded} mã giao dịch",
               f'<div class="lede">{bullets}</div>'
               f'<div class="row" style="margin-top:var(--s3)">'
-              f'<span class="chip {"on" if vcls == "up" else "act"}">{vtext}</span></div>'
-              + contra),
+              f'<span class="chip {"on" if vcls == "up" else "act"}">{vtext}</span></div>'),
         panel("Bản đồ nhiệt ngành · Sector Flow",
-              "Khối ngoại + tự doanh · lũy kế theo chân trời",
-              block_sector_flow(sectors),
-              '<span>Nguồn DataPro · lũy kế theo chân trời đang chọn</span>'
-              '<span class="right">Ô nhiệt tô theo dòng tiền ròng, không phải %thay đổi giá</span>'),
+              ("Khối ngoại · tự doanh phiên hiện tại chưa công bố"
+               if prop_na else "Khối ngoại + tự doanh · lũy kế theo chân trời"),
+              block_sector_flow(sectors, combined_complete=not prop_na),
+              ('<span>Nguồn DataPro · ô nhiệt dùng riêng khối ngoại vì tự doanh phiên hiện tại đang N/A</span>'
+               if prop_na else '<span>Nguồn DataPro · lũy kế theo chân trời đang chọn</span>')
+              + '<span class="right">Ô nhiệt tô theo dòng tiền ròng, không phải %thay đổi giá</span>'),
         panel("Độ rộng thị trường",
               "Trần sàn tính từ giá tham chiếu · HOSE 7% HNX 10% UPCOM 15%",
               block_breadth(breadth, ad)

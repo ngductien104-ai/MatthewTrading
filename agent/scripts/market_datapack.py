@@ -203,6 +203,9 @@ def index_rows(frames, today):
                 clamped = 1
                 hi, lo = max(hi, close), min(lo, close)
         hist_val = df["value"].tail(20).map(lambda v: _to_ty(v, "index"))
+        closes = df.loc[:today, "close"].dropna()
+        ma = {n: (round(float(closes.tail(n).mean()), 2) if len(closes) >= n else "")
+              for n in (20, 50, 200)}
         rows.append({
             "index": sym,
             "close": round(float(close), 2),
@@ -217,6 +220,7 @@ def index_rows(frames, today):
             "value_vs_avg20_pct": round(
                 _to_ty(r.get("value", 0) or 0, "index") / hist_val.mean() * 100 - 100, 1
             ) if hist_val.mean() else "",
+            "ma20": ma[20], "ma50": ma[50], "ma200": ma[200],
             "status": "OK",
         })
     return rows
@@ -279,11 +283,17 @@ def ad_line_rows(frames, universe, sessions):
 
 
 def sector_rows(stocks, prop_available):
-    df = pd.DataFrame(stocks)
-    df = df[(df["volume"] > 0) & (df["is_etf"] == 0)]
+    all_df = pd.DataFrame(stocks)
+    all_df = all_df[all_df["is_etf"] == 0]
+    df = all_df[all_df["volume"] > 0]
     total_val = df["value_ty"].sum()
     out = []
     for (code, name), g in df.groupby(["icb_code", "icb_name"]):
+        # Gia, do rong va GTGD la cua cac ma co giao dich hom nay. Dong tien
+        # luy ke phai tinh tren TOAN BO ma trong nganh: neu loai mot ma chi vi
+        # hom nay no khong khop lenh, tong 30 phien se lech voi sector_series
+        # va bang thanh vien cua Sector Flow.
+        hist_g = all_df[(all_df["icb_code"] == code) & (all_df["icb_name"] == name)]
         cap = pd.to_numeric(g["market_cap_ty"], errors="coerce")
         w = cap / cap.sum() if cap.sum() and pd.notna(cap.sum()) else None
         wpct = float((g["pct_change"] * w).sum()) if w is not None else float(g["pct_change"].mean())
@@ -301,15 +311,18 @@ def sector_rows(stocks, prop_available):
             if total_val else "",
             "market_cap_ty": round(float(cap.sum()), 1) if pd.notna(cap.sum()) else "",
             "foreign_net_ty": round(float(g["foreign_net_ty"].sum()), 3),
-            "foreign_net_30d_ty": round(float(g["foreign_net_30d_ty"].sum()), 3),
+            "foreign_net_30d_ty": round(float(hist_g["foreign_net_30d_ty"].sum()), 3),
             "prop_net_ty": round(float(g["prop_net_ty"].sum()), 3) if prop_available else "N/A",
-            "prop_net_30d_ty": round(float(g["prop_net_30d_ty"].sum()), 3),
-            "put_through_ty": round(float(g["put_through_ty"].sum()), 3),
+            "prop_net_30d_ty": round(float(hist_g["prop_net_30d_ty"].sum()), 3),
+            # Thoa thuan tinh tren hist_g: ma chi co thoa thuan, khong khop lenh
+            # (volume = 0) van la thoa thuan that - do 12/10/2026 bo sot 58,6 ty
+            # (TPP, BTT, TAB...) khi chi cong tren g.
+            "put_through_ty": round(float(hist_g["put_through_ty"].sum()), 3),
         })
     return sorted(out, key=lambda r: -r["value_ty"])
 
 
-def sector_series_rows(frames, universe, sessions):
+def sector_series_rows(frames, universe, sessions, prop_available=True):
     """Dong tien ngoai va tu doanh theo NGAY cho tung nganh ICB cap 2.
 
     Widget Sector Flow ve duong luy ke, nen no can chuoi theo phien chu khong
@@ -317,6 +330,8 @@ def sector_series_rows(frames, universe, sessions):
     phan detail cua widget khong ve duoc.
 
     Don vi: ty VND, cung thang voi moi cot ``*_ty`` khac trong pack.
+    ``prop_available=False``: tu doanh PHIEN CUOI chua ve -> ghi ``N/A`` cho
+    phien do thay vi 0 (DataPro tra 0 cho du lieu chua cong bo).
     """
     meta = universe.set_index("symbol")[["icb_code_lv2", "icb_name"]].to_dict("index")
     day_index = {d: i for i, d in enumerate(sessions)}
@@ -341,6 +356,7 @@ def sector_series_rows(frames, universe, sessions):
             slot[i][1] += float(pv)
 
     rows = []
+    last = len(sessions) - 1
     for (code, name), vals in sorted(acc.items()):
         for i, day in enumerate(sessions):
             rows.append({
@@ -348,16 +364,22 @@ def sector_series_rows(frames, universe, sessions):
                 "icb_code": code,
                 "icb_name": name,
                 "foreign_net_ty": round(_to_ty(vals[i][0], "equity"), 4),
-                "prop_net_ty": round(_to_ty(vals[i][1], "equity"), 4),
+                "prop_net_ty": (round(_to_ty(vals[i][1], "equity"), 4)
+                                if prop_available or i != last else "N/A"),
             })
     return rows
 
 
-def sector_member_rows(stocks, sessions):
+def sector_member_rows(stocks, sessions, prop_available=True):
     """Ma trong tung nganh voi dong tien luy ke - bang duoi cua Sector Flow.
 
     ``observations`` la so phien ma co bar trong cua so, de widget loc bo ma
     khong giao dich thay vi hien mot dong toan so 0.
+
+    Khi tu doanh phien chua ve (``prop_available=False``): ``prop_net_ty`` ghi
+    ``N/A`` (khong phai 0), va ``combined_net_30d_ty`` cung ``N/A`` vi
+    ``prop_net_30d_ty`` luc nay chi gom cac phien da chot, cong voi ngoai 30
+    phien la tron hai cua so (MANIFEST quy tac 7).
     """
     rows = []
     for s in stocks:
@@ -369,14 +391,16 @@ def sector_member_rows(stocks, sessions):
             "symbol": s["symbol"],
             "foreign_net_30d_ty": s["foreign_net_30d_ty"],
             "prop_net_30d_ty": s["prop_net_30d_ty"],
-            "combined_net_30d_ty": round(
-                s["foreign_net_30d_ty"] + s["prop_net_30d_ty"], 4),
+            "combined_net_30d_ty": (round(
+                s["foreign_net_30d_ty"] + s["prop_net_30d_ty"], 4)
+                if prop_available else "N/A"),
             "foreign_net_ty": s["foreign_net_ty"],
-            "prop_net_ty": s["prop_net_ty"],
+            "prop_net_ty": s["prop_net_ty"] if prop_available else "N/A",
             "value_ty": s["value_ty"],
             "pct_change": s["pct_change"],
         })
-    return sorted(rows, key=lambda r: (r["icb_name"], -abs(r["combined_net_30d_ty"])))
+    rank = "combined_net_30d_ty" if prop_available else "foreign_net_30d_ty"
+    return sorted(rows, key=lambda r: (r["icb_name"], -abs(r[rank])))
 
 
 def leader_rows(stocks, index_level, top=25):
@@ -476,7 +500,7 @@ MANIFEST_TEMPLATE = """# Data pack thi truong VN - {end}
 | Ma co giao dich | {n_traded} |
 | Ma loi khi keo | {n_failed} |
 | Ngoai rong phien | {frn_total} ty VND |
-| Ngoai rong 30 phien | {frn_30} ty VND |
+| Ngoai rong 30 phien | {frn_30} ty VND (chi ma CO khop lenh hom nay; tong `sector.csv` cong ca ma khong khop nen lech nhe) |
 | Tu doanh rong phien | {prop_total} |
 
 ## Quy tac bat buoc voi agent
@@ -490,18 +514,24 @@ MANIFEST_TEMPLATE = """# Data pack thi truong VN - {end}
 3. **`idx_points_est` la UOC LUONG** theo von hoa niem yet, khong phai so
    free-float cua HOSE. Dung de xep hang, khong trich nhu so chinh thuc.
 4. GTGD da quy ve **ty VND** o tang script (co phieu nghin VND, chi so trieu VND).
+   `value_ty` (ma, nganh) la **KHOP LENH**, KHONG gom thoa thuan; tong nganh
+   gom ca HOSE+HNX+UPCOM (tru ETF) nen khac GTGD VN-Index (chi HOSE).
 5. `put_through_ty` la **thoa thuan** - sang tay, khong phai quan diem chon ma.
-   Tru ra truoc khi ket luan ve dong tien chu dong.
+   Tru ra truoc khi ket luan ve dong tien chu dong. Ty trong thoa thuan tren
+   tong GTGD = put_through / (value + put_through), khong chia cho rieng value.
 6. `range_clamped = 1` trong `index.csv` nghia la trong phien DataPro tra `close`
    nam NGOAI khoang `low`-`high` (cap nhat khong dong bo, da do 09/09/2026 14:33:
    VN30INDEX close 1958.21 duoi low 1966.06). Script da noi rong khoang de no
    khong tu mau thuan; khi co co nay thi bien do trong phien la UOC LUONG.
+7. Khi tu doanh phien hien tai la `N/A`, cam cong ngoai + tu doanh thanh Sector
+   Flow hoan chinh. Dashboard se dung rieng dong ngoai cho o nhiet va ghi ro
+   che do nay; duong tu doanh chi la phan lich su DataPro da cong bo.
 
 ## File
 
 | File | Noi dung |
 |---|---|
-| `index.csv` | 4 chi so: diem, +/-, %, bien do, GTGD ty, so voi BQ20 |
+| `index.csv` | 4 chi so: diem, +/-, %, bien do, GTGD ty, so voi BQ20, MA20/50/200 cua chi so (tinh tu close DataPro) |
 | `breadth.csv` | Do rong theo TOAN_TT/HOSE/HNX/UPCOM: tang/giam/TC, tran/san, %MA20/50/200 |
 | `ad_line.csv` | Duong A/D {lookback} phien |
 | `sector.csv` | ICB cap 2: %thay doi gia quyen von hoa, GTGD, do rong noi nganh, ngoai/tu doanh |
@@ -600,9 +630,9 @@ def main() -> int:
     long_sessions = (list(vni_df.index[-SECTOR_HORIZON:])
                      if vni_df is not None else sessions)
     write_csv(outdir / "sector_series.csv",
-              sector_series_rows(frames, universe, long_sessions))
+              sector_series_rows(frames, universe, long_sessions, prop_available))
     write_csv(outdir / "sector_members.csv",
-              sector_member_rows(stocks, long_sessions))
+              sector_member_rows(stocks, long_sessions, prop_available))
 
     print("[4/5] Xep hang dan dat va dong tien...", flush=True)
     leaders, movers = leader_rows(stocks, vni["close"] if vni else None)

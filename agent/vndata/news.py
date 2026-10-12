@@ -156,7 +156,11 @@ def _published(node) -> datetime | None:
             continue
         raw = el.text.strip()
         try:
-            dt = email.utils.parsedate_to_datetime(raw)
+            # TinnhanhCK ghi offset co dau hai cham ("+07:00"); email.utils bo
+            # qua dang nay, tra datetime naive, roi bi gan UTC ben duoi -> lech
+            # 7 gio (do 12/10/2026). Bo dau hai cham truoc khi parse.
+            dt = email.utils.parsedate_to_datetime(
+                re.sub(r"([+-]\d{2}):(\d{2})$", r"\1\2", raw))
         except (TypeError, ValueError):
             try:
                 dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))

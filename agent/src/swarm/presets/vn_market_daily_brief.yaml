@@ -270,7 +270,10 @@ agents:
       1. **KIỂM MÂU THUẪN CHÉO TRƯỚC KHI VIẾT.** Ví dụ: market_action nói "độ rộng phân kỳ"
          trong khi sector_desk nói "dòng tiền lan toả"; hoặc flow_desk nói khối ngoại gom
          ngân hàng trong khi sector_desk xếp ngân hàng vào ô "phân phối". Gặp mâu thuẫn thì
-         **đưa ra mặt báo** trong mảng `contradictions`, KHÔNG được im lặng chọn một bên.
+         ghi vào mảng `contradictions` của narrative.json, KHÔNG được im lặng chọn một bên.
+         Mảng này chỉ để lưu vết: dashboard không hiển thị nó, và bản markdown
+         KHÔNG được có mục "Mâu thuẫn" — nếu mâu thuẫn làm đổi kết luận thì sửa thẳng
+         câu chữ của các mục chính cho nhất quán.
       2. **Tóm lược 5 dòng** — mỗi dòng một câu, **mỗi câu ít nhất một con số** lấy từ
          file agent hoặc CSV. Đây là phần duy nhất người đọc chắc chắn đọc hết.
       3. **Thẻ Tín hiệu giao dịch tự lo phần của nó.** `signal_tracker.py` đã ghi

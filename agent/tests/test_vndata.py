@@ -536,3 +536,18 @@ class TestFallbackReconciliation:
         assert out.attrs["adjustment"] == "back-adjusted"
         with pytest.raises(ValueError, match="no.*adj_rate"):
             price.traded_price(out)
+
+
+def test_rss_published_keeps_colon_offset():
+    """TinnhanhCK ghi '+07:00'; truoc 12/10/2026 bi doc thanh UTC, lech 7 gio."""
+    import xml.etree.ElementTree as ET
+    from datetime import timedelta
+
+    from vndata.news import _published
+
+    def when(raw):
+        return _published(ET.fromstring(f"<item><pubDate>{raw}</pubDate></item>"))
+
+    assert when("Mon, 12 Oct 2026 15:48:54 +07:00").utcoffset() == timedelta(hours=7)
+    assert when("Mon, 12 Oct 2026 15:48:54 +0700").utcoffset() == timedelta(hours=7)
+    assert when("Mon, 12 Oct 2026 08:27:49 GMT").utcoffset() == timedelta(0)
