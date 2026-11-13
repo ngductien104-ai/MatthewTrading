@@ -1,8 +1,9 @@
 """Tự phân loại ngành → chọn bộ phương pháp định giá phù hợp (thị trường VN).
 
-Đọc phân loại THẬT từ nguồn sự thật ``vnstock_data`` qua ``vndata`` (``is_bank`` suy từ
-cấu trúc KQKD + ``sector`` + ``icb_code_lv2``) rồi trả về bộ phương pháp định giá nên
-dùng cho ngành đó, theo bản đồ ngành trong SKILL.md.
+Đọc mã ICB cấp 2 từ snapshot phân ngành lấy qua VNDIRECT MCP
+(``vndata.reference.classification()``) rồi trả về bộ phương pháp định giá nên dùng
+cho ngành đó, theo bản đồ ngành trong SKILL.md. Chưa có snapshot thì báo lỗi rõ —
+lấy phân ngành từ VNDIRECT MCP rồi ghi bằng ``vndata.reference.save_classification``.
 
 Dùng:
     python classify_valuation.py VCB
@@ -18,12 +19,10 @@ báo để người phân tích tự quyết (xem ``notes``).
 
 from __future__ import annotations
 
-import contextlib
-import io
 import sys
 from typing import Dict, Optional
 
-# Khóa chính = giá trị ``sector`` (tiếng Anh) do vnstock_data trả về (đã xác minh).
+# Khóa chính = tên ngành ICB cấp 2 (tiếng Anh), suy từ mã qua ``ICB_LV2_TO_SECTOR``.
 # Mỗi ngành: phương pháp chính / kiểm chứng chéo / tránh / động lực giá trị.
 SECTOR_METHODS: Dict[str, Dict[str, object]] = {
     "Banks": {
@@ -99,42 +98,24 @@ ICB_LV2_TO_SECTOR: Dict[str, str] = {
 
 
 def _overview(symbol: str, source: str = "") -> Dict[str, object]:
-    """Lấy 3 trường phân loại của mã từ nguồn sự thật ``vnstock_data``.
+    """Lấy phân loại của mã từ snapshot ICB (nguồn: VNDIRECT MCP).
 
-    Bản tài trợ không có sẵn cờ ``is_bank`` như bản free, nhưng ba trường cần
-    thiết đều dựng lại được — và dựng chắc hơn:
-
-    * ``is_bank`` — suy từ **cấu trúc KQKD** (có ``IS_NET_INTEREST_INCOME``
-      nghĩa là tổ chức tín dụng). Đây là sự thật kế toán, không phải một cờ
-      metadata có thể dán sai.
-    * ``sector`` — ``vndata.reference.company()``.
-    * ``icb_code_lv2`` — ``vndata.reference.symbols_by_industry()`` lọc
-      ``icb_level == 2``.
+    * ``icb_code_lv2`` / ``sector`` — ``vndata.reference.classification()``.
+    * ``is_bank`` — ICB cấp 2 = ``8300`` (Banks).
 
     Tham số ``source`` giữ lại cho tương thích chữ ký cũ và bị bỏ qua.
+
+    Raises:
+        vndata.SourceUnavailable: chưa có snapshot phân ngành.
     """
     import vndata
 
     ticker = symbol.upper().replace(".VN", "")
-    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-        info = vndata.reference.company(ticker)
-        sector = str(info.iloc[0].get("sector") or "").strip() if len(info) else ""
-
-        icb_lv2 = ""
-        try:
-            icb = vndata.reference.symbols_by_industry()
-            hit = icb[(icb["symbol"] == ticker) & (icb["icb_level"].astype(str) == "2")]
-            if len(hit):
-                icb_lv2 = str(hit.iloc[0]["icb_code"]).strip()
-        except Exception:  # noqa: BLE001 - phân loại vẫn chạy được với sector
-            icb_lv2 = ""
-
-        try:
-            is_bank = vndata.fundamental.is_bank(ticker)
-        except Exception:  # noqa: BLE001
-            is_bank = False
-
-    return {"is_bank": is_bank, "sector": sector, "icb_code_lv2": icb_lv2}
+    icb = vndata.reference.classification()
+    hit = icb[icb["symbol"] == ticker]
+    icb_lv2 = str(hit.iloc[0]["icb_code_lv2"]).strip() if len(hit) else ""
+    sector = ICB_LV2_TO_SECTOR.get(icb_lv2) or (str(hit.iloc[0]["icb_name_lv2"]).strip() if len(hit) else "")
+    return {"is_bank": icb_lv2 == "8300", "sector": sector, "icb_code_lv2": icb_lv2}
 
 
 def _as_bool(value) -> bool:

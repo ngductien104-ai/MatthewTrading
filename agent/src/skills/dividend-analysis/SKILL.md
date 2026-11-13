@@ -1,6 +1,6 @@
 ---
 name: dividend-analysis
-description: "Phân tích cổ tức cổ phiếu VN cho chiến lược thu nhập/tăng trưởng cổ tức — chất lượng & tính bền của cổ tức, độ bao phủ, cơ chế ngày GDKHQ, phân biệt cổ tức tiền mặt vs cổ phiếu, bẫy lợi suất. Nguồn: vnstock_data (events/ratio/BCTC) + DataPro (giá)."
+description: "Phân tích cổ tức cổ phiếu VN cho chiến lược thu nhập/tăng trưởng cổ tức — chất lượng & tính bền của cổ tức, độ bao phủ, cơ chế ngày GDKHQ, phân biệt cổ tức tiền mặt vs cổ phiếu, bẫy lợi suất. Nguồn: VNDIRECT MCP (sự kiện cổ tức + chỉ số) + BCTC gốc + DataPro (giá)."
 category: analysis
 ---
 
@@ -126,11 +126,11 @@ Mua trước GDKHQ chỉ để hưởng cổ tức **KHÔNG phải tiền miễn
 
 | Việc cần | Nguồn |
 |------|------|
-| **Lịch sử/lịch cổ tức, ngày GDKHQ, tỷ lệ, loại (tiền/cổ phiếu)** | **vnstock_data `vndata.reference.events()`** → lọc `category=="DIVIDEND"`; xem `event_title_vi` (phân biệt tiền vs cổ phiếu), `exright_date` (GDKHQ), `record_date`, `exercise_ratio`, `value_per_share`, `payout_date` |
-| Lợi suất cổ tức | vnstock_data `ratio` → `RT_VALUE_DIVIDEND_YIELD` (đã là %, KHÔNG nhân 100) |
-| Cổ tức đã trả (bao phủ) | BCTC LCTT — phần tài chính (CFF), vnstock_data `cashflow` |
-| LN/CFO/FCF cho bao phủ | vnstock_data `income` (`net_profit_loss_after_tax`), `cashflow` (CFO), capex |
-| Lịch sử tăng vốn / pha loãng (cổ tức CP) | vnstock_data `vndata.corporate.capital_history()`; `issued_share` từ `vndata.reference.company()` |
+| **Lịch sử/lịch cổ tức, ngày GDKHQ, tỷ lệ, loại (tiền/cổ phiếu)** | **VNDIRECT `FINFO_API__get_company_events`** → `type=="DIVIDEND"` (tiền, `dividend` đ/cp) / `"STOCKDIV"` (cổ phiếu, `ratio`) / `"schedDiv"` (dự kiến); `effectiveDate` (GDKHQ), `actualDate` (ngày trả), `divYear`, `value_per_share`, `payout_date` |
+| Lợi suất cổ tức | VNDIRECT `DIVIDEND_YIELD` (**phân số** — nhân 100), `DIVIDEND_YIELD_AVG_CR_1M` |
+| Cổ tức đã trả (bao phủ) | BCTC LCTT (CFF); VNDIRECT `DIVIDEND_PAID_{QR,YD,TR}`, `DIVIDEND_PAYOUT_{YD,TR}` |
+| LN/CFO/FCF cho bao phủ | VNDIRECT `NET_PROFIT_{YD,TR}`, `CFO_YD`; capex từ BCTC gốc |
+| Lịch sử tăng vốn / pha loãng (cổ tức CP) | VNDIRECT `get_company_events` (`STOCKDIV`, `LISTED`) + `OUTSTANDING_SHARES` |
 | Giá để tính lợi suất | **DataPro** (`source="datapro"`, mã `.VN`) |
 
 Khi không có dữ liệu trực tiếp: nêu hạn chế và đưa khung phân tích, KHÔNG bịa số cổ tức.
@@ -170,5 +170,5 @@ Khi không có dữ liệu trực tiếp: nêu hạn chế và đưa khung phân
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ VNDIRECT MCP đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

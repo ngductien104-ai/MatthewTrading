@@ -182,23 +182,11 @@ agents:
         d.attrs["failed"]   # feed nào không trả lời -> PHẢI ghi vào báo cáo
         ```
 
-      - `vndata.news.crawl()` chỉ dùng khi cần THÂN BÀI. Nó không lấy được
-        VnEconomy (parser hỏng, trả trường rỗng) — dòng tin không cần thân bài.
-
-        ⚠️ **BẪY ĐÃ KIỂM CHỨNG 09/09/2026** — gọi bằng *tên site* trả về
-        DataFrame **rỗng** (`crawl(["cafef"])` → 0 dòng). Phải truyền **URL feed**
-        kèm `site_name=`. Lớp `vndata` nay raise `SourceUnavailable` nếu bạn gọi
-        sai, đừng bỏ qua lỗi đó. Các feed đã chạy được:
-
-        ```python
-        vndata.news.crawl(
-            ["https://cafef.vn/thi-truong-chung-khoan.rss",
-             "https://cafef.vn/doanh-nghiep.rss",
-             "https://cafef.vn/vi-mo-dau-tu.rss"],
-            site_name="cafef", max_articles=40, time_frame="1d")
-        # Vietstock: feed 737 (chứng khoán) và 733 (doanh nghiệp), site_name="vietstock"
-        ```
-
+      - Cần THÂN BÀI: mở `link` từ `rss()` bằng `read_url` (hoặc crawl4ai).
+        `vndata.news.crawl()` đã ngừng cùng gói vnstock (13/11/2026) — gọi là báo
+        `SourceUnavailable`, đừng thử lại.
+      - Tin gắn mã (cổ tức, phát hành, niêm yết bổ sung) của mã bất thường: tool
+        VNDIRECT MCP `FINFO_API__get_company_events(code=...)`.
       - Bổ trợ: crawl4ai (cài ở `$HOME\.venv`) khi cần nguồn ngoài 9 feed trên.
       - Cửa sổ: 24h gần nhất (bản sáng: từ đóng cửa hôm trước tới giờ chốt số).
       - **Nguồn nào hỏng phải ghi vào báo cáo VÀ vào JSON**, không im lặng bỏ qua.

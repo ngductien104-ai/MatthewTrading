@@ -9,8 +9,10 @@ tinh la mo duong cho no trich tu tri nho mo hinh - dung bai hoc cua
 dien giai.
 
 Nguon: DataPro cho toan bo gia + dong tien (mot bar chua ca OHLCV, ref_price,
-foreign_*, prop_*, put_through_*, active_*, listed_shares) va vnstock_data cho
-anh xa san + nganh ICB cap 2.
+foreign_*, prop_*, put_through_*, active_*, listed_shares) + danh sach ma va san
+(``/api/symbols``). Nganh ICB cap 2 doc tu snapshot lay qua VNDIRECT MCP
+(``vndata.reference.classification``) - vnstock_data da ngung xac thuc 10/11/2026
+va lam chet ban tin sang 13/11.
 
 Bay da kiem chung (do 09/09/2026)
 ---------------------------------
@@ -21,9 +23,10 @@ Bay da kiem chung (do 09/09/2026)
 * ``foreign_*`` NGUOC LAI - song trong phien, dung duoc o ban 11h30.
 * Thang ``value`` KHAC NHAU: co phieu = nghin VND, chi so = trieu VND. Quy het
   ve ty VND o mot cho duy nhat (``_to_ty``).
-* ``Reference().equity.by_exchange()`` tra ca san lan ICB cap 2 trong 1 call 8s;
-  ``vndata.reference.symbols_by_industry()`` mat 26s cho cung viec - dung cai dau.
-* Nhom DELISTED (229 ma) van nam trong danh sach - phai loc, khong la do rong sai.
+* Thieu snapshot ICB KHONG lam chet ban tin: moi ma ghi "Chua phan nganh" va
+  MANIFEST ghi ro trang thai ICB de ban nganh noi thang, khong suy dien nganh.
+* DataPro ``/api/symbols`` chi tra ma dang niem yet (TYPE=STOCK) - khong con
+  nhom DELISTED phai loc nhu nguon cu.
 
 Chay (tu goc repo)::
 
@@ -58,6 +61,7 @@ from vndata.errors import SourceUnavailable  # noqa: E402
 BAND = {"HOSE": 0.07, "HNX": 0.10, "UPCOM": 0.15}
 # Lam tron buoc gia keo gia tran xuong duoi band mot chut - noi long mot buoc.
 BAND_TOL = 0.005
+UNCLASSIFIED = "Chua phan nganh"
 # Can lich su du cho MA200 (200 phien ~ 290 ngay lich); lay du 420 cho an toan.
 HISTORY_DAYS = 420
 # So phien luy ke, dung chung cho flow_30d va A/D line.
@@ -92,17 +96,28 @@ def _fetch(symbol: str, start: str, end: str):
 
 
 def load_universe():
-    """Tra (DataFrame ma x san x icb_lv2, dict icb_code -> ten nganh)."""
-    from vnstock_data import Reference
+    """Tra (DataFrame ma x san x icb_lv2, dict icb_code -> ten nganh).
 
-    ref = Reference().equity.by_exchange()
+    San + danh sach ma: DataPro (song). Nganh ICB cap 2: snapshot VNDIRECT MCP.
+    ``ref.attrs["icb_status"]`` mo ta trang thai snapshot cho MANIFEST.
+    """
+    ref = vndata.reference.equities()
     ref = ref[ref["exchange"].isin(BAND)].copy()
-    ref["icb_code_lv2"] = ref["icb_code_lv2"].astype(str).str.zfill(4)
-
-    tax = vndata.reference.industry_taxonomy()
-    tax = tax[tax["icb_level"] == 2]
-    names = dict(zip(tax["icb_code"].astype(str).str.zfill(4), tax["icb_name"]))
-    ref["icb_name"] = ref["icb_code_lv2"].map(names).fillna("Chua phan nganh")
+    try:
+        icb = vndata.reference.classification()
+    except SourceUnavailable as exc:
+        print("CANH BAO: %s" % exc, file=sys.stderr)
+        ref["icb_code_lv2"] = "0000"
+        ref["icb_name"] = UNCLASSIFIED
+        ref.attrs["icb_status"] = "THIEU snapshot ICB - moi ma la '%s'" % UNCLASSIFIED
+        return ref, {}
+    ref = ref.merge(icb, on="symbol", how="left")
+    ref["icb_code_lv2"] = ref["icb_code_lv2"].fillna("0000")
+    ref["icb_name"] = ref["icb_name_lv2"].fillna(UNCLASSIFIED)
+    names = dict(zip(icb["icb_code_lv2"], icb["icb_name_lv2"]))
+    ref.attrs["icb_status"] = "snapshot %s (%s), %d/%d ma co nganh" % (
+        icb.attrs.get("as_of", "?"), icb.attrs.get("source", "?"),
+        int((ref["icb_name"] != UNCLASSIFIED).sum()), len(ref))
     return ref, names
 
 
@@ -495,13 +510,14 @@ MANIFEST_TEMPLATE = """# Data pack thi truong VN - {end}
 |---|---|
 | Phien | `{session}` ({session_note}) |
 | Gio chot so | {stamp} |
-| Ma niem yet quet | {n_universe} (da loai DELISTED) |
+| Ma niem yet quet | {n_universe} (DataPro, chi ma dang niem yet) |
 | Ma co bar hom nay | {n_equity} co phieu + {n_etf} ETF |
 | Ma co giao dich | {n_traded} |
 | Ma loi khi keo | {n_failed} |
 | Ngoai rong phien | {frn_total} ty VND |
 | Ngoai rong 30 phien | {frn_30} ty VND (chi ma CO khop lenh hom nay; tong `sector.csv` cong ca ma khong khop nen lech nhe) |
 | Tu doanh rong phien | {prop_total} |
+| Nganh ICB | {icb_status} |
 
 ## Quy tac bat buoc voi agent
 
@@ -660,6 +676,7 @@ def main() -> int:
         n_etf=len(stocks) - len(equities), n_traded=len(traded),
         n_failed=len(failed), frn_total=frn_total, frn_30=frn_30,
         prop_total=prop_total, lookback=LOOKBACK,
+        icb_status=universe.attrs.get("icb_status", "?"),
     ), encoding="utf-8")
 
     if failed:

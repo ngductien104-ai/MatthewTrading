@@ -1,42 +1,37 @@
 """``vndata`` — the single truth-source router for Vietnamese market data.
 
-One question, one source. The mapping is fixed, and every skill, swarm preset,
-backtest loader and analysis script in this repository goes through here rather
-than importing a vendor library directly.
+One question, one source. Since 13/11/2026 (vnstock subscription cancelled)
+there are two truth sources, and only one of them is reachable from Python:
 
-===============================  ==================  ==========================
-Data class                       Truth source        Entry point
-===============================  ==================  ==========================
-OHLCV, volume, turnover          DataPro             :mod:`vndata.price`
-Reference price / daily band     DataPro             :mod:`vndata.price`
-Foreign flow, proprietary flow   DataPro             :mod:`vndata.price`
-Put-through, active buy/sell     DataPro             :mod:`vndata.price`
-Index, futures, ETF, FX bars     DataPro             :mod:`vndata.price`
-Financial statements             vnstock_data        :mod:`vndata.fundamental`
-Ratios, valuation multiples      vnstock_data        :mod:`vndata.fundamental`
-Macro, rates, FX, commodities    vnstock_data        :mod:`vndata.macro`
-Symbol lists, ICB, shareholders  vnstock_data        :mod:`vndata.reference`
-Technical indicators             vnstock_ta          :mod:`vndata.ta`
-News headlines and article text  vnstock_news        :mod:`vndata.news`
-Capital history, insider, owner  vnstock (free)      :mod:`vndata.corporate`
-===============================  ==================  ==========================
+===============================  ==========================  ===================================
+Data class                       Truth source                Python entry point
+===============================  ==========================  ===================================
+OHLCV, volume, turnover          DataPro                     :mod:`vndata.price`
+Reference price / daily band     DataPro                     :mod:`vndata.price`
+Foreign flow, proprietary flow   DataPro                     :mod:`vndata.price`
+Put-through, active buy/sell     DataPro                     :mod:`vndata.price`
+Index, futures, ETF bars         DataPro                     :mod:`vndata.price`
+Symbol list, exchange, shares    DataPro                     :func:`vndata.reference.symbols`
+Technical indicators             local maths on DataPro      :mod:`vndata.ta`
+News headlines                   publishers' RSS feeds       :func:`vndata.news.rss`
+Financial statements, ratios     VNDIRECT MCP                none — raises SourceUnavailable
+Macro, rates                     VNDIRECT MCP / publisher    none — raises SourceUnavailable
+Company profile, holders, events VNDIRECT MCP                none — raises SourceUnavailable
+ICB classification, VN30 basket  VNDIRECT MCP -> snapshot    :mod:`vndata.reference` snapshot
+===============================  ==========================  ===================================
+
+VNDIRECT MCP (``https://mcp.vndirect.com.vn/mcp``) is OAuth-protected and is
+called by an MCP client — Claude Code or a Claude subagent running a swarm —
+through the connector's ``FINFO_API__*`` tools. See the ``data-routing`` skill.
 
 Rules this layer enforces
 -------------------------
-* **The free ``vnstock`` package is not a source**, with exactly one
-  documented exception: :mod:`vndata.corporate`, which covers three
-  disclosures the sponsored tier does not carry at all (capital history,
-  insider trading, ownership tree). Nothing else may import it. When DataPro
-  is down, price falls back to the sponsored ``vnstock_data`` and marks the
-  frame ``degraded``; it never silently drops to free-tier data.
+* **No vnstock.** Neither the sponsored packages nor the free one are
+  imported anywhere in this layer.
 * **Failures are loud.** A missing source raises
-  :class:`vndata.errors.SourceUnavailable` rather than returning something
-  plausible. Analysis that stops beats analysis built on the wrong number.
-* **Units are corrected once, here.** The ``vnstock_data`` ratio table ships
-  fields whose declared unit contradicts the stored value; see
-  :mod:`vndata.normalize` for the verified list.
-* **NaN stays NaN.** A missing number is never filled with zero, and a stored
-  ``0.0`` in the ratio table is read as "not applicable", not as a measurement.
+  :class:`vndata.errors.SourceUnavailable` naming where the data lives now,
+  rather than returning something plausible.
+* **NaN stays NaN.** A missing number is never filled with zero.
 
 Example
 -------
@@ -44,11 +39,9 @@ Example
 
     import vndata
 
-    bars = vndata.price.ohlcv("HPG.VN", "2026-01-01", "2026-08-27")
-    flow = vndata.price.foreign_flow("HPG.VN", "2026-08-01", "2026-08-27")
-    rsi = vndata.ta.indicator("HPG.VN", "2026-01-01", "2026-08-27").momentum.rsi(length=14)
-    roe = vndata.fundamental.ratios_wide("HPG")["RT_PRT_ROE"]   # already in percent
-    cpi = vndata.macro.economy("cpi")
+    bars = vndata.price.ohlcv("HPG.VN", "2026-01-01", "2026-11-13")
+    flow = vndata.price.foreign_flow("HPG.VN", "2026-11-01", "2026-11-13")
+    rsi = vndata.ta.indicator("HPG.VN", "2026-01-01", "2026-11-13").momentum.rsi(length=14)
 """
 
 from __future__ import annotations
@@ -58,7 +51,6 @@ from vndata import (
     fundamental,
     macro,
     news,
-    normalize,
     price,
     reference,
     ta,
@@ -70,7 +62,6 @@ __all__ = [
     "fundamental",
     "macro",
     "news",
-    "normalize",
     "price",
     "reference",
     "ta",
@@ -96,74 +87,56 @@ SOURCE_MAP: dict[str, str] = {
     "index": "datapro",
     "futures": "datapro",
     "etf_price": "datapro",
-    # Not DataPro: its tape carries no FX at all. USDVND, XAUUSD, DXY and
-    # USDJPY each return 0 rows (checked 2026-09-07), and there is no
-    # vndata.forex accessor behind this key either. vnstock_data's
-    # macro.currency("exchange_rate") holds the official centre/VCB rates
-    # back to 2020 but stops dead at 2026-07-09, so it is history only.
-    # Live FX comes from Yahoo (USDVND=X, DX-Y.NYB) - see
-    # commodity_datapack.py MACRO_CONTEXT.
+    "symbol_list": "datapro",
+    # DataPro's tape carries no FX (USDVND, XAUUSD, DXY return 0 rows,
+    # checked 2026-09-07). Live FX comes from Yahoo (USDVND=X, DX-Y.NYB).
     "forex": "yahoo (yfinance)",
-    "income_statement": "vnstock_data",
-    "balance_sheet": "vnstock_data",
-    "cash_flow": "vnstock_data",
-    "footnotes": "vnstock_data",
-    "ratios": "vnstock_data",
-    "valuation_multiples": "vnstock_data",
-    "macro": "vnstock_data",
-    "interest_rates": "vnstock_data",
-    "commodities": "vnstock_data",
-    "industry_classification": "vnstock_data",
-    "index_membership": "vnstock_data",
-    "shareholders": "vnstock_data",
-    "corporate_events": "vnstock_data",
-    "screener": "vnstock_data",
-    "technical_indicators": "vnstock_ta",
-    "news": "vnstock_news",
-    # The documented carve-out — see vndata.corporate.
-    "capital_history": "vnstock (free)",
-    "insider_trading": "vnstock (free)",
-    "ownership": "vnstock (free)",
+    "technical_indicators": "local (pandas on datapro bars)",
+    "news": "rss (publisher feeds)",
+    "income_statement": "vndirect_mcp",
+    "balance_sheet": "vndirect_mcp",
+    "cash_flow": "vndirect_mcp",
+    "footnotes": "primary filing (evidence_pack.py)",
+    "ratios": "vndirect_mcp",
+    "valuation_multiples": "vndirect_mcp",
+    "macro": "vndirect_mcp",
+    "interest_rates": "vndirect_mcp",
+    "commodities": "yahoo (yfinance)",
+    "industry_classification": "vndirect_mcp (snapshot)",
+    "index_membership": "vndirect_mcp (snapshot)",
+    "shareholders": "vndirect_mcp",
+    "corporate_events": "vndirect_mcp",
+    "company_news": "vndirect_mcp",
+    "capital_history": "vndirect_mcp",
+    "insider_trading": "vndirect_mcp",
+    "ownership": "vndirect_mcp",
 }
 
 
 def health() -> dict[str, object]:
-    """Report which truth sources are live right now.
+    """Report which truth sources Python can reach right now.
 
     Returns:
-        Mapping with a ``datapro`` bool, the vnstock licence ``tier``, and an
-        ``installed`` sub-mapping of package name -> version or ``None``.
-        Intended for a preflight check before a long analysis run.
+        Mapping with a ``datapro`` bool and the ``as_of`` dates of the
+        VNDIRECT-sourced snapshots (``None`` when a snapshot is missing).
+        VNDIRECT MCP itself is not probed: it is OAuth-only and is checked
+        from the MCP client, not from Python.
     """
-    import importlib.metadata as md
+    import json as _json
 
-    installed: dict[str, str | None] = {}
-    for pkg in ("vnstock_data", "vnstock_ta", "vnstock_news"):
+    snapshots: dict[str, object] = {}
+    for name, path in (
+        ("icb_classification", reference.CLASSIFICATION_FILE.with_suffix(".meta.json")),
+        ("index_members", reference.INDEX_MEMBERS_FILE),
+    ):
         try:
-            installed[pkg] = md.version(pkg)
+            data = _json.loads(path.read_text(encoding="utf-8"))
+            snapshots[name] = data.get("as_of") or {k: v.get("as_of") for k, v in data.items()}
         except Exception:
-            installed[pkg] = None
-
-    tier: object = None
-    try:
-        import vnai
-
-        tier = vnai.get_user_tier()
-    except Exception as exc:
-        tier = f"unavailable: {exc}"
-
-    asean = False
-    try:
-        import requests
-
-        requests.head(f"https://{macro.ASEAN_HOST}/", timeout=5)
-        asean = True
-    except Exception:
-        asean = False
+            snapshots[name] = None
 
     return {
         "datapro": price.datapro_available(),
-        "tier": tier,
-        "installed": installed,
-        "asean_macro_backend": asean,
+        "vndirect_mcp": "call via MCP client (connector VNDIRECT MCP, tools FINFO_API__*)",
+        "snapshots": snapshots,
     }

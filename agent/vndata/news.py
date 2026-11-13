@@ -1,29 +1,16 @@
-"""News — ``vnstock_news`` is the truth source.
+"""News — publishers' own RSS feeds, parsed here; tagged news on VNDIRECT MCP.
 
-Two distinct paths, deliberately kept separate:
+``vnstock_news`` and the ``vnstock_data`` news endpoint were retired with the
+vnstock subscription on 13/11/2026. What is left:
 
-* :func:`company_news` — headlines already tagged to a ticker, from the
-  sponsored ``vnstock_data`` reference layer. Use it when the question is
-  "what happened at this company".
-* :func:`crawl` — full article text from the 21 Vietnamese outlets
-  ``vnstock_news`` supports. Use it when the question needs the body of the
-  article, not just the headline.
 * :func:`rss` — headline, link, timestamp and summary straight from a
-  publisher's own feed, parsed here. Use it when :func:`crawl` comes back
-  blank or the outlet is not one of the 21.
-
-Why :func:`rss` exists. Measured 09/09/2026: ``vnstock_news`` returns three
-rows for ``vneconomy.vn/chung-khoan.rss`` with **every field empty** —
-``title``, ``publish_time``, ``short_description`` all blank — while the feed
-itself serves 50 well-formed items. Its article extractor no longer matches
-that site. The feed already carries everything a news wire needs, so this
-module reads it directly rather than reporting "no news" for a publisher that
-is publishing normally. It also reaches outlets outside the supported 21
-(TinnhanhChungKhoan).
-
-The old workaround of scraping headlines through ``Company.news(source="kbs")``
-is retired: it returned a different schema per source and carried no article
-body.
+  publisher's own feed (CafeF, VnEconomy, Vietstock, TinnhanhCK, VnExpress).
+  No vendor in between, so nothing to cancel. Measured 09/09/2026: every feed
+  in :data:`VN_FEEDS` serves 20+ well-formed items.
+* :func:`company_news` / :func:`crawl` — ticker-tagged headlines and full
+  article text. Python has no source for these any more: ask VNDIRECT MCP for
+  ticker news, or open the article URL from :func:`rss` with ``read_url`` /
+  crawl4ai when the body matters.
 """
 
 from __future__ import annotations
@@ -37,90 +24,24 @@ from typing import Any, Sequence
 
 import pandas as pd
 
-from vndata.errors import SourceUnavailable
-
-
-def supported_sites() -> list[dict[str, str]]:
-    """Return the outlets ``vnstock_news`` can crawl, as ``{name, domain}``."""
-    try:
-        import vnstock_news
-    except ImportError as exc:  # pragma: no cover - depends on install
-        raise SourceUnavailable("vnstock_news is not installed.") from exc
-    return vnstock_news.list_supported_sites()
+from vndata.errors import SourceUnavailable, moved_to_vndirect
 
 
 def company_news(symbol: str, **kwargs) -> pd.DataFrame:
-    """Return ticker-tagged headlines for *symbol* from the reference layer."""
-    try:
-        from vnstock_data import Reference
-    except ImportError as exc:  # pragma: no cover - depends on install
-        raise SourceUnavailable("vnstock_data is not installed.") from exc
-    ticker = symbol.strip().upper().replace(".VN", "")
-    try:
-        return Reference().company(ticker).news(**kwargs)
-    except Exception as exc:
-        raise SourceUnavailable(f"vnstock_data could not serve news for {symbol}: {exc}") from exc
+    """Ticker-tagged headlines — fetch via VNDIRECT MCP."""
+    raise moved_to_vndirect(f"company news ({symbol})")
 
 
-def crawl(
-    sources: Sequence[str],
-    *,
-    max_articles: int = 10,
-    time_frame: str = "1d",
-    clean_content: bool = True,
-    **kwargs: Any,
-) -> Any:
-    """Fetch full article text from Vietnamese outlets.
+def crawl(sources: Sequence[str], **kwargs: Any) -> Any:
+    """Full article text — no Python source since vnstock_news was retired.
 
-    Args:
-        sources: **Feed or article URLs**, plus ``site_name=`` naming the outlet.
-            Bare site names from :func:`supported_sites` are accepted by the
-            upstream signature but return an EMPTY frame without raising --
-            measured 09/09/2026: ``crawl(["cafef"])`` -> 0 rows, while
-            ``crawl(["https://cafef.vn/thi-truong-chung-khoan.rss"],
-            site_name="cafef")`` -> 3 rows. Use the URL form.
-        max_articles: Cap per source.
-        time_frame: Lookback window understood upstream, e.g. ``"1d"``, ``"7d"``.
-        clean_content: Strip boilerplate from the article body.
-        **kwargs: Passed through to ``EnhancedNewsCrawler.fetch_articles``.
-
-    Returns:
-        Whatever the upstream crawler returns — a list of article dicts with
-        metadata and markdown body.
-
-    Raises:
-        SourceUnavailable: If ``vnstock_news`` is missing or the crawl fails.
+    Use :func:`rss` for headlines and links, then read the article body with
+    the ``read_url`` tool or crawl4ai.
     """
-    try:
-        from vnstock_news import EnhancedNewsCrawler
-    except ImportError as exc:  # pragma: no cover - depends on install
-        raise SourceUnavailable("vnstock_news is not installed.") from exc
-
-    crawler = EnhancedNewsCrawler()
-    try:
-        result = crawler.fetch_articles(
-            sources=list(sources),
-            max_articles=max_articles,
-            time_frame=time_frame,
-            clean_content=clean_content,
-            **kwargs,
-        )
-    except Exception as exc:
-        raise SourceUnavailable(f"vnstock_news crawl failed for {list(sources)}: {exc}") from exc
-
-    # Bare site names return an empty frame instead of raising. Twenty-one
-    # outlets producing literally nothing in a day is not a quiet news day, it
-    # is the wrong call shape -- say so rather than handing back an empty frame
-    # a caller will read as "no news".
-    bare = [s for s in sources if "://" not in str(s)]
-    if bare and len(result) == 0:
-        raise SourceUnavailable(
-            "vnstock_news returned 0 articles for bare site name(s) "
-            f"{bare}. Pass the feed URL instead, with site_name=, e.g. "
-            'crawl(["https://cafef.vn/thi-truong-chung-khoan.rss"], '
-            'site_name="cafef").'
-        )
-    return result
+    raise SourceUnavailable(
+        "crawl(): vnstock_news đã huỷ 13/11/2026. Dùng vndata.news.rss() lấy tiêu đề + link, "
+        "rồi đọc thân bài bằng read_url / crawl4ai; tin gắn mã thì hỏi VNDIRECT MCP."
+    )
 
 
 # Feed dan huong cho TTCK VN. Moi URL da do 09/09/2026: tra >=20 <item>.

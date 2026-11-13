@@ -1,7 +1,7 @@
 {
   "name": "MatthewTrading",
   "version": "0.2.0",
-  "description": "Vietnam stock market trading agent with vnstock + datapro data sources",
+  "description": "Vietnam stock market trading agent with DataPro + VNDIRECT MCP data sources",
   "skills": [
     {
       "path": "agent/SKILL.md",

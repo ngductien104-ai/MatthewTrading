@@ -1,6 +1,6 @@
 ---
 name: bank-financial-statement
-description: "Phân tích BCTC chuyên sâu NGÂN HÀNG TMCP Việt Nam (buy-side) — earnings quality (PPOP vs PBT, NIM tách yield−CoF, forensics lãi dự thu), rủi ro tài sản forward-looking (nợ nhóm 2/3/4/5, tỷ lệ hình thành nợ xấu, coverage, thời vụ, cho vay theo ngành, related-party hệ sinh thái), thanh khoản & vốn (CASA/LDR/CAR/internal capital generation). Routing: tự tính từ vnstock_data income+balance (8 năm + 34 quý, mã id ổn định); NIM/NPL/CASA/CAR/CIR lấy nhóm RT_BANK_* rồi cross-check công bố IR; nợ nhóm 2/3/4/5, cho vay theo ngành, related-party vẫn phải crawl4ai từ thuyết minh; cross-check ≥2 nguồn + môi giới ≤3 tháng. KHÔNG định giá (task riêng)."
+description: "Phân tích BCTC chuyên sâu NGÂN HÀNG TMCP Việt Nam (buy-side) — earnings quality (PPOP vs PBT, NIM tách yield−CoF, forensics lãi dự thu), rủi ro tài sản forward-looking (nợ nhóm 2/3/4/5, tỷ lệ hình thành nợ xấu, coverage, thời vụ, cho vay theo ngành, related-party hệ sinh thái), thanh khoản & vốn (CASA/LDR/CAR/internal capital generation). Routing: tự tính từ BCTC gốc PDF (evidence_pack.py); NIM/NPL/coverage/LDR/chi phí tín dụng lấy VNDIRECT MCP get_ratios rồi cross-check công bố IR, CASA/CAR lấy IR/BCTC; nợ nhóm 2/3/4/5, cho vay theo ngành, related-party vẫn phải crawl4ai từ thuyết minh; cross-check ≥2 nguồn + môi giới ≤3 tháng. KHÔNG định giá (task riêng)."
 category: analysis
 ---
 
@@ -9,97 +9,85 @@ category: analysis
 ## Vai trò & mục đích
 Senior buy-side Financial Analyst (CFA, 10y+), chuyên ngành ngân hàng VN. Bóc **chất lượng lợi nhuận thật, rủi ro bảng cân đối, sức khỏe vốn/thanh khoản** qua 3 BCTC. **Chỉ phân tích tài chính — KHÔNG định giá** (định giá là skill/task riêng). Số bề mặt (NPL 1,1%) KHÔNG phải kết luận → phải tới **driver & xu hướng**.
 
-**Khi nào dùng:** `Company.overview().is_bank == True` (hoặc com_type_code='NH'). Mẫu BCTC ngân hàng khác DN thường: có **Thu nhập lãi thuần / Tổng thu nhập hoạt động / trích lập dự phòng**, KHÔNG có doanh thu/giá vốn/tồn kho. Securities/insurance dùng template riêng.
+**Khi nào dùng:** ICB cấp 2 = `8300` (`vndata.reference.classification()`). Mẫu BCTC ngân hàng khác DN thường: có **Thu nhập lãi thuần / Tổng thu nhập hoạt động / trích lập dự phòng**, KHÔNG có doanh thu/giá vốn/tồn kho. Securities/insurance dùng template riêng.
 
 ---
 
-## 1. ROUTING DỮ LIỆU (đã audit lại trên `vnstock_data` — BẮT BUỘC theo)
+## 1. ROUTING DỮ LIỆU (BẮT BUỘC theo — nguồn đổi 13/11/2026)
 
-> Nguồn chính là **`vnstock_data` (Unified UI, gói tài trợ)**. Mẫu BCTC ngân hàng
-> được tự nhận diện, trả frame dạng dài `period, id, name, level, unit, value`
-> với **mã `id` ổn định, duy nhất trong mỗi kỳ** — không còn phải khớp chuỗi
-> `item.str.contains(...)` mong manh như bản free.
+> vnstock đã huỷ. Ngân hàng có **hai tầng nguồn**, không API nào thay được tầng 1:
+> **Tầng 1 = BCTC gốc PDF** (dòng chi tiết + thuyết minh), **Tầng 2 = chỉ số
+> VNDIRECT MCP** (`FINFO_API__get_ratios`). Bảng tool đầy đủ: skill `data-routing`.
 
-### Tầng 1 — TỰ TÍNH từ `income_statement` + `balance_sheet` ✅ tin cậy
+### Tầng 1 — TỰ TÍNH từ BCTC gốc ✅ tin cậy nhất
 
-```python
-from vnstock_data import Fundamental
-f = Fundamental().equity("TCB")
-inc = f.income_statement(period="year")      # 8 kỳ năm 2018–2025
-bal = f.balance_sheet(period="year")
+```bash
+./.venv/Scripts/python.exe agent/scripts/evidence_pack.py TCB --outdir _tcb_research --auto
 ```
 
-| Dòng cần | `id` |
-|---|---|
-| NII | `IS_NET_INTEREST_INCOME` |
-| Lãi thuần dịch vụ (fee) | `IS_NET_FEE_AND_COMMISSION_INCOME` |
-| Lãi KD ngoại hối / CK kinh doanh / CK đầu tư | `IS_NET_GAIN_LOSS_FROM_FOREIGN_CURRENCIES_AND_GOLD` / `..._TRADING_SECURITIES` / `..._INVESTMENT_SECURITIES` |
-| Lãi thuần hoạt động khác | `IS_NET_OTHER_INCOME` |
-| **TOI** | `IS_TOTAL_OPERATING_INCOME` |
-| Opex | `IS_OPERATING_EXPENSES` ⚠️ **thường NaN** → suy ra `TOI − PPOP` |
-| **PPOP** | `IS_OPERATING_PROFIT_BEFORE_PROVISION_FOR_CREDIT_LOSSES` |
-| Trích lập dự phòng | `IS_PROVISION_FOR_CREDIT_LOSSES` (âm) |
-| PBT / NPAT / NPAT mẹ | `IS_PROFIT_BEFORE_TAX` / `IS_NET_PROFIT_AFTER_TAX` / `IS_PROFIT_AFTER_TAX_FOR_SHAREHOLDERS_OF_PARENT_COMPANY` |
-| EPS | `IS_BASIC_EARNINGS_PER_SHARE` |
-| Tổng TS / VCSH / Vốn điều lệ | `BS_TOTAL_ASSETS` / `BS_EQUITY` / `BS_CHARTER_CAPITAL` |
-| Cho vay KH (gross / thuần) / LLR | `BS_LOANS_TO_CUSTOMERS_GROSS` / `BS_LOANS_TO_CUSTOMERS` / `BS_PROVISION_LOANS_TO_CUSTOMERS` (âm) |
-| Tiền gửi KH | `BS_CUSTOMER_DEPOSITS` |
-| **Lãi & phí phải thu** (forensic) | `BS_INTEREST_AND_FEE_RECEIVABLES` |
-| Chứng khoán đầu tư / TPDN-proxy | `BS_INVESTMENT_SECURITIES` |
-| Tiền gửi & cho vay TCTD khác | `BS_PLACEMENTS_AND_LOANS_TO_CREDIT_INSTITUTIONS` |
+Đọc KQKD + CĐKT (ưu tiên bản **soát xét bán niên / kiểm toán năm**), ghi từng số
+kèm **trang** vào `FACTS.md`. Dòng cần lấy (mẫu B02/B03 TCTD):
 
-**Khớp số bắt buộc trước khi dùng** (verify TCB 2025 — làm đúng thế này cho mã khác):
+| Dòng cần | Trên BCTC TCTD |
+|---|---|
+| NII | Thu nhập lãi thuần |
+| Lãi thuần dịch vụ (fee) | Lãi thuần từ hoạt động dịch vụ |
+| KD ngoại hối / CK kinh doanh / CK đầu tư | Lãi/lỗ thuần từ các hoạt động tương ứng |
+| **TOI** | Tổng thu nhập hoạt động |
+| Opex | Chi phí hoạt động |
+| **PPOP** | LN thuần từ HĐKD trước chi phí dự phòng rủi ro tín dụng |
+| Trích lập dự phòng | Chi phí dự phòng rủi ro tín dụng |
+| PBT / NPAT / NPAT mẹ / CĐTS | Tổng LNTT / LNST / LN của cổ đông NH mẹ / lợi ích CĐTS |
+| Tổng TS / VCSH / Vốn điều lệ | Tổng tài sản / Vốn chủ sở hữu / Vốn của TCTD |
+| Cho vay KH (gross / dự phòng) | Cho vay khách hàng / Dự phòng rủi ro cho vay KH |
+| Tiền gửi KH | Tiền gửi của khách hàng |
+| **Lãi & phí phải thu** (forensic) | Các khoản lãi, phí phải thu |
+| Chứng khoán đầu tư | Chứng khoán đầu tư (tách TPDN ở thuyết minh) |
+
+**Khớp số bắt buộc trước khi dùng** (mẫu đã verify trên TCB 2025):
 `PPOP 36.959 − dự phòng 4.421 = PBT 32.538` ✓ · `NPAT 25.954 = mẹ 25.290 + CĐTS 664` ✓ ·
-`Vốn điều lệ 70.862 tỷ = 7,086 tỷ CP × 10.000đ` ✓ · `CIR suy ra = (53.391−36.959)/53.391 = 30,8%`
-khớp `RT_BANK_CIR` ✓.
+`Vốn điều lệ 70.862 tỷ = 7,086 tỷ CP × 10.000đ` ✓ · `CIR = (53.391−36.959)/53.391 = 30,8%` ✓.
 
 **Công thức (tự tính, kiểm soát định nghĩa):**
 ```
 ROAA = NPAT / bình quân Tổng TS          ROAE = NPAT mẹ / bình quân VCSH
-NIM proxy = NII / bình quân Tổng TS       (NIM THỰC dùng TS sinh lãi → RT_BANK_NIM ở tầng 2)
-CIR = (TOI − PPOP) / TOI                  Credit cost = -Provision / bình quân Cho vay
-LDR thuần = Cho vay / Tiền gửi            LLR/loans = -LLR / Cho vay gross
+NIM proxy = NII / bình quân Tổng TS       (NIM THỰC dùng TS sinh lãi → so NET_INTEREST_MARGIN_TR_AVG5Q)
+CIR = (TOI − PPOP) / TOI                  Credit cost = Provision / bình quân Cho vay
+LDR thuần = Cho vay / Tiền gửi            LLR/loans = Dự phòng / Cho vay gross
 Non-II/TOI, Fee/TOI ; PPOP growth vs PBT growth (chênh = "vay" LN từ trích lập)
 Lãi dự thu/Tổng TS  → nếu tăng nhanh hơn NII = nghi lãi ảo
-BVPS = VCSH / số CP ; P/B, P/E lấy thẳng RT_VALUE_PB / RT_VALUE_PE
+BVPS = VCSH / số CP ; P/B, P/E từ VNDIRECT PRICE_TO_BOOK / PRICE_TO_EARNINGS
 ```
-Số CP: `RT_VALUE_OUTSTANDING_SHARES`. Room ngoại / target / rating: `company.overview()`.
+Số CP: `OUTSTANDING_SHARES`; room ngoại: `FINFO_API__get_foreign_trading` (`totalRoom`/`currentRoom`).
 
 ### Tầng 1b — QUÝ (BẮT BUỘC — luôn tính thêm quý vừa công bố) ✅
 > Phân tích FY là CHƯA ĐỦ. Quý gần nhất thường đảo chiều xu hướng FY (vd TPB: FY2025 nợ xấu "đẹp" 1,29% nhưng **Q1/2026 bật lại 1,85%**). Luôn kéo & tính quý mới nhất.
 
-`period="quarter"` trả **34 kỳ, từ 2018-Q1 → 2026-Q2**, nhãn tường minh dạng
-`2026-Q2`. Đây là thay đổi lớn so với bản free (chỉ 4 quý):
+- Lấy BCTC quý gần nhất từ PDF; YoY/QoQ nhanh có sẵn ở VNDIRECT:
+  `NET_PROFIT_QR_GRYOY`, `NET_PROFIT_QR_GRQOQ`, `OPERATING_INCOME_QR_GRYOY`,
+  `CUSTOMER_LOANS_AQ_GRYOY` / `_GRYTD` (`get_ratios(q="code:TCB~reportDate:2026-09-30")`).
+- Tính QoQ, YoY, run-rate và trailing-4Q so với FY; CĐKT cuối quý (cho vay, tiền
+  gửi → growth YTD, LDR, LLR/loans, lãi & phí phải thu).
+- Headline quý phải đối chiếu **công bố KQKD công ty + cafef** trước khi báo ra ngoài.
 
-- **YoY tự tính được cho MỌI dòng** — không còn phải cào cafef/vietstock chỉ để
-  lấy quý cùng kỳ năm trước. Cào chỉ còn là bước **cross-check**, không phải bước
-  lấy dữ liệu.
-- Tính QoQ, YoY, run-rate/annualize và trailing-4Q so với FY; BCĐKT cuối quý
-  (cho vay, tiền gửi → growth YTD, LDR thuần, LLR/loans, lãi & phí phải thu).
+### Tầng 2 — CHỈ SỐ NGÂN HÀNG TỪ VNDIRECT (`FINFO_API__get_ratios`)
 
-> ⚠️ Nhãn quý của bản free KBS bị lệch (Q4→Q1) — `vnstock_data` KHÔNG dính lỗi
-> này, nhưng **vẫn cross-check headline quý với công bố KQKD công ty + cafef**
-> trước khi báo số ra ngoài.
+| Chỉ tiêu | `ratioCode` |
+|---|---|
+| NIM | `NET_INTEREST_MARGIN_TR_AVG5Q` |
+| Nợ xấu / nợ quá hạn | `BAD_LOANS_RATIO_AQ` / `OVERDUE_LOANS_RATIO_AQ` |
+| Bao phủ nợ xấu | `PROVISION_BAD_LOANS_AQ` (VCB 2,43 = 243%) |
+| LDR | `LOANS_TO_DEPOSIT_AQ` |
+| Chi phí tín dụng | `DOUBTFUL_EXPENSES_TO_LOANS_TR_AVG5Q` |
+| Cơ cấu thu nhập | `INTEREST_INCOME_RATIO_TR`, `NON_INTEREST_INCOME_RATIO_TR`, `NET_SERVICE_INCOME_RATIO_TR` |
+| Tăng trưởng tín dụng | `CUSTOMER_LOANS_AQ_GRYOY`, `CUSTOMER_LOANS_AQ_GRYTD` |
+| ROAE / ROAA | `ROAE_TR_AVG4Q`, `ROAA_TR_AVG4Q` |
+| Định giá | `PRICE_TO_BOOK`, `PRICE_TO_EARNINGS`, `PRICE_TO_BOOK_AVG_CR_{1Y,3Y,5Y}` |
 
-### Tầng 2 — CHỈ SỐ NGÀNH `RT_BANK_*` (đã SỐNG, nhưng đọc đúng cách)
-
-Bản tài trợ có hẳn nhóm **ĐẶC THÙ NGÀNH NGÂN HÀNG** trong `f.ratio(period=...)`:
-`RT_BANK_NIM`, `RT_BANK_YIEA`, `RT_BANK_COF`, `RT_BANK_CIR`, `RT_BANK_LDR`,
-`RT_BANK_NPL`, `RT_BANK_NPL_COVERAGE`, `RT_BANK_CAR`, `RT_BANK_CASA`,
-`RT_BANK_LLR_TO_LOANS`, `RT_BANK_PROVISION_TO_LOANS`, `RT_BANK_LOAN_GROWTH`,
-`RT_BANK_DEPOSIT_GROWTH`, `RT_BANK_EQUITY_TO_LOANS`, `RT_BANK_NOII` — **8 kỳ năm**.
-
-> Cảnh báo cũ "vnstock_data ratio trả số vintage 2018" **chỉ còn đúng với bản free**.
-> Bản tài trợ trả số kỳ hiện hành: TCB 2025 NIM 3,76% · CASA 35,87% · CAR 14,61%
-> · NPL 1,07% · CIR 30,8% · ROE 15,85% — đúng bậc so với công bố của ngân hàng.
-
-**Ba cái bẫy khi đọc `RT_*` (đã verify trên TCB 2025):**
-
-| Bẫy | Thực tế | Xử lý |
-|---|---|---|
-| `unit` ghi `%` | Là **phân số** (NPL 0,01068 = 1,068%) | Nhân 100 khi trình bày |
-| Một số chỉ tiêu **mang dấu âm** theo dòng chi phí gốc: `COF −3,34%`, `CIR −30,8%`, `NPL_COVERAGE −128%`, `PROVISION_TO_LOANS −0,63%` | Độ lớn mới là số thật | Lấy `abs()`, nêu rõ trong ghi chú |
-| Chỉ tiêu công nghiệp trả **0,0** cho ngân hàng: `EBIT`, `EBITDA`, `ATR`, `CR`, `QR`, `LEV_DE`, `RT_VALUE_EQUITY` | `0` ở đây nghĩa là **KHÔNG ÁP DỤNG**, không phải bằng không | **Cấm** báo "D/E = 0". Vốn chủ lấy `BS_EQUITY` |
+**Bẫy khi đọc (đo VCB 30/09/2026):** tỷ lệ là **phân số** (NPL 0,00706 = 0,71%)
+→ nhân 100 khi trình bày; `EBITDA_TR` / `EBIT_TR` của ngân hàng **không có nghĩa**
+(VCB `EBITDA_TR` âm) → cấm dùng; NIM là **bình quân 5 quý**, không phải NIM quý.
+**VNDIRECT KHÔNG có CASA, CAR, YOEA/COF tách riêng** → tầng 1 / IR / Basel III.
 
 **Vẫn PHẢI lấy ngoài** (API không có), thứ tự ưu tiên:
 1. **Công bố KQKD của ngân hàng (IR press release PDF)** — **nợ nhóm 2**, **split
@@ -110,12 +98,12 @@ Bản tài trợ có hẳn nhóm **ĐẶC THÙ NGÀNH NGÂN HÀNG** trong `f.rat
 3. **Báo cáo môi giới ≤3 THÁNG** (SSI/HSC/VCI/MBS/VND) — cross-check + chỉ tiêu
    phái sinh. **Bỏ báo cáo cũ hơn 3 tháng.**
 
-> Chênh giữa `RT_BANK_*` và công bố IR là chuyện bình thường (định nghĩa khác:
+> Chênh giữa chỉ số VNDIRECT và công bố IR là chuyện bình thường (định nghĩa khác:
 > cuối kỳ vs bình quân, hợp nhất vs riêng lẻ). **Lệch → nêu cả hai và nói rõ dùng
 > số nào, không chọn bừa.**
 
 ### Tầng 3 — CROSS-CHECK (bắt buộc ≥2 nguồn)
-cafef.vn / vietstock.vn đối chiếu mọi số tầng 1–2. **Quý gần nhất:** `vnstock_data` đã có 34 quý nhãn tường minh, nhưng headline quý vẫn phải đối chiếu **công bố công ty + cafef** trước khi báo ra ngoài. Mâu thuẫn nguồn → **nêu rõ, không chọn bừa** (vd NPL: PR 0,96% vs BCTC 1,29% → dùng số BCTC).
+cafef.vn / vietstock.vn đối chiếu mọi số tầng 1–2. **Quý gần nhất:** headline quý vẫn phải đối chiếu **công bố công ty + cafef** trước khi báo ra ngoài. Mâu thuẫn nguồn → **nêu rõ, không chọn bừa** (vd NPL: PR 0,96% vs BCTC 1,29% → dùng số BCTC).
 
 **Công cụ:** `WebFetch`/`WebSearch` cho PR/bài báo; **crawl4ai** cho bảng cafef render + trang JS; `pdfplumber` đọc PDF text (PR/môi giới/BCTN); PDF scan kiểm toán → `pypdf` trích ảnh + `Read` (vision) [[workflow-deep-dive-equity-analysis]].
 
@@ -176,6 +164,6 @@ Cột bắt buộc: **NIM · NPL ratio · CAR · CASA · LDR · CIR · LLR/credi
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 1. **Không bịa/cook số liệu.** Mọi số phải có nguồn thật. **Cross-check ≥2 nguồn uy tín** (cafef.vn, vietstock.vn) — crawl4ai cào rồi đối chiếu; nguồn lệch thì nêu rõ, không chọn bừa.
-2. **`RT_BANK_*` của vnstock_data đã sống** → NIM/NPL/CASA/CAR/CIR/coverage lấy được trực tiếp (nhớ: phân số, vài chỉ tiêu mang dấu âm, `0` = không áp dụng) nhưng **vẫn cross-check công bố IR**. Riêng **nợ nhóm 2, split nhóm 3/4/5, hình thành nợ xấu, cho vay theo ngành, related-party** thì API KHÔNG có → **BẮT BUỘC** lấy từ công bố IR + BCTC thuyết minh (crawl4ai), cross-check môi giới **≤3 tháng**. (Cảnh báo "ratio lỗi thời" chỉ còn đúng với bản free.)
+2. **Chỉ số ngân hàng VNDIRECT** (`FINFO_API__get_ratios`) cho NIM/NPL/coverage/LDR/chi phí tín dụng (phân số — nhân 100), nhưng **vẫn cross-check công bố IR**; CASA/CAR KHÔNG có trong VNDIRECT. Riêng **nợ nhóm 2, split nhóm 3/4/5, hình thành nợ xấu, cho vay theo ngành, related-party** thì API KHÔNG có → **BẮT BUỘC** lấy từ công bố IR + BCTC thuyết minh (crawl4ai), cross-check môi giới **≤3 tháng**.
 3. **Khoản bất thường → đọc THUYẾT MINH** (nợ nhóm 3/4/5, cho vay theo ngành, related-party, lãi dự thu, TPDN) và trích nguồn trước khi diễn giải.
 4. **Báo cáo môi giới chỉ dùng nếu ≤3 tháng tuổi** (cũ hơn = giả định lạc hậu, không làm neo).

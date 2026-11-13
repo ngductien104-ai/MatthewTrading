@@ -27,12 +27,11 @@ def frame(now):
             return _cached.copy()
         from vndata.price import ohlcv
         if _universe is None:
-            from vnstock_data import Reference
-            _universe = Reference().equity.list_by_exchange()
-            required = {"symbol", "exchange", "icb_code_lv2"}
-            if not required <= set(_universe):
-                raise ValueError("Universe must include symbol, exchange and icb_code_lv2")
-            _universe = _universe[_universe.exchange.isin({"HOSE", "HNX", "UPCOM"})]
+            # Symbols + exchange: DataPro. ICB: snapshot fetched via VNDIRECT
+            # MCP; a missing snapshot raises SourceUnavailable rather than
+            # grouping every name under "unknown".
+            from vndata.reference import classification, equities
+            _universe = equities().merge(classification(), on="symbol", how="inner")
         universe = _universe
         def fetch(symbol):
             previous = _bars.get(symbol)

@@ -1,66 +1,49 @@
-# Nguồn dữ liệu Việt Nam — kiến trúc 4 nguồn sự thật
+# Nguồn dữ liệu Việt Nam — DataPro + VNDIRECT MCP
 
-Bản fork này định tuyến **mọi** dữ liệu thị trường Việt Nam qua đúng một lớp:
-`agent/vndata`. Mỗi loại dữ liệu có **một** nguồn sự thật, không chồng lấn,
-không "thử nguồn nào có trước".
+**Từ 13/11/2026 dự án không dùng vnstock** (sponsored `vnstock_data` /
+`vnstock_ta` / `vnstock_news` và bản free). Gói đã huỷ; xác thực ngừng từ
+10/11/2026 — chính việc này làm chết bản tin sáng 13/11. Mọi dữ liệu thị trường
+Việt Nam đi qua **hai nguồn sự thật**, không chồng lấn:
 
-| Loại dữ liệu | Nguồn sự thật | Entry point |
+| Nguồn | Phủ | Ai gọi được |
 |---|---|---|
-| OHLCV, khối lượng, giá trị GD | **DataPro** | `vndata.price.ohlcv()` |
-| Giá tham chiếu (biên độ ngày) | **DataPro** | cột `ref_price` |
-| Khối ngoại mua/bán ròng | **DataPro** | `vndata.price.foreign_flow()` |
-| Tự doanh (tự doanh CTCK) | **DataPro** | `vndata.price.proprietary_flow()` |
-| Thoả thuận, chủ động mua/bán | **DataPro** | cột `put_through_*`, `active_*` |
-| Chỉ số, phái sinh, ETF | **DataPro** | `vndata.price.ohlcv()` |
-| BCTC + thuyết minh | **vnstock_data** | `vndata.fundamental.statement()` |
-| Chỉ số tài chính, định giá | **vnstock_data** | `vndata.fundamental.ratios()` |
-| Vĩ mô, lãi suất, hàng hoá | **vnstock_data** | `vndata.macro.*` |
-| Tỷ giá, DXY | **Yahoo** (`yfinance`) — DataPro không có FX | `USDVND=X`, `DX-Y.NYB` |
-| Danh sách mã, ICB, rổ, cổ đông | **vnstock_data** | `vndata.reference.*` |
-| Chỉ báo kỹ thuật | **vnstock_ta** (trên giá DataPro) | `vndata.ta.indicator()` |
-| Tin tức + nội dung bài báo | **vnstock_news** | `vndata.news.*` |
-| Lịch sử tăng vốn, giao dịch nội bộ, cơ cấu sở hữu | **vnstock (free)** — ngoại lệ duy nhất | `vndata.corporate.*` |
+| **DataPro** (desktop `localhost:6789`) | giá/KL/GTGD, giá tham chiếu, khối ngoại & tự doanh theo mã, thoả thuận, chủ động mua/bán, chỉ số, phái sinh, ETF, danh sách mã + SLCP | Python (`agent/vndata`) + MCP `datapro` |
+| **VNDIRECT MCP** (connector claude.ai "VNDIRECT MCP", OAuth, endpoint `https://mcp.vndirect.com.vn/mcp`) | chỉ số tài chính & định giá (≤5 năm), chỉ số ngân hàng, ICB 4 cấp, rổ chỉ số, sự kiện DN, lãnh đạo, khối ngoại tổng sàn chính thức, độ rộng sàn, quỹ mở, phái sinh, hàng hoá, lịch giao dịch | **Chỉ Claude / subagent** (tool `FINFO_API__*`) |
 
-## 1. `vnstock` bản free không còn là nguồn
+Không nguồn API nào có **BCTC từng dòng + thuyết minh** → lấy từ **PDF gốc**
+(`agent/scripts/evidence_pack.py`, quy trình Phase 0 ở `CLAUDE.md`).
+Vĩ mô VN → cơ quan công bố gốc (GSO, NHNN, BTC). Tỷ giá, DXY → Yahoo.
 
-Tài khoản đã lên **gói tài trợ silver** (300 req/phút, 15.000 req/giờ). Bản free
-bị gỡ khỏi chuỗi fallback `vn_equity` vì ba lý do cụ thể:
+Bảng tool đầy đủ, cú pháp `get_ratios` và mã `ratioCode`: skill
+[`data-routing`](agent/src/skills/data-routing/SKILL.md).
 
-- bảng `ratio()` trả layout kỳ không ổn định (từng trả số 2018 cho kỳ mới nhất);
-- giá không có `REF_PX` nên engine không dựng được biên độ trần/sàn;
-- không có dòng tiền khối ngoại / tự doanh / thoả thuận.
+## 1. Lớp Python `agent/vndata`
 
-Chuỗi mới: **`datapro` → `vnstock_data`**. Muốn dùng bản free phải khai
-`source: "vnstock"` một cách có chủ đích, không có đường rơi ngầm.
+| Module | Nguồn | Ghi chú |
+|---|---|---|
+| `vndata.price` | DataPro | DataPro chết → `SourceUnavailable`. **Không còn nguồn dự phòng.** |
+| `vndata.reference.symbols/equities/etfs` | DataPro `/api/symbols` | cache trong tiến trình (DataPro trả 503 khi gọi dồn) |
+| `vndata.reference.classification` | snapshot ICB cấp 2 từ VNDIRECT | `agent/data/vn_reference/icb_classification.csv` |
+| `vndata.reference.symbols_by_group` | snapshot rổ từ VNDIRECT | `agent/data/vn_reference/index_members.json` |
+| `vndata.ta` | tự tính trên giá DataPro | RSI/ATR làm mượt Wilder chuẩn (khớp ví dụ gốc 70,53) |
+| `vndata.news.rss` | feed RSS nhà xuất bản | thân bài → `read_url` / crawl4ai |
+| `vndata.fundamental/macro/corporate`, `reference.company/events/...`, `news.company_news/crawl` | — | **cố ý raise** `SourceUnavailable` chỉ sang VNDIRECT MCP |
 
-**Ngoại lệ duy nhất, được ghi rõ** — `vndata.corporate`: gói tài trợ *không hề có*
-`capital_history`, `insider_trading`, `ownership`. Ba hàm này nằm gọn trong một
-file, đóng dấu nguồn lên từng frame trả về, và không có gì khác được phép
-`import vnstock`.
+Snapshot ghi `as_of` + `source`; làm mới khi VN30 đổi rổ (tháng 1, 7) hoặc khi
+`agent/scripts/vn_preflight.py` báo thiếu/cũ — cách làm ở skill `data-routing`.
+Snapshot đầu tiên (13/11/2026): ICB phủ **1.510/1.528** mã niêm yết DataPro; VN30
+đủ 30 mã.
 
 ## 2. Điều kiện chạy
 
-- **DataPro desktop phải bật** và mở API (cổng `6789`).
-  ```
-  DATAPRO_URL=http://localhost:6789
-  DATAPRO_API_KEY=...          # chỉ cần khi truy cập remote
-  ```
-- **Gói tài trợ vnstock đã kích hoạt.** API key ở `$HOME\.vnstock\api_key.json`.
-  Kiểm nhanh: `python -c "import vnai; print(vnai.get_user_tier())"` → `silver`.
-- Python có gói tài trợ: `$HOME\.venv\Scripts\python.exe` (và `.venv` của project),
-  chạy với `PYTHONPATH` trỏ vào `agent/`.
-
-Kiểm tra toàn bộ trong một lệnh:
-
-```python
-import vndata
-vndata.health()
-# {'datapro': True, 'tier': {'tier': 'silver', ...},
-#  'installed': {'vnstock_data': '3.2.8', 'vnstock_ta': '1.0.6', 'vnstock_news': '2.2.2'},
-#  'asean_macro_backend': False}
+```bash
+.venv/Scripts/python.exe agent/scripts/vn_preflight.py   # DataPro sống? snapshot bao nhiêu tuổi?
 ```
 
-## 3. Đơn vị — đã chuẩn hoá một lần, đừng chuẩn hoá lại
+VNDIRECT MCP kiểm từ Claude: tool `health` của connector, hoặc `/mcp`. Hết phiên
+OAuth → đăng nhập lại ở Connectors / `/mcp`.
+
+## 3. Đơn vị
 
 ### DataPro (`vndata.price`) — ⚠️ đơn vị KHÁC NHAU theo loại công cụ
 
@@ -85,65 +68,30 @@ Bằng chứng (đo 25–27/08/2026):
 Quy đổi: `vndata.price.to_vnd(df)` — tự nhận loại công cụ, không đổi `close` của
 chỉ số (vì đó là điểm số), và ghi loại đã dùng vào `df.attrs["instrument"]`.
 
-### vnstock_data (`vndata.fundamental`)
+### VNDIRECT MCP (đo 13/11/2026)
 
-Bảng `ratio()` khai `unit` **sai** ở nhiều field. Đã kiểm chứng trực tiếp trên
-HPG (sản xuất) và TCB (ngân hàng), FY2025, ngày 27/08/2026:
+| Tool / trường | Đơn vị / bẫy |
+|---|---|
+| tỷ lệ trong `get_ratios` | **phân số** (ROAE 0,195 = 19,5%; NPL 0,00706 = 0,71%) |
+| `EBITDA_TR` | **hỏng** (HPG −174.797 tỷ) → dùng `OPERATING_EBITDA_TR` |
+| `QUICK_RATIO_AQ`, `CPS_AQ` | sai dấu → tự tính từ BCTC gốc |
+| `get_stock_price_by_date` | giá **nghìn VND**, `ad*` = điều chỉnh; `nmValue` = **VND** |
+| `get_foreign_trading` | **VND trần**; tổng sàn = dòng `VNINDEX`/`HNX`/`UPCOM`, không cộng từng mã |
+| `get_change_prices` | `price: 0` → `changePct −100%` = **thiếu số**; `period=1M` trả rỗng |
+| `get_fund_ratios` | `0` = **thiếu**, không phải "không đổi" |
+| `get_ratios` phân trang | trang sau lặp mã trang trước → khử trùng theo `ratioCode` |
 
-| Field | `unit` khai báo | Giá trị thật |
-|---|---|---|
-| `RT_VALUE_MARKET_CAP`, `RT_VALUE_EBIT`, `RT_VALUE_EBITDA` | `tỷ VNĐ` | **VND trần** |
-| `RT_PRT_*`, `RT_BANK_*` | `%` | **fraction** (ROE `0.1269` = 12,69%) |
-| `RT_VALUE_DIVIDEND_YIELD` | `%` | **đã là %** — không nhân 100 |
-| `RT_BANK_COF`, `CIR`, `NPL_COVERAGE`, `PROVISION_TO_LOANS` | `%` | fraction **và mất dấu** (`-1.28` = 128%) |
-| `RT_VALUE_EQUITY`, `RT_BANK_NOII` | `tỷ VNĐ` | **hỏng** → lấy `BS_EQUITY` |
-| `IS_OPERATING_EXPENSES` (NH) | VND | `NaN` → tính `TOI − PPOP` |
-| `IS_MINORITY_INTEREST` | VND | mất dấu khi lỗ → tính `LNST − LN cổ đông mẹ` |
-
-Hai quy ước chung: **`0.0` trong bảng ratio = "không áp dụng"**, không phải số đo
-(ngân hàng trả `0.0` cho vòng quay hàng tồn kho, DN sản xuất trả `0.0` cho NIM)
-→ đổi thành `NaN`; và **`NaN` giữ nguyên `NaN`**, không bao giờ điền 0.
-
-Bản đặc tả nằm ở `agent/vndata/normalize.py` và được **cả** provider backtest
-(`vnstock_data_fundamentals.py`) dùng chung, nên `ratio_roe` trong backtest và
-`RT_PRT_ROE` trong phân tích luôn cùng một đơn vị (**%**).
-
-## 4. Tình trạng nguồn đã biết (27/08/2026)
-
-- **`asean-apigw.aseansc.com.vn` (backend của macro) hay sập tạm thời.** Sáng
-  27/08/2026 host này không nhận TCP trong khoảng một tiếng rồi tự sống lại; đã
-  xác minh **không phải lỗi mạng nội bộ**: DNS trả đúng IP thật `119.17.209.229`
-  (không phải trang chặn của Umbrella dạng `146.112.61.x`), hai DNS khác nhau
-  cùng ra một IP, và `aseansc.com.vn` gốc vẫn sống trong lúc subdomain apigw chết.
-  Ảnh hưởng khi sập: `macro.economy.*`, `macro.commodity.*`, hầu hết
-  `macro.currency.*`, cùng `Insights.flow` / `Insights.sentiment`.
-  **Xử lý: thử lại trước đã.** Kiểm nhanh bằng `vndata.health()["asean_macro_backend"]`.
-  Nếu sập kéo dài → cào từ cơ quan công bố gốc (GSO, NHNN, Bộ Tài chính) và ghi rõ nguồn.
-  `vndata.macro.currency("interest_rate")` và `index_valuation()` dùng backend khác,
-  chạy xuyên qua các đợt sập này.
-- **Các method phẳng `Macro().gdp()`, `.cpi()`, `.interest_rate()`… bị DEPRECATED,
-  gỡ sau 31/08/2026.** `vndata.macro` chỉ bọc API sub-domain mới, nên không cần sửa lại.
-- `vnstock_pipeline` cần tier golden/diamond — silver chưa có.
-- **DataPro không có tape FX — `SOURCE_MAP["forex"]` từng nói sai (sửa 07/09/2026).**
-  `vndata.price.ohlcv()` trả **0 dòng** cho `USDVND`, `XAUUSD`, `DXY`, `USDJPY`, và
-  chưa từng có accessor `vndata.forex` đứng sau key đó. Tỷ giá sống lấy từ Yahoo:
-  `USDVND=X` (26.054 ngày 07/09/2026), `DX-Y.NYB` (99,20 ngày 06/09/2026).
-- **`macro.currency("exchange_rate")` chỉ còn dùng cho lịch sử.** Có tỷ giá trung tâm /
-  VCB / thị trường tự do từ 2020 (1.622 dòng) nhưng **dừng ở 09/07/2026** — trễ 60 ngày
-  tính đến 07/09/2026. Tham số `start=` cũng không được tôn trọng (`start=2026-08-01`
-  vẫn trả dữ liệu từ 08/01/2026). Đừng dùng nó cho tỷ giá hiện hành.
-
-## 5. Quy ước mã
+## 4. Quy ước mã
 
 Hậu tố **`.VN`**: `VCB.VN`, `FPT.VN`, `VNINDEX.VN`, `VN30F1M.VN`.
 
 Hậu tố này làm ba việc, không phải một:
-1. định tuyến sang chuỗi nguồn VN;
+1. định tuyến sang DataPro;
 2. bật luật thị trường VN trong engine (T+2, biên độ, cấm bán khống, lô 100);
 3. **bật swarm grounding** — worker được nạp giá thật vào prompt. Mã viết trần
    (`VCB`) sẽ **không** được grounding và worker sẽ trích giá từ dữ liệu huấn luyện.
 
-## 6. Luật thị trường VN (engine `vn_equity`)
+## 5. Luật thị trường VN (engine `vn_equity`)
 
 - **T+2**: mua hôm T chỉ bán được từ T+2.
 - **Không bán khống.**
@@ -152,42 +100,34 @@ Hậu tố này làm ba việc, không phải một:
   hoặc `"vn_default_exchange": "HNX"`.
 - **Lô** 100 cp (làm tròn xuống). **Phí** 0,15%/lượt + thuế bán 0,1%.
 
-## 7. Backtest mẫu (`config.json`)
+## 6. Backtest mẫu (`config.json`)
 
 ```json
 {
   "codes": ["FPT.VN"],
   "start_date": "2024-01-01",
   "end_date": "2025-12-31",
-  "source": "auto",
+  "source": "datapro",
   "interval": "1D",
   "engine": "daily",
-  "initial_cash": 100000000,
-  "fundamental_fields": { "ratio": ["roe", "pe", "pb"] }
+  "initial_cash": 100000000
 }
 ```
 
-Chạy: `python -m backtest.runner <thư_mục_run>`.
+Chạy: `python -m backtest.runner <thư_mục_run>`. Chuỗi `vn_equity` = `["datapro"]`.
+`fundamental_fields` cho mã `.VN` **báo lỗi** (Python không gọi được VNDIRECT):
+lấy chỉ số qua MCP → CSV có `reportDate` → signal engine gắn point-in-time (năm
++90 ngày, quý +45 ngày — `vndata.fundamental.DISCLOSURE_LAG_DAYS`).
 
-Độ sâu BCTC gói tài trợ: **8 kỳ năm + 34 kỳ quý** (không còn giới hạn ~4 kỳ của
-bản free). Mỗi kỳ chỉ "xuất hiện" sau ngày công bố ước tính (năm +90 ngày, quý
-+45 ngày) nên không bị nhìn trước.
-
-## 8. Các file của lớp dữ liệu
+## 7. Các file của lớp dữ liệu
 
 | File | Vai trò |
 |---|---|
 | `agent/vndata/__init__.py` | Hợp đồng công khai + `SOURCE_MAP` + `health()` |
-| `agent/vndata/price.py` | DataPro: OHLCV, dòng tiền, thoả thuận, chủ động |
-| `agent/vndata/fundamental.py` | BCTC, chỉ số, `derived()` dựng lại 3 field hỏng |
-| `agent/vndata/normalize.py` | **Bản đặc tả đơn vị/dấu duy nhất** |
-| `agent/vndata/macro.py` | Vĩ mô/lãi suất/hàng hoá (chỉ API sub-domain mới) |
-| `agent/vndata/reference.py` | Danh mục mã, ICB, cổ đông, quỹ, ETF |
-| `agent/vndata/ta.py` | vnstock_ta chạy trên giá DataPro |
-| `agent/vndata/news.py` | Tin tức + cào toàn văn 21 đầu báo |
-| `agent/vndata/corporate.py` | Ngoại lệ free tier (3 hàm, có đóng dấu nguồn) |
-| `agent/vndata/errors.py` | `SourceUnavailable` — nguồn chết thì báo to, không lùi ngầm |
-
-Các file cũ vẫn giữ vai trò backtest: `datapro_loader.py`,
-`vnstock_data_loader.py`, `vnstock_data_fundamentals.py`, `vn_equity.py`,
-`registry.py`, `_market_hooks.py`, `runner.py`, `metrics.py`.
+| `agent/vndata/price.py` | DataPro: OHLCV, dòng tiền, thoả thuận, chủ động, bẫy đơn vị |
+| `agent/vndata/reference.py` | DataPro symbol list + snapshot ICB / rổ (VNDIRECT) |
+| `agent/vndata/ta.py` | Chỉ báo kỹ thuật tự tính |
+| `agent/vndata/news.py` | RSS nhà xuất bản |
+| `agent/vndata/fundamental.py`, `macro.py`, `corporate.py` | Chỉ còn hợp đồng + lỗi chỉ đường VNDIRECT |
+| `agent/vndata/errors.py` | `SourceUnavailable`, `moved_to_vndirect()` |
+| `agent/backtest/loaders/datapro_loader.py`, `registry.py` | Loader giá VN duy nhất |

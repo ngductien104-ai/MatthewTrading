@@ -58,9 +58,11 @@ class UniverseResolutionError(RuntimeError):
 def _materialize_named_universe(config: dict, *, as_of: date | None = None) -> dict:
     """Populate ``codes`` from a named universe without overriding explicit codes.
 
-    The vnstock_data reference endpoint exposes current membership only.  The
-    exact materialized symbols and this limitation are therefore carried into
-    the run card rather than represented as point-in-time constituents.
+    Membership comes from the VNDIRECT-sourced basket snapshot
+    (``vndata.reference.symbols_by_group``), which records current membership
+    only.  The exact materialized symbols and this limitation are therefore
+    carried into the run card rather than represented as point-in-time
+    constituents.
     """
     if "codes" in config:
         return config

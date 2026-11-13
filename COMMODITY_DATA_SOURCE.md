@@ -3,6 +3,14 @@
 File anh em với `VN_DATA_SOURCE.md`. Chỗ kia định tuyến dữ liệu **cổ phiếu Việt Nam**;
 chỗ này định tuyến **giá hàng hoá** cho swarm `commodity_research_team_VN`.
 
+> ⚠️ **Cập nhật 13/11/2026 — cột `vndata` bên dưới là LỊCH SỬ.** Gói vnstock đã huỷ;
+> `vndata.macro.commodity` nay raise `SourceUnavailable`, nên mọi route `vndata` trong
+> `commodity_datapack.py` ghi lỗi vào pack thay vì số. Yahoo + akshare vẫn chạy như cũ.
+> Giá VN nội địa / kiểm chéo thứ hai: tool VNDIRECT MCP `FINFO_API__get_change_prices`
+> (vàng, Brent, cao su TCM, đường 11, bông, đồng 3M, quặng sắt Thanh Đảo, HRC xuất khẩu;
+> chỉ Claude gọi được, dùng `period=1D`; `price: 0` = thiếu số). Các mặt hàng VN khác
+> (thép VN, vàng SJC, xăng bán lẻ, heo hơi) → crawl nguồn công bố gốc, ghi nguồn.
+
 Lý do file này tồn tại: `agent/src/swarm/grounding.py` chỉ nhận diện mã dạng `.VN` /
 `.US` / `.HK` / `-USDT`. Biến `{commodity}` của preset hàng hoá ("dầu thô", "đồng")
 **không khớp mẫu nào**, nên swarm chạy nguyên trạng sẽ không có một dòng giá thật nào
@@ -122,7 +130,7 @@ cả hai.
 | | `C:\Users\VVVZV\MatthewTrading\.venv` (**dự án**) | `$HOME\.venv` (home) |
 |---|---|---|
 | `yfinance` / `akshare` / `tushare` / `ccxt` | ✅ | ❌ |
-| vnstock sponsor + `crawl4ai` | ✅ | ✅ |
+| `crawl4ai` | ✅ | ✅ |
 
 Data pack và swarm hàng hoá **chỉ chạy được ở venv dự án**. Dùng nhầm `$HOME\.venv` thì
 Yahoo và akshare hỏng im lặng, pack còn mỗi vndata.

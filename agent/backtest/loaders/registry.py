@@ -39,8 +39,6 @@ VALID_SOURCES: set[str] = {
     "ccxt",
     "futu",
     "datapro",
-    "vnstock_data",
-    "vnstock",
     "auto",
 }
 
@@ -75,8 +73,6 @@ def _ensure_registered() -> None:
         "backtest.loaders.ccxt_loader",
         "backtest.loaders.futu",
         "backtest.loaders.datapro_loader",
-        "backtest.loaders.vnstock_data_loader",
-        "backtest.loaders.vnstock_loader",
     ]
     import importlib
     for mod in _loader_modules:
@@ -92,14 +88,11 @@ def _ensure_registered() -> None:
 
 FALLBACK_CHAINS: dict[str, list[str]] = {
     "a_share":   ["tushare", "mootdx", "akshare"],
-    # DataPro first (REF_PX + the full tape: foreign, proprietary, put-through,
-    # active buy/sell), then the sponsored Unified UI as the internet-only
-    # backup. The free ``vnstock`` loader stays registered but is deliberately
-    # NOT in this chain: its ratio layout is stale and its bars carry no
-    # reference price, so falling back to it silently produced analysis that
-    # disagreed with the market. Ask for ``source="vnstock"`` explicitly if you
-    # really want it.
-    "vn_equity": ["datapro", "vnstock_data"],
+    # DataPro only (REF_PX + the full tape: foreign, proprietary, put-through,
+    # active buy/sell). The vnstock / vnstock_data loaders were removed when
+    # the vnstock subscription was cancelled on 13/11/2026; a DataPro outage
+    # now fails the backtest instead of silently switching price source.
+    "vn_equity": ["datapro"],
     "us_equity": ["yfinance", "akshare"],
     "hk_equity": ["yfinance", "futu", "akshare"],
     "crypto":    ["okx", "ccxt", "yfinance"],

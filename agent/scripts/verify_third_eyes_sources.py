@@ -28,7 +28,7 @@ def main():
         parser.error(f"Unknown source IDs: {sorted(unknown)}")
     started = utcnow().isoformat()
     versions = {}
-    for package in ("vnstock", "vnstock_data", "vnai"):
+    for package in ("pandas", "requests"):
         try:
             versions[package] = version(package)
         except PackageNotFoundError:

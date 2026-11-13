@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Preflight check for the Vietnamese data stack — run this before a long analysis.
 
-Answers, in one command, the four questions that actually go wrong:
+Answers, in one command, the questions that actually go wrong:
 
-1. Is the vnstock licence live? (The key gets rotated, and ``auth_state.json`` is
-   a 60-minute cache that keeps saying "silver" long after a key is revoked, so
-   the tier is read from ``vnai.get_user_tier()``.)
-2. Is the DataPro desktop up? Without it there is no reference price and no
-   foreign / proprietary flow.
-3. Is the macro backend answering? It goes down for stretches on its own.
-4. Does swarm grounding actually load real prices for a ``.VN`` symbol? This is
+1. Is the DataPro desktop up? Without it there is no price, reference price,
+   foreign / proprietary flow — and since 13/11/2026 no fallback either.
+2. Are the VNDIRECT-sourced snapshots (ICB classification, VN30 basket) on
+   disk, and how old are they? The daily brief and the learning loop read them.
+3. Does swarm grounding actually load real prices for a ``.VN`` symbol? This is
    the check that would have caught VN presets running on training-data prices.
+
+VNDIRECT MCP itself (financials, ratios, macro, company data) is OAuth-only and
+is checked from the MCP client, not from here: run ``/mcp`` in Claude Code.
 
 Usage (from the repo root)::
 
@@ -46,24 +47,6 @@ def main() -> int:
     health = vndata.health()
     blocking = []
 
-    tier = health["tier"]
-    tier_name = tier.get("tier") if isinstance(tier, dict) else str(tier)
-    if tier_name in {"silver", "golden", "diamond", "bronze"}:
-        limits = tier.get("limits", {}) if isinstance(tier, dict) else {}
-        print(f"{OK} Ban quyen vnstock : {tier_name}  {limits}")
-    else:
-        print(f"{BAD} Ban quyen vnstock : {tier_name}")
-        print("       -> API key co the da bi thu hoi. Ghi key moi vao "
-              "$HOME\\.vnstock\\api_key.json roi xoa auth_state.json.")
-        blocking.append("licence")
-
-    for pkg, version in health["installed"].items():
-        if version:
-            print(f"{OK} {pkg:<17} : {version}")
-        else:
-            print(f"{BAD} {pkg:<17} : chua cai")
-            blocking.append(pkg)
-
     if health["datapro"]:
         print(f"{OK} DataPro desktop   : dang chay")
     else:
@@ -72,13 +55,12 @@ def main() -> int:
               "khoi ngoai, tu doanh, thoa thuan.")
         blocking.append("datapro")
 
-    if health["asean_macro_backend"]:
-        print(f"{OK} Backend macro     : dang chay")
-    else:
-        print(f"{WARN} Backend macro     : khong tra loi (host nay hay sap tam thoi "
-              "roi tu song lai)")
-        print("       -> Thu lai sau. Chi anh huong macro/commodity, khong chan "
-              "viec phan tich co phieu.")
+    for name, as_of in health["snapshots"].items():
+        if as_of:
+            print(f"{OK} Snapshot {name:<20}: {as_of}")
+        else:
+            print(f"{WARN} Snapshot {name:<20}: chua co -> lay tu VNDIRECT MCP, ghi bang "
+                  "vndata.reference.save_*")
 
     print("-" * 66)
     print("GROUNDING SWARM (mã .VN co duoc nap gia that vao prompt khong)")

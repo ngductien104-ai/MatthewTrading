@@ -1,0 +1,2089 @@
+symbol,icb_code_lv2,icb_name_lv2
+A32,3700,Personal & Household Goods
+AAA,2700,Industrial Goods & Services
+AAH,1700,Basic Resources
+AAM,3500,Food & Beverage
+AAN,3500,Food & Beverage
+AAS,8700,Financial Services
+AASC,8700,Financial Services
+AAT,3700,Personal & Household Goods
+AAV,2300,Construction & Materials
+ABB,8300,Banks
+ABC,6500,Telecommunications
+ABI,8500,Insurance
+ABR,7500,Utilities
+ABS,1300,Chemicals
+ABT,3500,Food & Beverage
+ABW,8700,Financial Services
+AC4,2300,Construction & Materials
+ACB,8300,Banks
+ACBS,8700,Financial Services
+ACC,2300,Construction & Materials
+ACE,2300,Construction & Materials
+ACG,3700,Personal & Household Goods
+ACL,3500,Food & Beverage
+ACM,1700,Basic Resources
+ACS,2300,Construction & Materials
+ACV,2700,Industrial Goods & Services
+ADC,5500,Media
+ADG,5500,Media
+ADP,2300,Construction & Materials
+ADS,1300,Chemicals
+AFC,1700,Basic Resources
+AFX,3500,Food & Beverage
+AG1,3700,Personal & Household Goods
+AGD,3500,Food & Beverage
+AGE,2300,Construction & Materials
+AGF,3500,Food & Beverage
+AGG,8600,Real Estate
+AGM,3500,Food & Beverage
+AGP,4500,Health Care
+AGR,8700,Financial Services
+AGRB,8300,Banks
+AGX,3500,Food & Beverage
+AIC,8500,Insurance
+AIG,2700,Industrial Goods & Services
+ALC,2700,Industrial Goods & Services
+ALP,2700,Industrial Goods & Services
+ALT,5500,Media
+ALV,2300,Construction & Materials
+AMC,1700,Basic Resources
+AMD,5300,Retail
+AME,2700,Industrial Goods & Services
+AMP,4500,Health Care
+AMS,2300,Construction & Materials
+AMV,4500,Health Care
+ANI,2300,Construction & Materials
+ANT,3500,Food & Beverage
+ANV,3500,Food & Beverage
+APC,1300,Chemicals
+APF,3500,Food & Beverage
+APG,8700,Financial Services
+APH,1300,Chemicals
+API,8700,Financial Services
+APL,2300,Construction & Materials
+APP,1300,Chemicals
+APS,8700,Financial Services
+APSC,8700,Financial Services
+APT,3500,Food & Beverage
+AQN,3700,Personal & Household Goods
+ARM,2700,Industrial Goods & Services
+ART,8700,Financial Services
+ASA,3700,Personal & Household Goods
+ASD,2300,Construction & Materials
+ASG,2700,Industrial Goods & Services
+ASM,8600,Real Estate
+ASP,7500,Utilities
+AST,5300,Retail
+ATA,3500,Food & Beverage
+ATB,2300,Construction & Materials
+ATD,3700,Personal & Household Goods
+ATG,1700,Basic Resources
+ATS,5700,Travel & Leisure
+ATSC,8700,Financial Services
+AUM,5300,Retail
+AVC,7500,Utilities
+AVF,3500,Food & Beverage
+AVG,1300,Chemicals
+AVS,8700,Financial Services
+B82,2300,Construction & Materials
+BAB,8300,Banks
+BAF,3500,Food & Beverage
+BAL,3500,Food & Beverage
+BAM,1700,Basic Resources
+BAS,3500,Food & Beverage
+BAX,8600,Real Estate
+BBC,3500,Food & Beverage
+BBH,2700,Industrial Goods & Services
+BBM,3500,Food & Beverage
+BBS,2700,Industrial Goods & Services
+BBT,3700,Personal & Household Goods
+BCA,1700,Basic Resources
+BCB,1700,Basic Resources
+BCC,2300,Construction & Materials
+BCE,2300,Construction & Materials
+BCF,3500,Food & Beverage
+BCG,2700,Industrial Goods & Services
+BCI,8600,Real Estate
+BCM,8600,Real Estate
+BCO,2300,Construction & Materials
+BCP,4500,Health Care
+BCR,8600,Real Estate
+BCV,5700,Travel & Leisure
+BDB,5300,Retail
+BDC,2300,Construction & Materials
+BDF,3700,Personal & Household Goods
+BDG,3700,Personal & Household Goods
+BDP,8600,Real Estate
+BDT,2300,Construction & Materials
+BDW,7500,Utilities
+BED,5300,Retail
+BEL,9500,Technology
+BETA,8700,Financial Services
+BFC,1300,Chemicals
+BGE,7500,Utilities
+BGM,1700,Basic Resources
+BGW,7500,Utilities
+BHA,7500,Utilities
+BHC,2700,Industrial Goods & Services
+BHEC,7500,Utilities
+BHG,3500,Food & Beverage
+BHH,3500,Food & Beverage
+BHI,8500,Insurance
+BHK,3500,Food & Beverage
+BHN,3500,Food & Beverage
+BHP,3500,Food & Beverage
+BHS,3500,Food & Beverage
+BHT,2300,Construction & Materials
+BHV,2300,Construction & Materials
+BHWC,7500,Utilities
+BIC,8500,Insurance
+BID,8300,Banks
+BIDVF,8700,Financial Services
+BIG,8600,Real Estate
+BII,8600,Real Estate
+BIO,4500,Health Care
+BKC,1700,Basic Resources
+BKG,1700,Basic Resources
+BKH,3500,Food & Beverage
+BLF,3500,Food & Beverage
+BLI,8500,Insurance
+BLN,5700,Travel & Leisure
+BLT,3500,Food & Beverage
+BLU,2700,Industrial Goods & Services
+BLW,7500,Utilities
+BM9,2300,Construction & Materials
+BMC,1700,Basic Resources
+BMD,2700,Industrial Goods & Services
+BMF,5300,Retail
+BMG,3700,Personal & Household Goods
+BMI,8500,Insurance
+BMJ,1700,Basic Resources
+BMK,2300,Construction & Materials
+BMN,2300,Construction & Materials
+BMP,2300,Construction & Materials
+BMS,8700,Financial Services
+BMV,3500,Food & Beverage
+BNA,5300,Retail
+BNW,7500,Utilities
+BOT,2300,Construction & Materials
+BPC,2700,Industrial Goods & Services
+BPW,7500,Utilities
+BQB,3500,Food & Beverage
+BQP,2700,Industrial Goods & Services
+BRC,1300,Chemicals
+BRR,1300,Chemicals
+BRS,2700,Industrial Goods & Services
+BSA,7500,Utilities
+BSC,5300,Retail
+BSD,3500,Food & Beverage
+BSG,5700,Travel & Leisure
+BSH,3500,Food & Beverage
+BSI,8700,Financial Services
+BSL,3500,Food & Beverage
+BSP,3500,Food & Beverage
+BSQ,3500,Food & Beverage
+BSR,0500,Oil & Gas
+BST,5300,Retail
+BT1,1300,Chemicals
+BT6,2300,Construction & Materials
+BTB,3500,Food & Beverage
+BTC,2700,Industrial Goods & Services
+BTD,2300,Construction & Materials
+BTG,2700,Industrial Goods & Services
+BTH,2700,Industrial Goods & Services
+BTN,2300,Construction & Materials
+BTP,7500,Utilities
+BTR,2700,Industrial Goods & Services
+BTS,2300,Construction & Materials
+BTT,5300,Retail
+BTU,2300,Construction & Materials
+BTV,5700,Travel & Leisure
+BTW,7500,Utilities
+BUD,2300,Construction & Materials
+BVB,8300,Banks
+BVG,2300,Construction & Materials
+BVH,8500,Insurance
+BVL,8600,Real Estate
+BVN,3700,Personal & Household Goods
+BVS,8700,Financial Services
+BWA,7500,Utilities
+BWE,7500,Utilities
+BWS,7500,Utilities
+BXD,2700,Industrial Goods & Services
+BXH,2700,Industrial Goods & Services
+BXT,2700,Industrial Goods & Services
+C12,2300,Construction & Materials
+C21,8600,Real Estate
+C22,3500,Food & Beverage
+C32,2300,Construction & Materials
+C36,2300,Construction & Materials
+C47,2300,Construction & Materials
+C4G,2300,Construction & Materials
+C69,2300,Construction & Materials
+C71,2300,Construction & Materials
+C92,2300,Construction & Materials
+CAB,5500,Media
+CAD,3500,Food & Beverage
+CAG,2700,Industrial Goods & Services
+CAM,2700,Industrial Goods & Services
+CAN,3500,Food & Beverage
+CAP,1700,Basic Resources
+CAR,2700,Industrial Goods & Services
+CASC,8700,Financial Services
+CAT,3500,Food & Beverage
+CAV,2700,Industrial Goods & Services
+CBC,3500,Food & Beverage
+CBI,1700,Basic Resources
+CBS,3500,Food & Beverage
+CBVS,8700,Financial Services
+CC1,2300,Construction & Materials
+CC4,2300,Construction & Materials
+CCA,3500,Food & Beverage
+CCC,3700,Personal & Household Goods
+CCH,2300,Construction & Materials
+CCI,5300,Retail
+CCL,8600,Real Estate
+CCM,2300,Construction & Materials
+CCP,2700,Industrial Goods & Services
+CCR,2700,Industrial Goods & Services
+CCS,8600,Real Estate
+CCT,2700,Industrial Goods & Services
+CCV,2300,Construction & Materials
+CDC,2300,Construction & Materials
+CDG,2300,Construction & Materials
+CDH,2700,Industrial Goods & Services
+CDN,2700,Industrial Goods & Services
+CDO,2300,Construction & Materials
+CDP,4500,Health Care
+CDR,2300,Construction & Materials
+CE1,2700,Industrial Goods & Services
+CEC,2300,Construction & Materials
+CEE,2300,Construction & Materials
+CEG,2300,Construction & Materials
+CEN,5300,Retail
+CEO,8600,Real Estate
+CER,8600,Real Estate
+CET,1300,Chemicals
+CFC,3500,Food & Beverage
+CFM,2700,Industrial Goods & Services
+CFV,3500,Food & Beverage
+CGL,2700,Industrial Goods & Services
+CGP,4500,Health Care
+CGV,2300,Construction & Materials
+CH5,2300,Construction & Materials
+CHC,1700,Basic Resources
+CHP,7500,Utilities
+CHS,7500,Utilities
+CI5,2300,Construction & Materials
+CIA,2700,Industrial Goods & Services
+CIC,2300,Construction & Materials
+CID,2300,Construction & Materials
+CIG,8600,Real Estate
+CII,8600,Real Estate
+CIP,2300,Construction & Materials
+CJC,2700,Industrial Goods & Services
+CK8,2700,Industrial Goods & Services
+CKA,1700,Basic Resources
+CKD,1700,Basic Resources
+CKG,8600,Real Estate
+CKH,2700,Industrial Goods & Services
+CKV,9500,Technology
+CLC,3700,Personal & Household Goods
+CLG,8600,Real Estate
+CLH,2300,Construction & Materials
+CLI,1700,Basic Resources
+CLL,2700,Industrial Goods & Services
+CLM,2700,Industrial Goods & Services
+CLP,3500,Food & Beverage
+CLS,8700,Financial Services
+CLW,7500,Utilities
+CLX,5300,Retail
+CMC,2300,Construction & Materials
+CMD,2300,Construction & Materials
+CMF,3500,Food & Beverage
+CMFC,8700,Financial Services
+CMG,9500,Technology
+CMI,1700,Basic Resources
+CMK,2700,Industrial Goods & Services
+CMM,3500,Food & Beverage
+CMN,3500,Food & Beverage
+CMP,2700,Industrial Goods & Services
+CMS,2700,Industrial Goods & Services
+CMT,9500,Technology
+CMV,5300,Retail
+CMW,7500,Utilities
+CMX,3500,Food & Beverage
+CNA,3500,Food & Beverage
+CNC,1300,Chemicals
+CNG,7500,Utilities
+CNH,2700,Industrial Goods & Services
+CNN,2700,Industrial Goods & Services
+CNT,2300,Construction & Materials
+COM,5300,Retail
+CPA,3500,Food & Beverage
+CPC,1300,Chemicals
+CPH,5300,Retail
+CPI,2700,Industrial Goods & Services
+CPW,2300,Construction & Materials
+CQN,2700,Industrial Goods & Services
+CQT,2300,Construction & Materials
+CRC,5300,Retail
+CRE,8600,Real Estate
+CRV,8600,Real Estate
+CSC,8600,Real Estate
+CSI,8700,Financial Services
+CSM,3300,Automobiles & Parts
+CST,1700,Basic Resources
+CSV,1300,Chemicals
+CT3,2300,Construction & Materials
+CT5,2300,Construction & Materials
+CT6,2300,Construction & Materials
+CTA,2300,Construction & Materials
+CTB,2700,Industrial Goods & Services
+CTC,5300,Retail
+CTD,2300,Construction & Materials
+CTF,5300,Retail
+CTG,8300,Banks
+CTI,2300,Construction & Materials
+CTM,2300,Construction & Materials
+CTN,2300,Construction & Materials
+CTP,3500,Food & Beverage
+CTR,6500,Telecommunications
+CTS,8700,Financial Services
+CTT,2700,Industrial Goods & Services
+CTV,2300,Construction & Materials
+CTW,7500,Utilities
+CTX,2300,Construction & Materials
+CVC,2700,Industrial Goods & Services
+CVH,2700,Industrial Goods & Services
+CVN,2300,Construction & Materials
+CVP,2700,Industrial Goods & Services
+CVT,2300,Construction & Materials
+CX8,2300,Construction & Materials
+CXH,5700,Travel & Leisure
+CYC,2300,Construction & Materials
+CZC,1700,Basic Resources
+D11,8600,Real Estate
+D17,2300,Construction & Materials
+D26,2300,Construction & Materials
+D2D,8600,Real Estate
+DAB,8300,Banks
+DAC,2300,Construction & Materials
+DAD,5300,Retail
+DAE,5500,Media
+DAG,2300,Construction & Materials
+DAH,5700,Travel & Leisure
+DAN,4500,Health Care
+DAP,1700,Basic Resources
+DAR,2700,Industrial Goods & Services
+DAS,3300,Automobiles & Parts
+DASC,8700,Financial Services
+DAT,2700,Industrial Goods & Services
+DBC,3500,Food & Beverage
+DBD,4500,Health Care
+DBF,3500,Food & Beverage
+DBH,2700,Industrial Goods & Services
+DBM,4500,Health Care
+DBT,4500,Health Care
+DBW,7500,Utilities
+DC1,2300,Construction & Materials
+DC2,2300,Construction & Materials
+DC4,2300,Construction & Materials
+DCB,8300,Banks
+DCD,5700,Travel & Leisure
+DCDS,8700,Financial Services
+DCF,2300,Construction & Materials
+DCG,3700,Personal & Household Goods
+DCH,8600,Real Estate
+DCI,1300,Chemicals
+DCL,4500,Health Care
+DCM,1300,Chemicals
+DCR,2300,Construction & Materials
+DCS,3700,Personal & Household Goods
+DCT,2300,Construction & Materials
+DCV,8700,Financial Services
+DDG,2700,Industrial Goods & Services
+DDH,2700,Industrial Goods & Services
+DDM,2700,Industrial Goods & Services
+DDN,4500,Health Care
+DDSC,8700,Financial Services
+DDV,1300,Chemicals
+DFC,2700,Industrial Goods & Services
+DFF,2300,Construction & Materials
+DFS,3500,Food & Beverage
+DGC,1300,Chemicals
+DGL,1300,Chemicals
+DGT,2300,Construction & Materials
+DGW,5300,Retail
+DHA,2300,Construction & Materials
+DHB,1300,Chemicals
+DHC,1700,Basic Resources
+DHD,4500,Health Care
+DHG,4500,Health Care
+DHI,5500,Media
+DHL,2700,Industrial Goods & Services
+DHM,1700,Basic Resources
+DHN,4500,Health Care
+DHP,2700,Industrial Goods & Services
+DHT,4500,Health Care
+DIC,2300,Construction & Materials
+DID,2300,Construction & Materials
+DIG,8600,Real Estate
+DIH,8600,Real Estate
+DKC,2700,Industrial Goods & Services
+DKG,1700,Basic Resources
+DKH,2700,Industrial Goods & Services
+DKP,4500,Health Care
+DKW,7500,Utilities
+DL1,2700,Industrial Goods & Services
+DLC,5700,Travel & Leisure
+DLD,5700,Travel & Leisure
+DLG,3700,Personal & Household Goods
+DLM,7500,Utilities
+DLR,8600,Real Estate
+DLT,2700,Industrial Goods & Services
+DM7,3700,Personal & Household Goods
+DMC,4500,Health Care
+DMN,3500,Food & Beverage
+DMS,0500,Oil & Gas
+DMX,5300,Retail
+DNA,7500,Utilities
+DNB,5500,Media
+DNC,2300,Construction & Materials
+DND,2300,Construction & Materials
+DNE,2700,Industrial Goods & Services
+DNF,3500,Food & Beverage
+DNH,7500,Utilities
+DNL,2700,Industrial Goods & Services
+DNM,4500,Health Care
+DNN,7500,Utilities
+DNP,2300,Construction & Materials
+DNR,2700,Industrial Goods & Services
+DNS,1700,Basic Resources
+DNT,5700,Travel & Leisure
+DNW,7500,Utilities
+DNY,1700,Basic Resources
+DOC,4500,Health Care
+DOP,2700,Industrial Goods & Services
+DP1,4500,Health Care
+DP2,4500,Health Care
+DP3,4500,Health Care
+DPC,2300,Construction & Materials
+DPD,1300,Chemicals
+DPG,2300,Construction & Materials
+DPH,4500,Health Care
+DPM,1300,Chemicals
+DPP,4500,Health Care
+DPR,1300,Chemicals
+DPS,1700,Basic Resources
+DQC,2700,Industrial Goods & Services
+DRC,3300,Automobiles & Parts
+DRG,1700,Basic Resources
+DRH,8600,Real Estate
+DRI,1300,Chemicals
+DRL,7500,Utilities
+DS3,2700,Industrial Goods & Services
+DSC,8700,Financial Services
+DSD,5700,Travel & Leisure
+DSE,8700,Financial Services
+DSG,2300,Construction & Materials
+DSH,2300,Construction & Materials
+DSN,5700,Travel & Leisure
+DSP,5700,Travel & Leisure
+DSS,2700,Industrial Goods & Services
+DST,5300,Retail
+DSV,2700,Industrial Goods & Services
+DT4,2300,Construction & Materials
+DTA,8600,Real Estate
+DTB,2300,Construction & Materials
+DTC,7500,Utilities
+DTD,2300,Construction & Materials
+DTDS,8700,Financial Services
+DTE,7500,Utilities
+DTG,4500,Health Care
+DTH,4500,Health Care
+DTI,8600,Real Estate
+DTK,7500,Utilities
+DTL,1700,Basic Resources
+DTN,1700,Basic Resources
+DTP,4500,Health Care
+DTT,1300,Chemicals
+DTV,2300,Construction & Materials
+DUS,2700,Industrial Goods & Services
+DVC,7500,Utilities
+DVD,4500,Health Care
+DVG,2300,Construction & Materials
+DVH,2700,Industrial Goods & Services
+DVM,4500,Health Care
+DVN,4500,Health Care
+DVP,2700,Industrial Goods & Services
+DVSC,8700,Financial Services
+DVW,7500,Utilities
+DWC,7500,Utilities
+DWS,7500,Utilities
+DX2,2300,Construction & Materials
+DXD,2300,Construction & Materials
+DXG,8600,Real Estate
+DXL,5700,Travel & Leisure
+DXP,2700,Industrial Goods & Services
+DXS,8600,Real Estate
+DXV,2300,Construction & Materials
+DZM,2700,Industrial Goods & Services
+E12,7500,Utilities
+E1SSHN30,8700,Financial Services
+E1VFVN30,8700,Financial Services
+E29,8600,Real Estate
+EAB,8300,Banks
+EAD,7500,Utilities
+EBA,7500,Utilities
+EBS,5300,Retail
+ECCS,8700,Financial Services
+ECI,5500,Media
+ECO,2700,Industrial Goods & Services
+EFI,5300,Retail
+EIB,8300,Banks
+EIC,7500,Utilities
+EID,5500,Media
+EIN,8600,Real Estate
+ELC,9500,Technology
+EMC,2700,Industrial Goods & Services
+EME,2300,Construction & Materials
+EMG,2700,Industrial Goods & Services
+EMS,2700,Industrial Goods & Services
+EPC,3500,Food & Beverage
+EPH,5500,Media
+EVE,3700,Personal & Household Goods
+EVF,8700,Financial Services
+EVG,2300,Construction & Materials
+EVS,8700,Financial Services
+FBA,3700,Personal & Household Goods
+FBC,2300,Construction & Materials
+FBT,3500,Food & Beverage
+FCB,8300,Banks
+FCC,3500,Food & Beverage
+FCM,1700,Basic Resources
+FCN,2300,Construction & Materials
+FCS,3500,Food & Beverage
+FDC,8600,Real Estate
+FDG,3500,Food & Beverage
+FDT,5700,Travel & Leisure
+FECREDIT,8700,Financial Services
+FGL,3500,Food & Beverage
+FHN,5300,Retail
+FHS,5500,Media
+FIC,2300,Construction & Materials
+FID,5300,Retail
+FIR,8600,Real Estate
+FIT,8600,Real Estate
+FLC,8600,Real Estate
+FMC,3500,Food & Beverage
+FOC,5500,Media
+FOX,6500,Telecommunications
+FPT,9500,Technology
+FRC,1700,Basic Resources
+FRM,1700,Basic Resources
+FRT,5300,Retail
+FSC,8700,Financial Services
+FSO,2300,Construction & Materials
+FT1,3300,Automobiles & Parts
+FTI,8600,Real Estate
+FTM,3700,Personal & Household Goods
+FTS,8700,Financial Services
+FUCTVGF1,8700,Financial Services
+FUCTVGF2,8700,Financial Services
+FUCTVGF3,8700,Financial Services
+FUCTVGF4,8700,Financial Services
+FUCVREIT,8700,Financial Services
+FUEDCMID,8700,Financial Services
+FUEFCV50,8700,Financial Services
+FUEIP100,8700,Financial Services
+FUEKIV30,8700,Financial Services
+FUEKIVFS,8700,Financial Services
+FUEMAV30,8700,Financial Services
+FUEMAVND,8700,Financial Services
+FUESSV30,8700,Financial Services
+FUESSV50,8700,Financial Services
+FUESSVFL,8700,Financial Services
+FUETPVND,8700,Financial Services
+FUEVFVND,8700,Financial Services
+FUEVN100,8700,Financial Services
+G20,3700,Personal & Household Goods
+G36,2300,Construction & Materials
+GAB,2300,Construction & Materials
+GAS,7500,Utilities
+GB,8300,Banks
+GBS,8700,Financial Services
+GCB,5300,Retail
+GCF,5300,Retail
+GDA,2300,Construction & Materials
+GDH,2300,Construction & Materials
+GDT,3700,Personal & Household Goods
+GDW,7500,Utilities
+GE2,7500,Utilities
+GEE,2700,Industrial Goods & Services
+GEG,7500,Utilities
+GEL,2300,Construction & Materials
+GER,2700,Industrial Goods & Services
+GEX,2700,Industrial Goods & Services
+GFC,3500,Food & Beverage
+GGG,2700,Industrial Goods & Services
+GGS,3500,Food & Beverage
+GH3,2300,Construction & Materials
+GHA,3700,Personal & Household Goods
+GHC,2300,Construction & Materials
+GIC,2700,Industrial Goods & Services
+GIL,3700,Personal & Household Goods
+GKM,2300,Construction & Materials
+GLC,1700,Basic Resources
+GLSC,8700,Financial Services
+GLT,2700,Industrial Goods & Services
+GLW,7500,Utilities
+GMA,2300,Construction & Materials
+GMC,3700,Personal & Household Goods
+GMD,2700,Industrial Goods & Services
+GMH,2300,Construction & Materials
+GMX,2300,Construction & Materials
+GND,2300,Construction & Materials
+GPC,4500,Health Care
+GQN,3500,Food & Beverage
+GSM,7500,Utilities
+GSP,7500,Utilities
+GTA,3700,Personal & Household Goods
+GTC,3500,Food & Beverage
+GTD,3700,Personal & Household Goods
+GTH,2300,Construction & Materials
+GTK,3700,Personal & Household Goods
+GTN,3500,Food & Beverage
+GTS,2300,Construction & Materials
+GTT,5700,Travel & Leisure
+GVR,1300,Chemicals
+GVT,1700,Basic Resources
+H11,2300,Construction & Materials
+HAB,5500,Media
+HAC,8700,Financial Services
+HAD,3500,Food & Beverage
+HAF,5300,Retail
+HAFIC,8700,Financial Services
+HAG,3500,Food & Beverage
+HAH,2700,Industrial Goods & Services
+HAI,1300,Chemicals
+HAM,2300,Construction & Materials
+HAN,2300,Construction & Materials
+HAP,1700,Basic Resources
+HAR,8600,Real Estate
+HAS,2300,Construction & Materials
+HASC,8700,Financial Services
+HAT,3500,Food & Beverage
+HAV,3500,Food & Beverage
+HAW,7500,Utilities
+HAX,5300,Retail
+HBBS,8700,Financial Services
+HBC,2300,Construction & Materials
+HBD,2700,Industrial Goods & Services
+HBE,5500,Media
+HBH,3500,Food & Beverage
+HBI,8600,Real Estate
+HBS,8700,Financial Services
+HBSC,8700,Financial Services
+HBW,7500,Utilities
+HC1,2300,Construction & Materials
+HC3,2300,Construction & Materials
+HCB,3700,Personal & Household Goods
+HCC,2300,Construction & Materials
+HCD,2300,Construction & Materials
+HCI,2300,Construction & Materials
+HCM,8700,Financial Services
+HCS,2700,Industrial Goods & Services
+HCT,2700,Industrial Goods & Services
+HD2,8600,Real Estate
+HD3,8600,Real Estate
+HD6,8600,Real Estate
+HD8,8600,Real Estate
+HDA,2300,Construction & Materials
+HDB,8300,Banks
+HDC,8600,Real Estate
+HDG,8600,Real Estate
+HDM,3700,Personal & Household Goods
+HDO,2700,Industrial Goods & Services
+HDP,4500,Health Care
+HDS,3500,Food & Beverage
+HDW,7500,Utilities
+HEC,2300,Construction & Materials
+HEJ,2300,Construction & Materials
+HEM,2700,Industrial Goods & Services
+HEP,2700,Industrial Goods & Services
+HES,5700,Travel & Leisure
+HEV,5500,Media
+HFB,2300,Construction & Materials
+HFC,7500,Utilities
+HFS,3700,Personal & Household Goods
+HFT,8700,Financial Services
+HFX,2300,Construction & Materials
+HGA,3500,Food & Beverage
+HGC,2700,Industrial Goods & Services
+HGM,1700,Basic Resources
+HGR,2700,Industrial Goods & Services
+HGT,5700,Travel & Leisure
+HGW,2300,Construction & Materials
+HHA,3700,Personal & Household Goods
+HHC,3500,Food & Beverage
+HHG,2700,Industrial Goods & Services
+HHN,2700,Industrial Goods & Services
+HHP,1700,Basic Resources
+HHR,2300,Construction & Materials
+HHS,3300,Automobiles & Parts
+HHV,2700,Industrial Goods & Services
+HID,2300,Construction & Materials
+HIG,9500,Technology
+HII,1700,Basic Resources
+HIO,2700,Industrial Goods & Services
+HIZ,8600,Real Estate
+HJC,3500,Food & Beverage
+HJS,7500,Utilities
+HKB,3500,Food & Beverage
+HKC,3700,Personal & Household Goods
+HKP,2700,Industrial Goods & Services
+HKT,3500,Food & Beverage
+HLA,1700,Basic Resources
+HLB,3500,Food & Beverage
+HLC,1700,Basic Resources
+HLD,2300,Construction & Materials
+HLE,7500,Utilities
+HLG,3700,Personal & Household Goods
+HLO,2700,Industrial Goods & Services
+HLR,2700,Industrial Goods & Services
+HLS,2700,Industrial Goods & Services
+HLT,3700,Personal & Household Goods
+HLY,2300,Construction & Materials
+HMC,1700,Basic Resources
+HMD,1300,Chemicals
+HMG,2300,Construction & Materials
+HMH,2700,Industrial Goods & Services
+HMR,2300,Construction & Materials
+HMS,2300,Construction & Materials
+HNA,7500,Utilities
+HNB,5700,Travel & Leisure
+HND,7500,Utilities
+HNE,2700,Industrial Goods & Services
+HNF,3500,Food & Beverage
+HNG,3500,Food & Beverage
+HNI,3700,Personal & Household Goods
+HNM,3500,Food & Beverage
+HNP,1300,Chemicals
+HNR,3500,Food & Beverage
+HNT,2700,Industrial Goods & Services
+HOM,2300,Construction & Materials
+HOT,5700,Travel & Leisure
+HPA,3500,Food & Beverage
+HPB,2700,Industrial Goods & Services
+HPD,7500,Utilities
+HPG,1700,Basic Resources
+HPH,1300,Chemicals
+HPI,8600,Real Estate
+HPL,2700,Industrial Goods & Services
+HPM,2300,Construction & Materials
+HPO,2700,Industrial Goods & Services
+HPP,1300,Chemicals
+HPR,8600,Real Estate
+HPS,2300,Construction & Materials
+HPT,9500,Technology
+HPU,3700,Personal & Household Goods
+HPW,7500,Utilities
+HPX,8600,Real Estate
+HQC,8600,Real Estate
+HRB,8600,Real Estate
+HRC,1300,Chemicals
+HRG,3700,Personal & Household Goods
+HRSC,8700,Financial Services
+HRT,2700,Industrial Goods & Services
+HSA,2700,Industrial Goods & Services
+HSG,1700,Basic Resources
+HSI,1300,Chemicals
+HSL,3500,Food & Beverage
+HSM,3700,Personal & Household Goods
+HSP,2300,Construction & Materials
+HSSC,8700,Financial Services
+HST,5300,Retail
+HSV,1700,Basic Resources
+HT1,2300,Construction & Materials
+HTB,2300,Construction & Materials
+HTC,5300,Retail
+HTE,2300,Construction & Materials
+HTG,3700,Personal & Household Goods
+HTH,2700,Industrial Goods & Services
+HTI,2300,Construction & Materials
+HTK,2700,Industrial Goods & Services
+HTL,2700,Industrial Goods & Services
+HTM,5300,Retail
+HTN,2300,Construction & Materials
+HTP,5500,Media
+HTR,2700,Industrial Goods & Services
+HTT,8600,Real Estate
+HTU,2700,Industrial Goods & Services
+HTV,2700,Industrial Goods & Services
+HTW,7500,Utilities
+HU1,2300,Construction & Materials
+HU3,2300,Construction & Materials
+HU4,2300,Construction & Materials
+HU6,8600,Real Estate
+HUB,2300,Construction & Materials
+HUG,3700,Personal & Household Goods
+HUT,2300,Construction & Materials
+HUX,1700,Basic Resources
+HVA,2700,Industrial Goods & Services
+HVC,3700,Personal & Household Goods
+HVG,3500,Food & Beverage
+HVH,3700,Personal & Household Goods
+HVN,5700,Travel & Leisure
+HVSC,8700,Financial Services
+HVT,1300,Chemicals
+HWS,7500,Utilities
+I10,2300,Construction & Materials
+IBC,8700,Financial Services
+IBD,2700,Industrial Goods & Services
+IBN,2700,Industrial Goods & Services
+ICC,2300,Construction & Materials
+ICF,3500,Food & Beverage
+ICG,2300,Construction & Materials
+ICI,2300,Construction & Materials
+ICN,2300,Construction & Materials
+ICT,9500,Technology
+IDC,8600,Real Estate
+IDI,3500,Food & Beverage
+IDJ,8600,Real Estate
+IDN,5500,Media
+IDP,3500,Food & Beverage
+IDV,8600,Real Estate
+IFC,2700,Industrial Goods & Services
+IFS,3500,Food & Beverage
+IHK,5500,Media
+IJC,2300,Construction & Materials
+IKH,5500,Media
+ILA,3500,Food & Beverage
+ILB,2700,Industrial Goods & Services
+ILC,2700,Industrial Goods & Services
+ILS,2700,Industrial Goods & Services
+IME,2300,Construction & Materials
+IMP,4500,Health Care
+IN4,5500,Media
+INC,2700,Industrial Goods & Services
+ING,2300,Construction & Materials
+INN,5500,Media
+IPA,8700,Financial Services
+IPH,5500,Media
+IRC,3300,Automobiles & Parts
+IRSC,8700,Financial Services
+ISG,2700,Industrial Goods & Services
+ISH,7500,Utilities
+IST,2700,Industrial Goods & Services
+ITA,8600,Real Estate
+ITC,8600,Real Estate
+ITD,9500,Technology
+ITQ,1700,Basic Resources
+ITS,2700,Industrial Goods & Services
+IVS,8700,Financial Services
+JOS,3500,Food & Beverage
+JSC,2300,Construction & Materials
+JSIC,8700,Financial Services
+JVC,4500,Health Care
+KAC,8600,Real Estate
+KBC,8600,Real Estate
+KBE,5300,Retail
+KBSV,8700,Financial Services
+KBT,2300,Construction & Materials
+KCB,1700,Basic Resources
+KCE,2300,Construction & Materials
+KDC,3500,Food & Beverage
+KDF,3500,Food & Beverage
+KDH,8600,Real Estate
+KDM,2300,Construction & Materials
+KGM,3500,Food & Beverage
+KGU,2700,Industrial Goods & Services
+KHA,8600,Real Estate
+KHB,1700,Basic Resources
+KHD,1700,Basic Resources
+KHG,8600,Real Estate
+KHL,2300,Construction & Materials
+KHP,7500,Utilities
+KHS,3500,Food & Beverage
+KHW,7500,Utilities
+KIP,2700,Industrial Goods & Services
+KISVN,8700,Financial Services
+KKC,1700,Basic Resources
+KLB,8300,Banks
+KLF,5700,Travel & Leisure
+KLM,1700,Basic Resources
+KLS,8700,Financial Services
+KMR,3700,Personal & Household Goods
+KMT,1700,Basic Resources
+KOS,8600,Real Estate
+KPF,2300,Construction & Materials
+KSA,1700,Basic Resources
+KSB,1700,Basic Resources
+KSC,1700,Basic Resources
+KSD,3700,Personal & Household Goods
+KSE,3500,Food & Beverage
+KSF,2300,Construction & Materials
+KSH,1700,Basic Resources
+KSK,2700,Industrial Goods & Services
+KSQ,1700,Basic Resources
+KSS,1700,Basic Resources
+KST,9500,Technology
+KSV,1700,Basic Resources
+KTB,1700,Basic Resources
+KTC,5300,Retail
+KTL,3700,Personal & Household Goods
+KTS,3500,Food & Beverage
+KTT,2700,Industrial Goods & Services
+KTU,2700,Industrial Goods & Services
+KTW,7500,Utilities
+KVC,1700,Basic Resources
+KVSC,8700,Financial Services
+L10,2300,Construction & Materials
+L12,2300,Construction & Materials
+L14,2300,Construction & Materials
+L18,2300,Construction & Materials
+L35,2300,Construction & Materials
+L40,2300,Construction & Materials
+L43,2300,Construction & Materials
+L44,2300,Construction & Materials
+L45,2300,Construction & Materials
+L61,2300,Construction & Materials
+L62,2300,Construction & Materials
+L63,2300,Construction & Materials
+LAF,3500,Food & Beverage
+LAI,8600,Real Estate
+LAS,1300,Chemicals
+LAW,7500,Utilities
+LBC,5300,Retail
+LBE,5500,Media
+LBM,2300,Construction & Materials
+LCC,2300,Construction & Materials
+LCD,2700,Industrial Goods & Services
+LCG,2300,Construction & Materials
+LCM,1700,Basic Resources
+LCS,2300,Construction & Materials
+LCW,7500,Utilities
+LDG,8600,Real Estate
+LDP,4500,Health Care
+LDW,7500,Utilities
+LEC,8600,Real Estate
+LG9,2300,Construction & Materials
+LGC,2300,Construction & Materials
+LGL,8600,Real Estate
+LGM,3700,Personal & Household Goods
+LHC,2300,Construction & Materials
+LHG,8600,Real Estate
+LIC,2300,Construction & Materials
+LIG,2300,Construction & Materials
+LIX,3700,Personal & Household Goods
+LKW,7500,Utilities
+LLM,2300,Construction & Materials
+LM3,2300,Construction & Materials
+LM7,2300,Construction & Materials
+LM8,2700,Industrial Goods & Services
+LMC,1700,Basic Resources
+LMH,5300,Retail
+LMI,2300,Construction & Materials
+LNC,1700,Basic Resources
+LO5,2300,Construction & Materials
+LPB,8300,Banks
+LPS,8700,Financial Services
+LPT,2700,Industrial Goods & Services
+LQN,2300,Construction & Materials
+LSG,8600,Real Estate
+LSS,3500,Food & Beverage
+LTC,9500,Technology
+LTG,1300,Chemicals
+LUT,2300,Construction & Materials
+LWS,7500,Utilities
+LYF,3500,Food & Beverage
+M10,3700,Personal & Household Goods
+MA1,2700,Industrial Goods & Services
+MAC,2700,Industrial Goods & Services
+MADC,8700,Financial Services
+MAFEQI,8700,Financial Services
+MAS,2700,Industrial Goods & Services
+MASC,8700,Financial Services
+MAX,2700,Industrial Goods & Services
+MBB,8300,Banks
+MBFG,6500,Telecommunications
+MBG,2300,Construction & Materials
+MBN,2700,Industrial Goods & Services
+MBS,8700,Financial Services
+MBT,8600,Real Estate
+MBVF,8700,Financial Services
+MBVFUND,8700,Financial Services
+MC3,1700,Basic Resources
+MCC,2300,Construction & Materials
+MCD,2700,Industrial Goods & Services
+MCF,3500,Food & Beverage
+MCG,2300,Construction & Materials
+MCH,3500,Food & Beverage
+MCI,2300,Construction & Materials
+MCL,2300,Construction & Materials
+MCM,3500,Food & Beverage
+MCO,2300,Construction & Materials
+MCP,2700,Industrial Goods & Services
+MCT,2300,Construction & Materials
+MCV,1700,Basic Resources
+MDA,2700,Industrial Goods & Services
+MDB,8300,Banks
+MDC,1700,Basic Resources
+MDF,3700,Personal & Household Goods
+MDG,2300,Construction & Materials
+MDN,3700,Personal & Household Goods
+MDT,2700,Industrial Goods & Services
+MEC,2300,Construction & Materials
+MED,4500,Health Care
+MEF,4500,Health Care
+MEG,3700,Personal & Household Goods
+MEL,1700,Basic Resources
+MES,2300,Construction & Materials
+MFS,6500,Telecommunications
+MGC,1700,Basic Resources
+MGG,3700,Personal & Household Goods
+MGR,8600,Real Estate
+MH3,8600,Real Estate
+MHBB,8300,Banks
+MHBS,8700,Financial Services
+MHC,2700,Industrial Goods & Services
+MHL,3700,Personal & Household Goods
+MHP,2700,Industrial Goods & Services
+MHY,2700,Industrial Goods & Services
+MIC,1700,Basic Resources
+MIE,2300,Construction & Materials
+MIG,8500,Insurance
+MIH,1700,Basic Resources
+MIM,1700,Basic Resources
+MJC,5300,Retail
+MKP,4500,Health Care
+MKSC,8700,Financial Services
+MKT,3700,Personal & Household Goods
+MKV,4500,Health Care
+MLC,2700,Industrial Goods & Services
+MLN,2700,Industrial Goods & Services
+MLS,3500,Food & Beverage
+MMC,1700,Basic Resources
+MML,3500,Food & Beverage
+MNB,3700,Personal & Household Goods
+MNC,5700,Travel & Leisure
+MND,2700,Industrial Goods & Services
+MPC,3500,Food & Beverage
+MPT,3700,Personal & Household Goods
+MPY,2700,Industrial Goods & Services
+MQB,2700,Industrial Goods & Services
+MQN,2700,Industrial Goods & Services
+MRF,4500,Health Care
+MSB,8300,Banks
+MSC,3500,Food & Beverage
+MSGS,8700,Financial Services
+MSH,3700,Personal & Household Goods
+MSN,3500,Food & Beverage
+MSR,1700,Basic Resources
+MST,2300,Construction & Materials
+MSVN,8700,Financial Services
+MTA,1700,Basic Resources
+MTB,2700,Industrial Goods & Services
+MTC,5700,Travel & Leisure
+MTG,7500,Utilities
+MTH,2700,Industrial Goods & Services
+MTL,2700,Industrial Goods & Services
+MTM,1700,Basic Resources
+MTP,4500,Health Care
+MTS,0500,Oil & Gas
+MTV,2700,Industrial Goods & Services
+MTX,2700,Industrial Goods & Services
+MVB,1700,Basic Resources
+MVC,2300,Construction & Materials
+MVN,2700,Industrial Goods & Services
+MVY,2700,Industrial Goods & Services
+MWG,5300,Retail
+MXBANK,8300,Banks
+MXC,3500,Food & Beverage
+MZG,1700,Basic Resources
+NAB,8300,Banks
+NAC,2300,Construction & Materials
+NAF,3500,Food & Beverage
+NAG,3700,Personal & Household Goods
+NAP,2700,Industrial Goods & Services
+NAS,2700,Industrial Goods & Services
+NASC,8700,Financial Services
+NAU,2700,Industrial Goods & Services
+NAV,2300,Construction & Materials
+NAVS,8700,Financial Services
+NAW,7500,Utilities
+NBB,8600,Real Estate
+NBC,1700,Basic Resources
+NBE,5300,Retail
+NBP,7500,Utilities
+NBR,2700,Industrial Goods & Services
+NBS,2700,Industrial Goods & Services
+NBT,7500,Utilities
+NBW,7500,Utilities
+NCG,2700,Industrial Goods & Services
+NCP,7500,Utilities
+NCS,5700,Travel & Leisure
+NCT,2700,Industrial Goods & Services
+ND2,2300,Construction & Materials
+NDC,4500,Health Care
+NDF,3500,Food & Beverage
+NDN,8600,Real Estate
+NDP,4500,Health Care
+NDT,3700,Personal & Household Goods
+NDW,7500,Utilities
+NDX,2300,Construction & Materials
+NED,7500,Utilities
+NEM,2700,Industrial Goods & Services
+NET,3700,Personal & Household Goods
+NFC,1300,Chemicals
+NGC,3500,Food & Beverage
+NHA,2300,Construction & Materials
+NHC,2300,Construction & Materials
+NHH,1300,Chemicals
+NHN,8600,Real Estate
+NHP,2700,Industrial Goods & Services
+NHS,3500,Food & Beverage
+NHT,3700,Personal & Household Goods
+NHV,3500,Food & Beverage
+NHW,9500,Technology
+NIS,6500,Telecommunications
+NJC,3700,Personal & Household Goods
+NKD,3500,Food & Beverage
+NKG,1700,Basic Resources
+NLC,7500,Utilities
+NLG,8600,Real Estate
+NLS,7500,Utilities
+NMK,2300,Construction & Materials
+NNB,2700,Industrial Goods & Services
+NNC,2300,Construction & Materials
+NNG,2700,Industrial Goods & Services
+NNQ,3500,Food & Beverage
+NNT,7500,Utilities
+NO1,2300,Construction & Materials
+NOS,2700,Industrial Goods & Services
+NPH,5700,Travel & Leisure
+NPS,3700,Personal & Household Goods
+NQB,7500,Utilities
+NQN,7500,Utilities
+NQT,7500,Utilities
+NRC,8600,Real Estate
+NS2,7500,Utilities
+NS3,7500,Utilities
+NSC,3500,Food & Beverage
+NSG,2300,Construction & Materials
+NSH,1700,Basic Resources
+NSIC,8700,Financial Services
+NSL,7500,Utilities
+NSN,2300,Construction & Materials
+NSP,3700,Personal & Household Goods
+NSS,3500,Food & Beverage
+NST,3700,Personal & Household Goods
+NT2,7500,Utilities
+NTB,8600,Real Estate
+NTC,8600,Real Estate
+NTF,4500,Health Care
+NTH,7500,Utilities
+NTL,8600,Real Estate
+NTP,2300,Construction & Materials
+NTR,2700,Industrial Goods & Services
+NTT,3700,Personal & Household Goods
+NTW,7500,Utilities
+NUE,2700,Industrial Goods & Services
+NVB,8300,Banks
+NVL,8600,Real Estate
+NVN,8600,Real Estate
+NVP,7500,Utilities
+NVSC,8700,Financial Services
+NVT,8600,Real Estate
+NWT,2700,Industrial Goods & Services
+NXT,2300,Construction & Materials
+OCB,8300,Banks
+OCH,8600,Real Estate
+ODE,5500,Media
+OGC,8600,Real Estate
+OIL,0500,Oil & Gas
+ONE,9500,Technology
+ONW,9500,Technology
+OPC,4500,Health Care
+ORS,8700,Financial Services
+PAC,2700,Industrial Goods & Services
+PACB,8300,Banks
+PAI,9500,Technology
+PAN,3500,Food & Beverage
+PAP,2700,Industrial Goods & Services
+PAS,3700,Personal & Household Goods
+PAT,0500,Oil & Gas
+PBC,4500,Health Care
+PBK,7500,Utilities
+PBP,2700,Industrial Goods & Services
+PBT,2700,Industrial Goods & Services
+PC1,2300,Construction & Materials
+PCB,8700,Financial Services
+PCC,2300,Construction & Materials
+PCE,1300,Chemicals
+PCF,3500,Food & Beverage
+PCG,0500,Oil & Gas
+PCH,2300,Construction & Materials
+PCM,2300,Construction & Materials
+PCN,0500,Oil & Gas
+PCSC,8700,Financial Services
+PCT,2700,Industrial Goods & Services
+PDB,2300,Construction & Materials
+PDC,5700,Travel & Leisure
+PDN,2700,Industrial Goods & Services
+PDR,8600,Real Estate
+PDT,7500,Utilities
+PDV,2700,Industrial Goods & Services
+PEC,2300,Construction & Materials
+PEG,7500,Utilities
+PEN,2300,Construction & Materials
+PEQ,0500,Oil & Gas
+PET,5300,Retail
+PFL,8600,Real Estate
+PFV,8600,Real Estate
+PGB,8300,Banks
+PGC,7500,Utilities
+PGD,7500,Utilities
+PGI,8500,Insurance
+PGN,1300,Chemicals
+PGS,7500,Utilities
+PGSC,8700,Financial Services
+PGT,2700,Industrial Goods & Services
+PGV,7500,Utilities
+PHC,2300,Construction & Materials
+PHH,2300,Construction & Materials
+PHN,2700,Industrial Goods & Services
+PHP,2700,Industrial Goods & Services
+PHR,1300,Chemicals
+PHS,8700,Financial Services
+PIA,9500,Technology
+PIC,7500,Utilities
+PID,2300,Construction & Materials
+PIS,1700,Basic Resources
+PIT,3500,Food & Beverage
+PIV,8700,Financial Services
+PJC,2700,Industrial Goods & Services
+PJS,7500,Utilities
+PJT,2700,Industrial Goods & Services
+PKR,2700,Industrial Goods & Services
+PLA,8600,Real Estate
+PLC,1300,Chemicals
+PLE,0500,Oil & Gas
+PLO,2700,Industrial Goods & Services
+PLP,1700,Basic Resources
+PLX,0500,Oil & Gas
+PMB,1300,Chemicals
+PMC,4500,Health Care
+PME,4500,Health Care
+PMG,7500,Utilities
+PMJ,9500,Technology
+PMP,2700,Industrial Goods & Services
+PMS,2700,Industrial Goods & Services
+PMT,9500,Technology
+PMW,7500,Utilities
+PNB,8300,Banks
+PNC,5300,Retail
+PND,0500,Oil & Gas
+PNG,3500,Food & Beverage
+PNJ,5300,Retail
+PNP,2700,Industrial Goods & Services
+PNSC,8700,Financial Services
+PNT,8600,Real Estate
+POB,0500,Oil & Gas
+POM,1700,Basic Resources
+POS,0500,Oil & Gas
+POT,9500,Technology
+POV,0500,Oil & Gas
+POW,7500,Utilities
+PPC,7500,Utilities
+PPE,2700,Industrial Goods & Services
+PPG,2300,Construction & Materials
+PPH,3700,Personal & Household Goods
+PPI,8600,Real Estate
+PPP,4500,Health Care
+PPS,2700,Industrial Goods & Services
+PPT,7500,Utilities
+PPY,0500,Oil & Gas
+PQN,2300,Construction & Materials
+PRC,2700,Industrial Goods & Services
+PRE,8500,Insurance
+PRO,3500,Food & Beverage
+PRT,2700,Industrial Goods & Services
+PRUBF1,8700,Financial Services
+PSB,2300,Construction & Materials
+PSC,2700,Industrial Goods & Services
+PSD,9500,Technology
+PSE,1300,Chemicals
+PSG,2300,Construction & Materials
+PSH,0500,Oil & Gas
+PSI,8700,Financial Services
+PSL,3500,Food & Beverage
+PSN,0500,Oil & Gas
+PSP,2700,Industrial Goods & Services
+PSW,1300,Chemicals
+PTB,2300,Construction & Materials
+PTC,2300,Construction & Materials
+PTD,2300,Construction & Materials
+PTE,2300,Construction & Materials
+PTG,3700,Personal & Household Goods
+PTH,2700,Industrial Goods & Services
+PTI,8500,Insurance
+PTK,1700,Basic Resources
+PTL,2300,Construction & Materials
+PTM,2700,Industrial Goods & Services
+PTN,8600,Real Estate
+PTO,6500,Telecommunications
+PTP,5500,Media
+PTS,2700,Industrial Goods & Services
+PTT,2700,Industrial Goods & Services
+PTV,0500,Oil & Gas
+PTX,0500,Oil & Gas
+PV2,8700,Financial Services
+PVA,2300,Construction & Materials
+PVB,0500,Oil & Gas
+PVC,0500,Oil & Gas
+PVD,0500,Oil & Gas
+PVE,2700,Industrial Goods & Services
+PVG,7500,Utilities
+PVH,2300,Construction & Materials
+PVI,8500,Insurance
+PVL,8600,Real Estate
+PVM,2700,Industrial Goods & Services
+PVO,0500,Oil & Gas
+PVP,2700,Industrial Goods & Services
+PVR,8600,Real Estate
+PVS,0500,Oil & Gas
+PVT,2700,Industrial Goods & Services
+PVV,2300,Construction & Materials
+PVX,2300,Construction & Materials
+PVY,0500,Oil & Gas
+PWA,8600,Real Estate
+PWS,7500,Utilities
+PX1,2300,Construction & Materials
+PXA,2300,Construction & Materials
+PXC,2300,Construction & Materials
+PXI,2300,Construction & Materials
+PXL,8600,Real Estate
+PXM,2300,Construction & Materials
+PXPVNE,8700,Financial Services
+PXS,2300,Construction & Materials
+PXT,2300,Construction & Materials
+PYNFUND,8700,Financial Services
+PYU,2700,Industrial Goods & Services
+QBR,2700,Industrial Goods & Services
+QBS,1300,Chemicals
+QCC,2300,Construction & Materials
+QCG,8600,Real Estate
+QDTCKBV,8700,Financial Services
+QHD,2300,Construction & Materials
+QHW,3500,Food & Beverage
+QLD,2300,Construction & Materials
+QLT,2700,Industrial Goods & Services
+QNC,2300,Construction & Materials
+QNP,2700,Industrial Goods & Services
+QNS,3500,Food & Beverage
+QNT,2300,Construction & Materials
+QNU,2700,Industrial Goods & Services
+QNW,7500,Utilities
+QPH,7500,Utilities
+QSP,2700,Industrial Goods & Services
+QST,5300,Retail
+QTC,2300,Construction & Materials
+QTP,7500,Utilities
+RAL,2700,Industrial Goods & Services
+RAT,2700,Industrial Goods & Services
+RBC,3700,Personal & Household Goods
+RCC,2300,Construction & Materials
+RCD,2300,Construction & Materials
+RCL,8600,Real Estate
+RDP,2700,Industrial Goods & Services
+REE,7500,Utilities
+REM,2300,Construction & Materials
+RGC,5700,Travel & Leisure
+RHC,7500,Utilities
+RHN,2700,Industrial Goods & Services
+RIC,5700,Travel & Leisure
+RLC,2300,Construction & Materials
+ROS,2300,Construction & Materials
+ROSE,8700,Financial Services
+RTB,1300,Chemicals
+RTH,2700,Industrial Goods & Services
+RTS,2700,Industrial Goods & Services
+RUBSE,8700,Financial Services
+RYG,2300,Construction & Materials
+S12,2300,Construction & Materials
+S27,2300,Construction & Materials
+S33,3500,Food & Beverage
+S4A,7500,Utilities
+S55,2300,Construction & Materials
+S72,2300,Construction & Materials
+S74,2300,Construction & Materials
+S91,2300,Construction & Materials
+S96,2300,Construction & Materials
+S99,2300,Construction & Materials
+SAB,3500,Food & Beverage
+SAC,2700,Industrial Goods & Services
+SAF,3500,Food & Beverage
+SAL,2700,Industrial Goods & Services
+SAM,9500,Technology
+SAP,5500,Media
+SAS,2700,Industrial Goods & Services
+SASC,8700,Financial Services
+SAV,3700,Personal & Household Goods
+SB1,3500,Food & Beverage
+SBA,7500,Utilities
+SBB,2700,Industrial Goods & Services
+SBBS,8700,Financial Services
+SBC,2700,Industrial Goods & Services
+SBD,9500,Technology
+SBG,2700,Industrial Goods & Services
+SBH,7500,Utilities
+SBL,3500,Food & Beverage
+SBM,7500,Utilities
+SBR,1300,Chemicals
+SBS,8700,Financial Services
+SBT,3500,Food & Beverage
+SBV,2300,Construction & Materials
+SC5,2300,Construction & Materials
+SCA,3500,Food & Beverage
+SCB,8300,Banks
+SCC,2300,Construction & Materials
+SCD,3500,Food & Beverage
+SCG,2300,Construction & Materials
+SCH,7500,Utilities
+SCI,2300,Construction & Materials
+SCJ,2300,Construction & Materials
+SCL,2300,Construction & Materials
+SCO,2700,Industrial Goods & Services
+SCR,8600,Real Estate
+SCS,2700,Industrial Goods & Services
+SCV,3500,Food & Beverage
+SCY,2300,Construction & Materials
+SD1,2300,Construction & Materials
+SD2,2300,Construction & Materials
+SD3,2300,Construction & Materials
+SD4,2300,Construction & Materials
+SD5,2300,Construction & Materials
+SD6,2300,Construction & Materials
+SD7,2300,Construction & Materials
+SD8,2300,Construction & Materials
+SD9,2300,Construction & Materials
+SDA,2700,Industrial Goods & Services
+SDB,2300,Construction & Materials
+SDC,2300,Construction & Materials
+SDD,2300,Construction & Materials
+SDE,2300,Construction & Materials
+SDF,8700,Financial Services
+SDG,2700,Industrial Goods & Services
+SDH,2300,Construction & Materials
+SDI,8600,Real Estate
+SDJ,2300,Construction & Materials
+SDK,2300,Construction & Materials
+SDN,2300,Construction & Materials
+SDP,2300,Construction & Materials
+SDT,2300,Construction & Materials
+SDU,8600,Real Estate
+SDV,5300,Retail
+SDX,2300,Construction & Materials
+SDY,2300,Construction & Materials
+SEA,3500,Food & Beverage
+SEB,7500,Utilities
+SEC,3500,Food & Beverage
+SED,5300,Retail
+SEL,2300,Construction & Materials
+SEP,3500,Food & Beverage
+SFC,5300,Retail
+SFG,1300,Chemicals
+SFI,2700,Industrial Goods & Services
+SFN,2700,Industrial Goods & Services
+SFT,2700,Industrial Goods & Services
+SGB,8300,Banks
+SGC,3500,Food & Beverage
+SGD,5500,Media
+SGH,5700,Travel & Leisure
+SGI,3700,Personal & Household Goods
+SGN,2700,Industrial Goods & Services
+SGO,3500,Food & Beverage
+SGP,2700,Industrial Goods & Services
+SGR,8600,Real Estate
+SGS,2700,Industrial Goods & Services
+SGT,9500,Technology
+SHA,3700,Personal & Household Goods
+SHB,8300,Banks
+SHC,2700,Industrial Goods & Services
+SHE,2700,Industrial Goods & Services
+SHG,2300,Construction & Materials
+SHI,3700,Personal & Household Goods
+SHN,2300,Construction & Materials
+SHP,7500,Utilities
+SHS,8700,Financial Services
+SHV,3500,Food & Beverage
+SHX,3700,Personal & Household Goods
+SID,8600,Real Estate
+SIG,2700,Industrial Goods & Services
+SII,8600,Real Estate
+SIP,8600,Real Estate
+SIV,1300,Chemicals
+SJ1,3500,Food & Beverage
+SJC,2300,Construction & Materials
+SJCS,8700,Financial Services
+SJD,7500,Utilities
+SJE,2300,Construction & Materials
+SJF,3500,Food & Beverage
+SJG,2300,Construction & Materials
+SJM,2300,Construction & Materials
+SJS,8600,Real Estate
+SKG,2700,Industrial Goods & Services
+SKH,3500,Food & Beverage
+SKN,3500,Food & Beverage
+SKS,2300,Construction & Materials
+SKV,3500,Food & Beverage
+SLC,2700,Industrial Goods & Services
+SLD,8600,Real Estate
+SLS,3500,Food & Beverage
+SMA,2700,Industrial Goods & Services
+SMB,3500,Food & Beverage
+SMC,1700,Basic Resources
+SMN,5300,Retail
+SMT,9500,Technology
+SNC,3500,Food & Beverage
+SNG,2300,Construction & Materials
+SNZ,8600,Real Estate
+SON,2700,Industrial Goods & Services
+SOV,4500,Health Care
+SP2,7500,Utilities
+SPA,2700,Industrial Goods & Services
+SPB,3700,Personal & Household Goods
+SPC,1300,Chemicals
+SPD,3500,Food & Beverage
+SPH,3500,Food & Beverage
+SPI,2700,Industrial Goods & Services
+SPM,4500,Health Care
+SPP,2700,Industrial Goods & Services
+SPV,3500,Food & Beverage
+SQC,1700,Basic Resources
+SRA,9500,Technology
+SRB,2700,Industrial Goods & Services
+SRC,3300,Automobiles & Parts
+SRF,2700,Industrial Goods & Services
+SRT,2700,Industrial Goods & Services
+SSB,8300,Banks
+SSC,3500,Food & Beverage
+SSF,3700,Personal & Household Goods
+SSG,2700,Industrial Goods & Services
+SSH,8600,Real Estate
+SSI,8700,Financial Services
+SSM,2300,Construction & Materials
+SSN,3500,Food & Beverage
+SST,3500,Food & Beverage
+SSU,2700,Industrial Goods & Services
+ST8,9500,Technology
+STB,8300,Banks
+STC,5500,Media
+STD,3500,Food & Beverage
+STG,2700,Industrial Goods & Services
+STH,5300,Retail
+STK,3700,Personal & Household Goods
+STL,8600,Real Estate
+STP,2700,Industrial Goods & Services
+STS,2700,Industrial Goods & Services
+STSC,8700,Financial Services
+STT,5700,Travel & Leisure
+STU,2700,Industrial Goods & Services
+STV,2300,Construction & Materials
+STW,7500,Utilities
+SUM,2700,Industrial Goods & Services
+SVC,5300,Retail
+SVD,3700,Personal & Household Goods
+SVG,1300,Chemicals
+SVH,7500,Utilities
+SVI,2700,Industrial Goods & Services
+SVL,2700,Industrial Goods & Services
+SVN,2300,Construction & Materials
+SVT,5500,Media
+SWC,2700,Industrial Goods & Services
+SZB,8600,Real Estate
+SZC,8600,Real Estate
+SZE,2700,Industrial Goods & Services
+SZG,8600,Real Estate
+SZL,8600,Real Estate
+T12,5300,Retail
+TA3,2300,Construction & Materials
+TA6,2300,Construction & Materials
+TA9,2300,Construction & Materials
+TAB,2300,Construction & Materials
+TAC,3500,Food & Beverage
+TAG,9500,Technology
+TAL,8600,Real Estate
+TAN,3500,Food & Beverage
+TAP,7500,Utilities
+TAR,3500,Food & Beverage
+TAS,8700,Financial Services
+TAW,7500,Utilities
+TB,8300,Banks
+TB8,2300,Construction & Materials
+TBC,7500,Utilities
+TBD,2700,Industrial Goods & Services
+TBH,8600,Real Estate
+TBN,2700,Industrial Goods & Services
+TBR,2300,Construction & Materials
+TBT,2300,Construction & Materials
+TBW,7500,Utilities
+TBX,2300,Construction & Materials
+TC6,1700,Basic Resources
+TCB,8300,Banks
+TCD,2300,Construction & Materials
+TCH,8600,Real Estate
+TCI,8700,Financial Services
+TCJ,3500,Food & Beverage
+TCK,2300,Construction & Materials
+TCL,2700,Industrial Goods & Services
+TCM,3700,Personal & Household Goods
+TCO,2700,Industrial Goods & Services
+TCR,2300,Construction & Materials
+TCS,1700,Basic Resources
+TCT,5700,Travel & Leisure
+TCW,2700,Industrial Goods & Services
+TCX,8700,Financial Services
+TD6,1700,Basic Resources
+TDA,2300,Construction & Materials
+TDB,7500,Utilities
+TDC,2300,Construction & Materials
+TDF,2300,Construction & Materials
+TDG,0500,Oil & Gas
+TDH,8600,Real Estate
+TDI,2300,Construction & Materials
+TDM,7500,Utilities
+TDN,1700,Basic Resources
+TDP,1300,Chemicals
+TDS,1700,Basic Resources
+TDT,3700,Personal & Household Goods
+TDW,7500,Utilities
+TEC,2700,Industrial Goods & Services
+TED,2700,Industrial Goods & Services
+TEG,1700,Basic Resources
+TEL,6500,Telecommunications
+TET,3700,Personal & Household Goods
+TFC,3500,Food & Beverage
+TGG,2300,Construction & Materials
+TGP,9500,Technology
+TH1,3500,Food & Beverage
+THB,3500,Food & Beverage
+THD,2300,Construction & Materials
+THG,2300,Construction & Materials
+THI,2700,Industrial Goods & Services
+THM,3700,Personal & Household Goods
+THN,7500,Utilities
+THP,3500,Food & Beverage
+THR,2700,Industrial Goods & Services
+THS,7500,Utilities
+THT,1700,Basic Resources
+THU,2700,Industrial Goods & Services
+THV,3500,Food & Beverage
+THW,7500,Utilities
+TIC,7500,Utilities
+TID,8600,Real Estate
+TIE,5300,Retail
+TIG,8600,Real Estate
+TIN,8700,Financial Services
+TIP,8600,Real Estate
+TIS,1700,Basic Resources
+TIX,8600,Real Estate
+TJC,2700,Industrial Goods & Services
+TKA,2700,Industrial Goods & Services
+TKC,2300,Construction & Materials
+TKG,3700,Personal & Household Goods
+TKRC,2700,Industrial Goods & Services
+TKU,1700,Basic Resources
+TL4,2300,Construction & Materials
+TLC,9500,Technology
+TLD,2300,Construction & Materials
+TLG,3700,Personal & Household Goods
+TLH,1700,Basic Resources
+TLI,3700,Personal & Household Goods
+TLP,0500,Oil & Gas
+TLT,2300,Construction & Materials
+TMB,1700,Basic Resources
+TMC,5300,Retail
+TMG,1700,Basic Resources
+TMP,7500,Utilities
+TMS,2700,Industrial Goods & Services
+TMT,3300,Automobiles & Parts
+TMW,3700,Personal & Household Goods
+TMX,2300,Construction & Materials
+TN1,8600,Real Estate
+TNA,5300,Retail
+TNB,1700,Basic Resources
+TNC,1300,Chemicals
+TND,1700,Basic Resources
+TNG,3700,Personal & Household Goods
+TNH,4500,Health Care
+TNI,1700,Basic Resources
+TNM,2300,Construction & Materials
+TNP,2700,Industrial Goods & Services
+TNS,1700,Basic Resources
+TNT,8600,Real Estate
+TNW,7500,Utilities
+TNY,2300,Construction & Materials
+TOP,2700,Industrial Goods & Services
+TOS,2700,Industrial Goods & Services
+TOT,2700,Industrial Goods & Services
+TOW,7500,Utilities
+TPB,8300,Banks
+TPC,2700,Industrial Goods & Services
+TPH,5500,Media
+TPP,2700,Industrial Goods & Services
+TPS,2700,Industrial Goods & Services
+TQN,1700,Basic Resources
+TQW,7500,Utilities
+TR1,2700,Industrial Goods & Services
+TRA,4500,Health Care
+TRC,1300,Chemicals
+TRS,2700,Industrial Goods & Services
+TRT,2300,Construction & Materials
+TS3,2300,Construction & Materials
+TS4,3500,Food & Beverage
+TS5,2300,Construction & Materials
+TSA,2300,Construction & Materials
+TSB,2700,Industrial Goods & Services
+TSC,3500,Food & Beverage
+TSD,5700,Travel & Leisure
+TSG,2700,Industrial Goods & Services
+TSJ,5700,Travel & Leisure
+TSM,2300,Construction & Materials
+TSSC,8700,Financial Services
+TST,9500,Technology
+TT6,3500,Food & Beverage
+TTA,7500,Utilities
+TTB,2300,Construction & Materials
+TTC,2300,Construction & Materials
+TTD,4500,Health Care
+TTE,7500,Utilities
+TTF,3700,Personal & Household Goods
+TTG,3700,Personal & Household Goods
+TTH,5300,Retail
+TTJ,3500,Food & Beverage
+TTL,2300,Construction & Materials
+TTN,6500,Telecommunications
+TTP,2700,Industrial Goods & Services
+TTR,5700,Travel & Leisure
+TTS,1700,Basic Resources
+TTT,5700,Travel & Leisure
+TTV,2700,Industrial Goods & Services
+TTZ,2700,Industrial Goods & Services
+TUG,2700,Industrial Goods & Services
+TV1,2700,Industrial Goods & Services
+TV2,2700,Industrial Goods & Services
+TV3,2300,Construction & Materials
+TV4,2300,Construction & Materials
+TV6,2300,Construction & Materials
+TVA,2300,Construction & Materials
+TVAM,8700,Financial Services
+TVB,8700,Financial Services
+TVC,8700,Financial Services
+TVD,1700,Basic Resources
+TVG,2300,Construction & Materials
+TVH,2300,Construction & Materials
+TVM,2700,Industrial Goods & Services
+TVN,1700,Basic Resources
+TVP,4500,Health Care
+TVS,8700,Financial Services
+TVSI,8700,Financial Services
+TVT,3700,Personal & Household Goods
+TVU,2700,Industrial Goods & Services
+TVW,7500,Utilities
+TW3,4500,Health Care
+TXM,2300,Construction & Materials
+TYA,9500,Technology
+UCT,2700,Industrial Goods & Services
+UDC,2300,Construction & Materials
+UDJ,2300,Construction & Materials
+UDL,2700,Industrial Goods & Services
+UEM,2700,Industrial Goods & Services
+UIC,2300,Construction & Materials
+UMC,2700,Industrial Goods & Services
+UNI,8600,Real Estate
+UPC,2700,Industrial Goods & Services
+UPH,4500,Health Care
+UPS,8700,Financial Services
+USC,2300,Construction & Materials
+USD,2700,Industrial Goods & Services
+UTT,2700,Industrial Goods & Services
+UXC,3500,Food & Beverage
+V11,2300,Construction & Materials
+V12,2300,Construction & Materials
+V15,2300,Construction & Materials
+V21,2300,Construction & Materials
+VAB,8300,Banks
+VAF,1300,Chemicals
+VAT,9500,Technology
+VAV,7500,Utilities
+VBB,8300,Banks
+VBC,2700,Industrial Goods & Services
+VBG,1700,Basic Resources
+VBH,3700,Personal & Household Goods
+VBT,2700,Industrial Goods & Services
+VC1,2300,Construction & Materials
+VC2,2300,Construction & Materials
+VC3,2300,Construction & Materials
+VC5,2300,Construction & Materials
+VC6,2300,Construction & Materials
+VC7,2300,Construction & Materials
+VC9,2300,Construction & Materials
+VCA,1700,Basic Resources
+VCAMBF,8700,Financial Services
+VCB,8300,Banks
+VCBF,8700,Financial Services
+VCBFAIF,8700,Financial Services
+VCBFAIFS002,8700,Financial Services
+VCBFBCF,8700,Financial Services
+VCBFBCFS008,8700,Financial Services
+VCBFFIF,8700,Financial Services
+VCBFFIFS007,8700,Financial Services
+VCBFMGF,8700,Financial Services
+VCBFMGFS004,8700,Financial Services
+VCBFTBF,8700,Financial Services
+VCBFTBFS008,8700,Financial Services
+VCBS,8700,Financial Services
+VCC,2300,Construction & Materials
+VCE,1700,Basic Resources
+VCF,3500,Food & Beverage
+VCFC,8700,Financial Services
+VCG,8600,Real Estate
+VCH,2300,Construction & Materials
+VCI,8700,Financial Services
+VCK,8700,Financial Services
+VCM,2700,Industrial Goods & Services
+VCP,7500,Utilities
+VCR,8600,Real Estate
+VCS,2300,Construction & Materials
+VCT,2300,Construction & Materials
+VCW,7500,Utilities
+VCX,2300,Construction & Materials
+VDB,1700,Basic Resources
+VDG,3700,Personal & Household Goods
+VDL,3500,Food & Beverage
+VDM,3700,Personal & Household Goods
+VDN,3700,Personal & Household Goods
+VDP,4500,Health Care
+VDS,8700,Financial Services
+VDSE,8700,Financial Services
+VDT,2300,Construction & Materials
+VE1,2300,Construction & Materials
+VE2,2300,Construction & Materials
+VE3,2300,Construction & Materials
+VE4,2300,Construction & Materials
+VE8,2300,Construction & Materials
+VE9,2300,Construction & Materials
+VEA,3300,Automobiles & Parts
+VEC,3700,Personal & Household Goods
+VEE,2700,Industrial Goods & Services
+VEF,5500,Media
+VEOF,8700,Financial Services
+VEOFS006,8700,Financial Services
+VES,2300,Construction & Materials
+VESAF,8700,Financial Services
+VESAFS005,8700,Financial Services
+VET,4500,Health Care
+VFC,2700,Industrial Goods & Services
+VFG,1300,Chemicals
+VFMVF1,8700,Financial Services
+VFR,2700,Industrial Goods & Services
+VFS,8700,Financial Services
+VGC,8600,Real Estate
+VGG,3700,Personal & Household Goods
+VGI,6500,Telecommunications
+VGL,1700,Basic Resources
+VGP,2700,Industrial Goods & Services
+VGR,2700,Industrial Goods & Services
+VGS,1700,Basic Resources
+VGSC,8700,Financial Services
+VGT,3700,Personal & Household Goods
+VGV,2300,Construction & Materials
+VHC,3500,Food & Beverage
+VHD,2300,Construction & Materials
+VHE,5300,Retail
+VHF,3500,Food & Beverage
+VHG,9500,Technology
+VHH,2300,Construction & Materials
+VHI,3500,Food & Beverage
+VHL,2300,Construction & Materials
+VHM,8600,Real Estate
+VIA,3500,Food & Beverage
+VIB,8300,Banks
+VIBF,8700,Financial Services
+VIBFS006,8700,Financial Services
+VIC,8600,Real Estate
+VID,1700,Basic Resources
+VIE,9500,Technology
+VIETENI,8700,Financial Services
+VIETS,8700,Financial Services
+VIF,1700,Basic Resources
+VIG,8700,Financial Services
+VIH,2300,Construction & Materials
+VIM,1700,Basic Resources
+VIN,2700,Industrial Goods & Services
+VIP,2700,Industrial Goods & Services
+VIR,5700,Travel & Leisure
+VIS,1700,Basic Resources
+VISC,8700,Financial Services
+VIT,2300,Construction & Materials
+VIW,2300,Construction & Materials
+VIX,8700,Financial Services
+VJC,5700,Travel & Leisure
+VKC,2700,Industrial Goods & Services
+VKD,3500,Food & Beverage
+VKP,2700,Industrial Goods & Services
+VLA,9500,Technology
+VLB,2300,Construction & Materials
+VLC,3500,Food & Beverage
+VLF,5300,Retail
+VLG,2700,Industrial Goods & Services
+VLP,2700,Industrial Goods & Services
+VLS,1700,Basic Resources
+VLW,7500,Utilities
+VMA,3300,Automobiles & Parts
+VMC,2300,Construction & Materials
+VMD,5300,Retail
+VMG,7500,Utilities
+VMI,2300,Construction & Materials
+VMK,7500,Utilities
+VMPF,8700,Financial Services
+VMPFS003,8700,Financial Services
+VMS,2700,Industrial Goods & Services
+VMT,2700,Industrial Goods & Services
+VNA,2700,Industrial Goods & Services
+VNALLIAN,8700,Financial Services
+VNB,5300,Retail
+VNC,2700,Industrial Goods & Services
+VND,8700,Financial Services
+VNDAF,8700,Financial Services
+VNDAFS002,8700,Financial Services
+VNDAFS003,8700,Financial Services
+VNDAFS0030,8700,Financial Services
+VNDAFS004,8700,Financial Services
+VNDB,8300,Banks
+VNDBF,8700,Financial Services
+VNDCF,8700,Financial Services
+VNDFUND,2700,Industrial Goods & Services
+VNE,2300,Construction & Materials
+VNF,2700,Industrial Goods & Services
+VNG,5700,Travel & Leisure
+VNH,3500,Food & Beverage
+VNHL,8700,Financial Services
+VNI,8600,Real Estate
+VNIS,8700,Financial Services
+VNL,2700,Industrial Goods & Services
+VNM,3500,Food & Beverage
+VNMETF,8700,Financial Services
+VNN,8600,Real Estate
+VNP,1300,Chemicals
+VNR,8500,Insurance
+VNS,5700,Travel & Leisure
+VNSC,8700,Financial Services
+VNT,2700,Industrial Goods & Services
+VNX,5500,Media
+VNY,4500,Health Care
+VNZ,9500,Technology
+VOC,3500,Food & Beverage
+VOS,2700,Industrial Goods & Services
+VPA,2700,Industrial Goods & Services
+VPB,8300,Banks
+VPBF,8300,Banks
+VPBFC_CCTG_15188,8700,Financial Services
+VPBFC_CCTG_16793,8700,Financial Services
+VPBFC_CCTG_16884,8700,Financial Services
+VPBFC_CCTG_17479,8700,Financial Services
+VPBS,8700,Financial Services
+VPC,2300,Construction & Materials
+VPD,7500,Utilities
+VPG,1700,Basic Resources
+VPH,8600,Real Estate
+VPI,8600,Real Estate
+VPK,2700,Industrial Goods & Services
+VPL,5700,Travel & Leisure
+VPR,1700,Basic Resources
+VPS,1300,Chemicals
+VPW,7500,Utilities
+VPX,8700,Financial Services
+VQC,2700,Industrial Goods & Services
+VQSC,8700,Financial Services
+VRB,8300,Banks
+VRC,8600,Real Estate
+VRE,8600,Real Estate
+VRG,2300,Construction & Materials
+VSA,2700,Industrial Goods & Services
+VSC,2700,Industrial Goods & Services
+VSE,2700,Industrial Goods & Services
+VSEC,8700,Financial Services
+VSF,3500,Food & Beverage
+VSG,2700,Industrial Goods & Services
+VSH,7500,Utilities
+VSI,2300,Construction & Materials
+VSM,2700,Industrial Goods & Services
+VSMC,8700,Financial Services
+VSN,3500,Food & Beverage
+VSP,2700,Industrial Goods & Services
+VST,2700,Industrial Goods & Services
+VT1,2300,Construction & Materials
+VT8,2700,Industrial Goods & Services
+VTA,2300,Construction & Materials
+VTB,3700,Personal & Household Goods
+VTC,6500,Telecommunications
+VTD,5700,Travel & Leisure
+VTE,9500,Technology
+VTF,3500,Food & Beverage
+VTG,5700,Travel & Leisure
+VTH,9500,Technology
+VTI,3700,Personal & Household Goods
+VTJ,3700,Personal & Household Goods
+VTK,9500,Technology
+VTL,3500,Food & Beverage
+VTM,2700,Industrial Goods & Services
+VTO,2700,Industrial Goods & Services
+VTP,2700,Industrial Goods & Services
+VTQ,3500,Food & Beverage
+VTR,5700,Travel & Leisure
+VTS,2300,Construction & Materials
+VTSC,8700,Financial Services
+VTSS,8700,Financial Services
+VTV,2300,Construction & Materials
+VTX,2700,Industrial Goods & Services
+VTZ,3700,Personal & Household Goods
+VUA,8700,Financial Services
+VVF,8700,Financial Services
+VVN,2300,Construction & Materials
+VVS,3300,Automobiles & Parts
+VW3,2300,Construction & Materials
+VWFF,8700,Financial Services
+VWS,2300,Construction & Materials
+VXB,2300,Construction & Materials
+VXP,4500,Health Care
+VXT,2700,Industrial Goods & Services
+WCS,5700,Travel & Leisure
+WEB,8300,Banks
+WSB,3500,Food & Beverage
+WSS,8700,Financial Services
+WTC,2700,Industrial Goods & Services
+WTN,7500,Utilities
+X18,2300,Construction & Materials
+X20,3700,Personal & Household Goods
+X26,3700,Personal & Household Goods
+X77,2300,Construction & Materials
+XDC,2300,Construction & Materials
+XDH,2300,Construction & Materials
+XHC,3700,Personal & Household Goods
+XLV,2300,Construction & Materials
+XMC,2300,Construction & Materials
+XMD,2300,Construction & Materials
+XMP,7500,Utilities
+XPH,1300,Chemicals
+XXX,2700,Industrial Goods & Services
+YBC,2300,Construction & Materials
+YBM,1300,Chemicals
+YEG,5500,Media
+YRC,2700,Industrial Goods & Services
+YSC,3700,Personal & Household Goods
+YTC,4500,Health Care

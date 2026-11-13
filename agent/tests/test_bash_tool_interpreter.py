@@ -43,7 +43,7 @@ class TestResolvedInterpreter:
     def test_the_data_layer_imports_in_that_interpreter(self):
         """The exact check the FPT quality analyst got wrong."""
         out = json.loads(BashTool().execute(
-            command='python -c "import vnstock_data; print(vnstock_data.__name__)"'
+            command='python -c "import pandas, requests; print(pandas.__name__)"'
         ))
         assert out["exit_code"] == 0, out
-        assert "vnstock_data" in out["stdout"]
+        assert "pandas" in out["stdout"]

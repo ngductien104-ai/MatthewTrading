@@ -1,5 +1,10 @@
 # Third Eyes — nghiệm thu vnstock_data 3.2.9
 
+> **Lưu trữ (13/11/2026):** gói vnstock đã huỷ; hai script `update_third_eyes_vnstock.py`
+> / `restore_third_eyes_vnstock.py` đã gỡ khỏi repo. Nguồn `macro` / `fundamental` /
+> `news` của Third Eyes đi qua `vndata` nay báo `SourceUnavailable` (chỉ sang VNDIRECT MCP);
+> nguồn `price` / `sector` vẫn chạy trên DataPro + snapshot ICB. Xem `VN_DATA_SOURCE.md`.
+
 Ngày 14/09/2026. Kết luận: chưa đưa 3.2.9 vào sử dụng cho Third Eyes; đã khôi phục bản sao 3.2.8 trong venv dự án do lỗi nguồn BCTC. Home venv không được cập nhật.
 
 ## Kết quả kiểm tra

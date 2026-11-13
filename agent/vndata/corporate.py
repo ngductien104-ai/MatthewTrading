@@ -1,79 +1,31 @@
-"""The documented exception: three disclosures the sponsored tier does not carry.
+"""Capital history, insider dealing and ownership — now on VNDIRECT MCP.
 
-``vnstock_data``'s reference layer exposes ``events``, ``info``, ``news``,
-``officers``, ``shareholders`` and ``subsidiaries``. It does **not** expose:
+These three disclosures used to come from the free ``vnstock`` package as a
+documented carve-out. The vnstock subscription was cancelled on 13/11/2026 and
+the package is no longer a source for anything, so each function raises
+:class:`~vndata.errors.SourceUnavailable` naming where the data lives now.
 
-* ``capital_history`` — share-capital raises and dilution history
-* ``insider_trading`` — insider and related-party dealing
-* ``ownership`` — the ownership structure tree
-
-The free ``vnstock`` package does. Rather than scatter ``from vnstock import
-Company`` across half a dozen skills — which is exactly the pattern this layer
-exists to stop — the carve-out lives here, in one file, narrowed to three
-functions and labelled on every return value.
-
-Everything else stays on the sponsored tier. If ``vnstock_data`` ever ships
-these endpoints, delete this module and repoint the callers; nothing else has
-to change.
-
-The authoritative record for all three is the issuer's own HOSE/HNX disclosure.
-Treat what comes back here as a fast index into that record, and cite the
-filing when a number matters.
+The authoritative record for all three remains the issuer's own HOSE/HNX
+disclosure; cite the filing when a number matters.
 """
 
 from __future__ import annotations
 
 import pandas as pd
 
-from vndata.errors import SourceUnavailable
-
-#: Stamped onto every frame this module returns.
-_TIER = "vnstock (free tier) — no sponsored equivalent exists"
-
-
-def _company(symbol: str):
-    try:
-        from vnstock import Company
-    except ImportError as exc:  # pragma: no cover - depends on install
-        raise SourceUnavailable(
-            "the free vnstock package is not installed; it is required only for "
-            "capital history, insider trading and ownership."
-        ) from exc
-    return Company(symbol=symbol.strip().upper().replace(".VN", ""))
-
-
-def _stamp(df: pd.DataFrame, what: str) -> pd.DataFrame:
-    df.attrs["source"] = _TIER
-    df.attrs["data_class"] = what
-    df.attrs["verify_against"] = "HOSE/HNX issuer disclosure"
-    return df
+from vndata.errors import moved_to_vndirect
 
 
 def capital_history(symbol: str) -> pd.DataFrame:
-    """Return the share-capital / dilution history for *symbol*."""
-    try:
-        return _stamp(_company(symbol).capital_history(), "capital_history")
-    except SourceUnavailable:
-        raise
-    except Exception as exc:
-        raise SourceUnavailable(f"capital history unavailable for {symbol}: {exc}") from exc
+    """Share-capital / dilution history — fetch via VNDIRECT MCP."""
+    raise moved_to_vndirect(f"capital history ({symbol})")
 
 
 def insider_trading(symbol: str) -> pd.DataFrame:
-    """Return insider and related-party dealing for *symbol*."""
-    try:
-        return _stamp(_company(symbol).insider_trading(), "insider_trading")
-    except SourceUnavailable:
-        raise
-    except Exception as exc:
-        raise SourceUnavailable(f"insider trading unavailable for {symbol}: {exc}") from exc
+    """Insider and related-party dealing — fetch via VNDIRECT MCP."""
+    raise moved_to_vndirect(f"insider trading ({symbol})")
 
 
 def ownership(symbol: str) -> pd.DataFrame:
-    """Return the ownership structure tree for *symbol*."""
-    try:
-        return _stamp(_company(symbol).ownership(), "ownership")
-    except SourceUnavailable:
-        raise
-    except Exception as exc:
-        raise SourceUnavailable(f"ownership unavailable for {symbol}: {exc}") from exc
+    """Ownership structure — fetch via VNDIRECT MCP."""
+    raise moved_to_vndirect(f"ownership ({symbol})")

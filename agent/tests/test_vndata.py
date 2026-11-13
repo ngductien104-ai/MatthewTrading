@@ -1,9 +1,10 @@
 """Unit tests for the ``vndata`` truth-source layer.
 
-Every test here is offline. The unit traps are pinned with the exact values
-measured against live HPG and TCB FY2025 data on 2026-08-27, so a silent
-upstream change that reintroduces a trap fails the suite instead of quietly
-corrupting a valuation.
+Every test here is offline. Since 13/11/2026 the layer has two truth sources:
+DataPro (price, flow, symbol list) reachable from Python, and VNDIRECT MCP
+(fundamentals, macro, company data) reachable only from an MCP client. These
+tests pin both halves: DataPro's unit traps, and the loud failure for every
+class that moved to VNDIRECT.
 """
 
 from __future__ import annotations
@@ -12,178 +13,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from vndata import macro, normalize, price, ta
-
-
-def test_macro_global_property_is_dispatched_without_calling_gateway(monkeypatch):
-    class Global:
-        def index(self, **kwargs):
-            return pd.DataFrame({"symbol": [kwargs["symbol"]]})
-
-    class FakeMacro:
-        global_ref = Global()
-
-        def __getattr__(self, name):
-            if name == "global":
-                return self.global_ref
-            raise AttributeError(name)
-
-    monkeypatch.setattr(macro, "_macro", FakeMacro)
-    result = macro.series("global", "index", symbol="DXY")
-    assert result.loc[0, "symbol"] == "DXY"
-
-
-def _ratio_frame(rows: list[tuple[str, str, str, float]]) -> pd.DataFrame:
-    """Build a raw ratio frame with the Categorical dtypes the API really returns."""
-    df = pd.DataFrame(rows, columns=["period", "id", "unit", "value"])
-    df["period"] = pd.Categorical(df["period"])  # unordered, like upstream
-    df["unit"] = pd.Categorical(df["unit"])
-    df["id"] = pd.Categorical(df["id"])
-    df["name"] = df["id"].astype(str)
-    return df
-
-
-class TestNormalizeRatio:
-    def test_fraction_declared_as_percent_is_scaled(self):
-        """HPG FY2025 ROE arrives as 0.1269 under a '%' label; it means 12.69%."""
-        out = normalize.normalize_ratio(_ratio_frame([("2025", "RT_PRT_ROE", "%", 0.1269059)]))
-        assert out.loc[0, "value"] == pytest.approx(12.69059)
-        assert out.loc[0, "unit"] == "%"
-        assert "fraction" in out.loc[0, "note"]
-
-    def test_dividend_yield_is_already_percent(self):
-        """RT_VALUE_DIVIDEND_YIELD is the one '%' field that must NOT be scaled."""
-        out = normalize.normalize_ratio(
-            _ratio_frame([("2025", "RT_VALUE_DIVIDEND_YIELD", "%", 2.267574)])
-        )
-        assert out.loc[0, "value"] == pytest.approx(2.267574)
-
-    def test_equity_to_assets_is_scaled_even_though_the_label_is_honest(self):
-        """TCB FY2025 equity/assets is a correct 0.1505 under 'lần'; quote it as 15.05%."""
-        out = normalize.normalize_ratio(
-            _ratio_frame([("2025", "RT_LEV_EQUITY_TO_ASSETS", "lần", 0.1505450)])
-        )
-        assert out.loc[0, "value"] == pytest.approx(15.05450)
-        assert out.loc[0, "unit"] == "%"
-        assert out.loc[0, "value_raw"] == pytest.approx(0.1505450)
-
-    def test_a_genuine_multiple_is_not_scaled(self):
-        """HPG FY2025 D/E is 0.9654x — a multiple, not a percentage."""
-        out = normalize.normalize_ratio(
-            _ratio_frame([("2025", "RT_LEV_DE", "lần", 0.9653954)])
-        )
-        assert out.loc[0, "value"] == pytest.approx(0.9653954)
-        assert out.loc[0, "unit"] == "lần"
-
-    def test_valuation_multiples_keep_their_value_but_carry_a_warning(self):
-        """RT_VALUE_PB history is unreliable; the number passes through, flagged."""
-        out = normalize.normalize_ratio(
-            _ratio_frame([("2023", "RT_VALUE_PB", "lần", 0.6663884)])
-        )
-        assert out.loc[0, "value"] == pytest.approx(0.6663884)
-        assert "latest period" in out.loc[0, "note"]
-
-    def test_cost_ratios_lose_their_flipped_sign(self):
-        """TCB NPL coverage arrives as -1.2805; the truth is 128.05%."""
-        out = normalize.normalize_ratio(
-            _ratio_frame([("2025", "RT_BANK_NPL_COVERAGE", "%", -1.280544)])
-        )
-        assert out.loc[0, "value"] == pytest.approx(128.0544)
-
-    def test_money_field_mislabelled_as_billions(self):
-        """RT_VALUE_MARKET_CAP says 'tỷ VNĐ' but stores plain VND."""
-        out = normalize.normalize_ratio(
-            _ratio_frame([("2025", "RT_VALUE_MARKET_CAP", "tỷ VNĐ", 2.152968e14)])
-        )
-        assert out.loc[0, "value"] == pytest.approx(2.152968e14)
-        assert out.loc[0, "unit"] == "VND"
-
-    def test_broken_fields_become_nan_and_name_the_replacement(self):
-        """RT_VALUE_EQUITY returns 0.209 for HPG — unusable, not merely small."""
-        out = normalize.normalize_ratio(
-            _ratio_frame([("2025", "RT_VALUE_EQUITY", "tỷ VNĐ", 0.2094131)])
-        )
-        assert np.isnan(out.loc[0, "value"])
-        assert "BS_EQUITY" in out.loc[0, "note"]
-
-    def test_zero_means_not_applicable(self):
-        """An industrial reports 0.0 for NIM: that is 'n/a', never a measured zero."""
-        out = normalize.normalize_ratio(_ratio_frame([("2025", "RT_BANK_NIM", "%", 0.0)]))
-        assert np.isnan(out.loc[0, "value"])
-        assert "not-applicable" in out.loc[0, "note"]
-
-    def test_nan_is_never_filled(self):
-        out = normalize.normalize_ratio(_ratio_frame([("2025", "RT_VALUE_EPS", "VNĐ", float("nan"))]))
-        assert np.isnan(out.loc[0, "value"])
-
-    def test_category_header_rows_are_dropped(self):
-        out = normalize.normalize_ratio(
-            _ratio_frame([
-                ("2025", "RT_CAT_PROFITABILITY", "", float("nan")),
-                ("2025", "RT_PRT_ROA", "%", 0.064069),
-            ])
-        )
-        assert list(out["id"]) == ["RT_PRT_ROA"]
-
-    def test_period_becomes_sortable(self):
-        """Upstream ships an unordered Categorical, so .max() raises on the raw frame."""
-        raw = _ratio_frame([("2024", "RT_PRT_ROE", "%", 0.1), ("2025", "RT_PRT_ROE", "%", 0.2)])
-        with pytest.raises(TypeError):
-            raw["period"].max()
-        out = normalize.normalize_ratio(raw)
-        assert out["period"].max() == "2025"
-
-    def test_raw_values_are_preserved_for_audit(self):
-        out = normalize.normalize_ratio(_ratio_frame([("2025", "RT_PRT_ROE", "%", 0.1269059)]))
-        assert out.loc[0, "value_raw"] == pytest.approx(0.1269059)
-        assert out.loc[0, "unit_raw"] == "%"
-
-    def test_rejects_a_frame_that_is_not_a_ratio_table(self):
-        with pytest.raises(ValueError, match="missing columns"):
-            normalize.normalize_ratio(pd.DataFrame({"foo": [1]}))
-
-
-class TestNormalizeStatement:
-    def test_diluted_eps_zero_is_a_not_reported_sentinel(self):
-        df = pd.DataFrame({
-            "period": pd.Categorical(["2025"]),
-            "id": ["IS_DILUTED_EARNINGS_PER_SHARE"],
-            "value": [0.0],
-        })
-        out = normalize.normalize_statement(df)
-        assert np.isnan(out.loc[0, "value"])
-
-    def test_ordinary_statement_values_pass_through(self):
-        df = pd.DataFrame({
-            "period": pd.Categorical(["2025"]),
-            "id": ["IS_NET_REVENUE"],
-            "value": [1.561161e14],
-        })
-        out = normalize.normalize_statement(df)
-        assert out.loc[0, "value"] == pytest.approx(1.561161e14)
-        assert out.loc[0, "period"] == "2025"
-
-    def test_negative_line_items_keep_their_sign(self):
-        """Costs are booked negative in the source and must stay negative."""
-        df = pd.DataFrame({
-            "period": pd.Categorical(["2025"]),
-            "id": ["IS_COST_OF_GOODS_SOLD"],
-            "value": [-1.316183e14],
-        })
-        assert normalize.normalize_statement(df).loc[0, "value"] < 0
-
-
-class TestPivot:
-    def test_pivot_sorts_periods_ascending(self):
-        long = normalize.normalize_ratio(
-            _ratio_frame([
-                ("2025", "RT_PRT_ROE", "%", 0.2),
-                ("2024", "RT_PRT_ROE", "%", 0.1),
-            ])
-        )
-        wide = normalize.pivot(long)
-        assert list(wide.index) == ["2024", "2025"]
-        assert wide.loc["2025", "RT_PRT_ROE"] == pytest.approx(20.0)
+import vndata
+from vndata import fundamental, macro, price, reference, ta
+from vndata.errors import SourceUnavailable
 
 
 class TestPriceUnits:
@@ -285,41 +117,16 @@ class TestSymbolHandling:
 
 class TestPriceContract:
     def _fallback(self, monkeypatch, frame, symbol="VNINDEX.VN"):
-        class Equity:
-            def ohlcv(self, **kwargs):
-                return frame
+        """Run a raw frame through the same schema gate DataPro frames pass."""
+        df = frame.rename(columns={"time": "trade_date"}).set_index("trade_date").sort_index()
+        return price._validate_and_audit(df, symbol=symbol, start="2024-01-02", end="2024-01-08")
 
-        class Market:
-            def equity(self, symbol):
-                return Equity()
-
-        monkeypatch.setitem(__import__("sys").modules, "vnstock_data", type(
-            "FakeVnstockData", (), {"Market": Market}
-        ))
-        return price._fallback_ohlcv(symbol, "2024-01-02", "2024-01-08")
-
-    def test_index_fallback_does_not_claim_thousand_vnd(self, monkeypatch):
-        frame = pd.DataFrame({
-            "time": pd.to_datetime(["2024-01-02", "2024-01-03"]),
-            "open": [1120.0, 1121.0], "high": [1122.0, 1123.0],
-            "low": [1119.0, 1120.0], "close": [1121.0, 1122.0],
-            "volume": [1.0, 2.0],
-        })
-        out = self._fallback(monkeypatch, frame)
-        assert out.attrs["source"] == "vnstock_data"
-        assert out.attrs["degraded"] is True
-        # The scale was measured on 2026-09-01 and matches DataPro exactly, so
-        # this no longer says "unknown". What stays unknown is the instrument,
-        # and that is what stops the frame from claiming an equity's unit.
-        assert out.attrs["price_unit"] != "thousand VND"
-        assert out.attrs["instrument"] == "unverified"
-        assert "unclassifiable" in out.attrs["price_unit"]
-
-    def test_empty_fallback_keeps_true_provenance(self, monkeypatch):
-        out = self._fallback(monkeypatch, pd.DataFrame())
-        assert out.empty
-        assert out.attrs["source"] == "vnstock_data"
-        assert out.attrs["degraded"] is True
+    def test_datapro_down_raises_instead_of_switching_source(self, monkeypatch):
+        monkeypatch.setattr(price, "datapro_available", lambda *a, **k: False)
+        with pytest.raises(SourceUnavailable, match="no fallback"):
+            price.ohlcv("HPG.VN", "2026-01-02", "2026-01-08")
+        with pytest.raises(SourceUnavailable):
+            price.ohlcv("HPG.VN", "2026-01-02", "2026-01-08", allow_fallback=True)
 
     @pytest.mark.parametrize(
         "mutate,match",
@@ -398,22 +205,123 @@ class TestTaFrame:
 
 class TestSourceMap:
     def test_price_classes_route_to_datapro(self):
-        import vndata
-
-        for key in ("ohlcv", "foreign_flow", "proprietary_flow", "reference_price"):
+        for key in ("ohlcv", "foreign_flow", "proprietary_flow", "reference_price", "symbol_list"):
             assert vndata.SOURCE_MAP[key] == "datapro"
 
-    def test_fundamental_classes_route_to_vnstock_data(self):
-        import vndata
+    def test_fundamental_classes_route_to_vndirect(self):
+        for key in ("income_statement", "ratios", "macro", "shareholders", "capital_history"):
+            assert vndata.SOURCE_MAP[key] == "vndirect_mcp"
 
-        for key in ("income_statement", "ratios", "macro", "industry_classification"):
-            assert vndata.SOURCE_MAP[key] == "vnstock_data"
+    def test_no_class_routes_to_vnstock(self):
+        assert not [k for k, v in vndata.SOURCE_MAP.items() if "vnstock" in v]
 
-    def test_free_tier_is_confined_to_the_documented_carve_out(self):
-        import vndata
 
-        free = {k for k, v in vndata.SOURCE_MAP.items() if v == "vnstock (free)"}
-        assert free == {"capital_history", "insider_trading", "ownership"}
+class TestMovedToVndirect:
+    @pytest.mark.parametrize("call", [
+        lambda: fundamental.statement("HPG"),
+        lambda: fundamental.ratios("HPG.VN"),
+        lambda: fundamental.is_bank("VCB"),
+        lambda: macro.economy("cpi"),
+        lambda: reference.company("FPT"),
+        lambda: reference.events("FPT"),
+        lambda: vndata.corporate.capital_history("HPG"),
+        lambda: vndata.news.company_news("HPG"),
+    ])
+    def test_raises_and_names_vndirect(self, call):
+        with pytest.raises(SourceUnavailable, match="VNDIRECT MCP"):
+            call()
+
+    def test_disclosure_lag_policy_survives_the_source_change(self):
+        assert fundamental.DISCLOSURE_LAG_DAYS == {"year": 90, "quarter": 45}
+
+    def test_no_vnstock_import_anywhere_in_the_layer(self):
+        from pathlib import Path
+
+        root = Path(vndata.__file__).parent
+        offenders = []
+        for path in root.glob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            if "import vnstock" in text or "from vnstock" in text:
+                offenders.append(path.name)
+        assert offenders == []
+
+
+class TestReferenceSnapshots:
+    @pytest.fixture(autouse=True)
+    def _tmp_snapshots(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(reference, "SNAPSHOT_DIR", tmp_path)
+        monkeypatch.setattr(reference, "CLASSIFICATION_FILE", tmp_path / "icb_classification.csv")
+        monkeypatch.setattr(reference, "INDEX_MEMBERS_FILE", tmp_path / "index_members.json")
+
+    def test_missing_snapshot_is_loud(self):
+        with pytest.raises(SourceUnavailable, match="VNDIRECT MCP"):
+            reference.classification()
+        with pytest.raises(SourceUnavailable, match="VN30"):
+            reference.symbols_by_group("VN30")
+
+    def test_classification_round_trip_keeps_codes_four_digits(self):
+        reference.save_classification(
+            pd.DataFrame({"symbol": ["vcb", "HPG"], "icb_code_lv2": [8300, "1700"],
+                          "icb_name_lv2": ["Banks", "Basic Resources"]}),
+            source="vndirect:test", as_of="2026-11-13")
+        out = reference.classification()
+        assert out.set_index("symbol")["icb_code_lv2"].to_dict() == {"HPG": "1700", "VCB": "8300"}
+        assert out.attrs["as_of"] == "2026-11-13"
+        assert out.attrs["source"] == "vndirect:test"
+
+    def test_duplicate_symbols_are_refused(self):
+        with pytest.raises(ValueError, match="duplicate"):
+            reference.save_classification(
+                pd.DataFrame({"symbol": ["VCB", "VCB"], "icb_code_lv2": ["8300", "8300"],
+                              "icb_name_lv2": ["Banks", "Banks"]}), source="t")
+
+    def test_index_members_round_trip_returns_a_symbol_series(self):
+        reference.save_index_members("vn30", ["FPT.VN", "hpg", "FPT"], source="vndirect:test",
+                                     as_of="2026-11-13")
+        out = reference.symbols_by_group("VN30")
+        assert isinstance(out, pd.Series) and out.name == "symbol"
+        assert out.tolist() == ["FPT", "HPG"]
+        assert out.attrs["as_of"] == "2026-11-13"
+
+    def test_symbols_reads_datapro_and_maps_hsx_to_hose(self, monkeypatch):
+        csv = "\n".join([
+            "SYMBOL,NAME,NAME_EN,EXCHANGE,TYPE,SHARES_OUT",
+            "HPG,Hoa Phat,Hoa Phat,HSX,STOCK,100",
+            "E1VFVN30,ETF,ETF,HSX,ETF,5",
+            "VNINDEX,VN-Index,VN-Index,HSX,IDX,0",
+        ])
+        monkeypatch.setattr(reference, "_symbols_csv", lambda: csv)
+        assert reference.equities()[["symbol", "exchange"]].values.tolist() == [["HPG", "HOSE"]]
+        assert reference.etfs()["symbol"].tolist() == ["E1VFVN30"]
+
+
+class TestLocalIndicators:
+    def _bars(self, closes):
+        n = len(closes)
+        return pd.DataFrame({"open": closes, "high": [c + 1 for c in closes],
+                             "low": [c - 1 for c in closes], "close": closes,
+                             "volume": [100.0] * n},
+                            index=pd.date_range("2026-01-01", periods=n))
+
+    def test_rsi_is_100_when_price_only_rises(self):
+        ind = ta.from_frame(self._bars([float(i) for i in range(1, 40)]))
+        assert ind.momentum.rsi(14).iloc[-1] == pytest.approx(100.0)
+
+    def test_rsi_matches_wilder_reference(self):
+        # Wilder's 14-day worked example: the first RSI on these closes is 70.53.
+        closes = [44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84,
+                  46.08, 45.89, 46.03, 45.61, 46.28, 46.28]
+        rsi = ta.from_frame(self._bars(closes)).momentum.rsi(14).iloc[-1]
+        assert rsi == pytest.approx(70.53, abs=0.1)
+
+    def test_sma_and_bbands_share_a_midline(self):
+        ind = ta.from_frame(self._bars([float(i % 7) for i in range(60)]))
+        assert ind.trend.sma(20).iloc[-1] == pytest.approx(ind.volatility.bbands(20)["mid"].iloc[-1])
+
+    def test_atr_of_a_flat_two_point_range_is_two(self):
+        # high - low = 2 every bar and no gaps -> true range 2.
+        ind = ta.from_frame(self._bars([10.0] * 40))
+        assert ind.volatility.atr(14).iloc[-1] == pytest.approx(2.0)
 
 
 class TestAdjustmentPolicy:
@@ -465,77 +373,6 @@ class TestAdjustmentPolicy:
     def test_names_the_missing_column_rather_than_the_rate(self):
         with pytest.raises(ValueError, match="'ref_price'"):
             price.traded_price(self._bars(), column="ref_price")
-
-
-class TestFallbackReconciliation:
-    """What the 2026-09-01 two-source measurement changed on the degraded path."""
-
-    def _fallback(self, monkeypatch, frame, symbol="VNINDEX.VN"):
-        class Equity:
-            def ohlcv(self, **kwargs):
-                return frame
-
-        class Market:
-            def equity(self, symbol):
-                return Equity()
-
-        monkeypatch.setitem(__import__("sys").modules, "vnstock_data", type(
-            "FakeVnstockData", (), {"Market": Market}
-        ))
-        return price._fallback_ohlcv(symbol, "2026-08-27", "2026-08-28")
-
-    def _snapshot_frame(self, close_of_the_extra_row: float = 1832.12) -> pd.DataFrame:
-        """The real shape: the newest session arrives twice, close identical.
-
-        Observed on VNINDEX and VN30 for 2026-08-28 — same high, low and close,
-        different open and volume — while every closed historical range is clean.
-        """
-        return pd.DataFrame({
-            "time": pd.to_datetime(["2026-08-27", "2026-08-28", "2026-08-28"]),
-            "open": [1821.82, 1833.27, 1830.53],
-            "high": [1838.25, 1838.20, 1838.20],
-            "low": [1815.42, 1819.16, 1819.16],
-            "close": [1831.56, 1832.12, close_of_the_extra_row],
-            "volume": [484230398.0, 562184482.0, 643935725.0],
-        })
-
-    def test_the_duplicate_session_no_longer_kills_every_index_request(self, monkeypatch):
-        out = self._fallback(monkeypatch, self._snapshot_frame())
-        assert len(out) == 2
-        assert not out.index.has_duplicates
-
-    def test_the_fuller_snapshot_is_the_one_kept(self, monkeypatch):
-        out = self._fallback(monkeypatch, self._snapshot_frame())
-        kept = out.loc[pd.Timestamp("2026-08-28")]
-        assert kept["volume"] == pytest.approx(643935725.0)
-        assert kept["open"] == pytest.approx(1830.53)
-
-    def test_the_collapse_is_recorded_not_silent(self, monkeypatch):
-        out = self._fallback(monkeypatch, self._snapshot_frame())
-        assert out.attrs["vendor_duplicate_sessions"] == ["2026-08-28"]
-
-    def test_duplicates_that_disagree_on_close_are_not_this_artefact(self, monkeypatch):
-        """Two different closes for one session is contradiction, not a snapshot."""
-        with pytest.raises(ValueError, match="duplicates"):
-            self._fallback(monkeypatch, self._snapshot_frame(close_of_the_extra_row=1799.0))
-
-    def test_a_clean_range_is_left_alone(self, monkeypatch):
-        frame = self._snapshot_frame().iloc[:2]
-        out = self._fallback(monkeypatch, frame)
-        assert len(out) == 2
-        assert "vendor_duplicate_sessions" not in out.attrs
-
-    def test_the_degraded_frame_cannot_be_converted_to_vnd(self, monkeypatch):
-        """Its scale is verified; which of the three rules applies is not."""
-        out = self._fallback(monkeypatch, self._snapshot_frame())
-        with pytest.raises(ValueError, match="instrument is 'unverified'"):
-            price.to_vnd(out)
-
-    def test_the_back_adjustment_cannot_be_undone_from_a_degraded_frame(self, monkeypatch):
-        out = self._fallback(monkeypatch, self._snapshot_frame())
-        assert out.attrs["adjustment"] == "back-adjusted"
-        with pytest.raises(ValueError, match="no.*adj_rate"):
-            price.traded_price(out)
 
 
 def test_rss_published_keeps_colon_offset():

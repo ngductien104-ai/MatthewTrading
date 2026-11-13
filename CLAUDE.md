@@ -1,472 +1,103 @@
-# Vnstock Library - AI Agent Instructions
+# MatthewTrading — hướng dẫn cho AI agent
 
-**Repository**: https://github.com/vnstock-hq/vnstock-agent-guide/  
-
-**Purpose**: Comprehensive documentation and reference guide for vnstock Python libraries  
-
-**Target Users**: Non-technical users, data analysts, traders, developers  
-
-**Language**: English (instructions) | Vietnamese (documentation)
+Fork của vibe-trading cho **thị trường chứng khoán Việt Nam** (HOSE/HNX/UPCOM):
+skill phân tích, preset swarm, backtest, bản tin thị trường hằng ngày.
+Ngôn ngữ làm việc: tiếng Việt.
 
 ---
 
-## 📚 Overview
-
-This repository provides complete documentation for the **vnstock ecosystem** – a suite of Python libraries for Vietnamese stock market data and analysis:
-
-### Core Libraries
-
-| Library              | Purpose                                  | Users           | Status       |
-| -------------------- | ---------------------------------------- | --------------- | ------------ |
-| **vnstock**          | Free stock data API                      | Free users      | ✅ Production |
-| **vnstock_data**     | High quality data with advanced features | Sponsored users | ✅ Production |
-| **vnstock_ta**       | Technical analysis indicators            | Sponsored users | ✅ Production |
-| **vnstock_news**     | News crawling and sentiment analysis     | Sponsored users | ✅ Production |
-| **vnstock_pipeline** | Data pipeline and streaming              | Sponsored users | ✅ Production |
-
----
-
-## 🎯 Your Role as AI Agent
-
-You are a coding assistant helping users build Python applications using vnstock libraries. Your responsibilities:
-
-1. **Understand User Intent**: Translate requirements into technical solutions.
-2. **Choose Right Library**: Recommend `vnstock` (free) or `vnstock_data` (sponsored) based on user tier.
-3. **API Inspection FIRST**: For `vnstock_data` (v3.0.0+), ALWAYS use `show_api()` to explore the structure and `show_doc()` to read details before writing code.
-4. **Provide Working Code**: Generate functional Python code with basic examples. Prefer Unified UI for `vnstock_data`.
-5. **Reference Documentation**: Link to accurate docs in this repository.
-6. **Handle Errors**: Diagnose issues and provide basic error handling. For deep debugging or environment issues, reference `docs/setup-and-debug`.
-
----
-
----
-
-## 🇻🇳 THIS REPO: use `vndata`, not the vendor libraries directly
+## 🇻🇳 Nguồn dữ liệu: DataPro + VNDIRECT MCP (KHÔNG dùng vnstock)
 
 > **Đọc trước khi viết bất kỳ dòng code lấy dữ liệu VN nào.**
 
-Fork này định tuyến mọi dữ liệu thị trường Việt Nam qua **một** lớp:
-`agent/vndata`. Bốn nguồn sự thật, không chồng lấn:
+Gói vnstock đã **huỷ ngày 13/11/2026** (xác thực ngừng từ 10/11/2026). Không
+`import vnstock` / `vnstock_data` / `vnstock_ta` / `vnstock_news` ở bất kỳ đâu;
+MCP `vnstock` và các tool `vn_*` đã gỡ. Còn hai nguồn sự thật:
 
 | Loại dữ liệu | Nguồn | Gọi |
 |---|---|---|
-| Giá, KL, GTGD, giá tham chiếu, khối ngoại, tự doanh, thoả thuận, phái sinh, ETF, forex | **DataPro** | `vndata.price.*` |
-| BCTC, chỉ số tài chính, vĩ mô, ICB, cổ đông, rổ chỉ số | **vnstock_data** | `vndata.fundamental.*` · `vndata.macro.*` · `vndata.reference.*` |
-| Chỉ báo kỹ thuật (tính trên giá DataPro) | **vnstock_ta** | `vndata.ta.indicator()` |
-| Tin tức + toàn văn bài báo | **vnstock_news** | `vndata.news.*` |
+| Giá, KL, GTGD, giá tham chiếu, khối ngoại & tự doanh theo mã, thoả thuận, chỉ số, phái sinh, ETF, danh sách mã | **DataPro** | Python `vndata.price.*`, `vndata.reference.symbols()` · MCP `datapro` |
+| Chỉ báo kỹ thuật | **tự tính trên giá DataPro** | `vndata.ta.indicator()` |
+| Tin tức (tiêu đề + link) | **RSS nhà xuất bản** | `vndata.news.rss()` |
+| Chỉ số tài chính & định giá, chỉ số ngân hàng, ICB, rổ chỉ số, sự kiện DN, lãnh đạo, khối ngoại tổng sàn, độ rộng sàn, quỹ mở, hàng hoá, lịch GD | **VNDIRECT MCP** | connector "VNDIRECT MCP", tool `FINFO_API__*` |
+| **BCTC từng dòng + thuyết minh** | **PDF gốc** | `agent/scripts/evidence_pack.py` (Phase 0) |
+| Vĩ mô VN | cơ quan công bố gốc (GSO, NHNN, BTC) | crawl4ai, ghi nguồn |
+| Tỷ giá, DXY | Yahoo (`yfinance`, venv dự án) | `USDVND=X`, `DX-Y.NYB` |
 
-**KHÔNG `import vnstock` bản free.** Ngoại lệ duy nhất đã đóng gói sẵn ở
-`vndata.corporate` (lịch sử tăng vốn / giao dịch nội bộ / cơ cấu sở hữu — gói tài
-trợ không có).
+**VNDIRECT MCP chỉ gọi được từ Claude / subagent** (OAuth, tool tên đầy đủ dạng
+`mcp__<id-connector>__FINFO_API__get_ratios`; tìm bằng `ToolSearch("FINFO_API")`).
+Python không có đường tới nó: `vndata.fundamental/macro/corporate` và
+`vndata.reference.company/events/...` **cố ý raise `SourceUnavailable`** chỉ sang
+VNDIRECT — không tự chế nguồn thay, không ước tính thay số. ICB cấp 2 và rổ VN30
+mà Python cần hằng ngày (bản tin, backtest, learning loop) đọc từ **snapshot**
+`agent/data/vn_reference/` lấy qua VNDIRECT.
 
-Lớp này sửa sẵn các bẫy đơn vị của `vnstock_data` (`RT_PRT_*` là fraction dù nhãn
-`%`; `RT_VALUE_MARKET_CAP` là VND dù nhãn `tỷ VNĐ`; `RT_VALUE_EQUITY` hỏng;
-`IS_MINORITY_INTEREST` mất dấu khi lỗ) và **báo lỗi to** khi nguồn chết thay vì
-âm thầm lùi về nguồn yếu hơn. Chi tiết: `VN_DATA_SOURCE.md` và skill `data-routing`.
+**Swarm phân tích chạy bằng subagent Claude** (runtime OpenRouter đã chết) → agent
+gọi thẳng tool VNDIRECT MCP cho số cơ bản, Python (`$HOME\.venv` hoặc `.venv`)
+cho giá DataPro.
 
-Có thể gọi qua MCP `vnstock` (đăng ký ở `.mcp.json`): `vn_health`, `vn_ohlcv`,
-`vn_flow`, `vn_financials`, `vn_ratios`, `vn_derived`, `vn_indicator`,
-`vn_company`, `vn_universe`, `vn_news`, `vn_macro`.
-
-Hai nhánh MCP này KHÔNG giống nhau về độ tin cậy. `vn_ohlcv` / `vn_flow` /
-`vn_source_map` đi thẳng DataPro và luôn trả trong dưới một giây. Chín tool còn
-lại đi qua gói tài trợ, và ngày 27/08/2026 nhánh đó đã làm chết cả server: gọi
-`vn_ratios` không bao giờ trả về (đo 11p32 và 8p, trong khi chính đoạn code đó
-chạy 35s trong Python), còn gọi `vn_indicator` cùng `vn_universe` một lượt thì
-tiến trình server tắt hẳn và phiên mất sạch 12 tool. Nay mỗi lệnh tài trợ chạy
-trong tiến trình con có hạn giờ (`VNDATA_CALL_TIMEOUT`, mặc định 90s) nên tệ
-nhất là một tool báo timeout, không kéo theo tool khác — xem `agent/vndata_worker.py`.
-
-**Trong swarm hoặc phiên chạy dài, ưu tiên gọi thẳng lớp `vndata` bằng Python**
-(`$HOME\.venv\Scripts\python.exe`, xem skill `data-routing`) thay vì các tool
-tài trợ qua MCP: cùng code, cùng hiệu chỉnh đơn vị, không phải trả 90s cho một
-lần timeout. Giữ MCP cho nhánh DataPro và cho các truy vấn lẻ.
-
----
-
-## 👤 User Configuration & License Check
-
-**AI Instruction**: Before suggesting any code, check the user's licence tier by
-calling `vnai.get_user_tier()` — **not** by reading `auth_state.json`, which is a
-60-minute cache that keeps reporting the last successful login even after the API
-key has been revoked. If the two disagree, `get_user_tier()` is the truth.
-
-```python
-import vnai; print(vnai.get_user_tier())   # {'tier': 'silver', 'limits': {...}}
-```
-
-Tài khoản này hiện ở **silver** (300 req/phút, 15.000 req/giờ) → dùng được
-`vnstock_data` + `vnstock_ta` + `vnstock_news`. `vnstock_pipeline` cần golden/diamond.
-
-Your library recommendations must strictly align with their privileges:
-- **guest / community** (Free): Can only use `vnstock`.
-- **bronze**: Can use `vnstock` + `vnstock_data`.
-- **silver**: Can use `vnstock` + `vnstock_data` + `vnstock_ta` + `vnstock_news`.
-- **golden / diamond**: Full access to all libraries, including `vnstock_pipeline`.
-
-> 💡 **Note**: If the file does not exist or cannot be read, it means the user has not installed or initialized the `vnstock` library yet. You MUST automatically run the necessary commands (e.g., `pip install vnstock`) and initialize it on behalf of the user to create the configuration file, rather than asking the user to do it manually.
-
----
-
-## 📚 Installation Guide
-
-### Stable Version (Recommended for Production)
-For most users who need a stable, reliable version:
+Bảng tool đầy đủ, cú pháp `get_ratios`, mã `ratioCode`, các bẫy đơn vị đã đo
+(tỷ lệ là **phân số**; `EBITDA_TR` hỏng; `0` ở hàng hoá/quỹ = **thiếu số**):
+skill **`data-routing`** và `VN_DATA_SOURCE.md`. Kiểm nguồn trước một phiên dài:
 
 ```bash
-pip install -U vnstock
+.venv/Scripts/python.exe agent/scripts/vn_preflight.py
 ```
 
-### Beta/Development Version (Latest Features)
-For users who want the latest features (may be unstable):
+---
+
+## 🚦 BẮT BUỘC: Phase 0 trước mọi swarm phân tích doanh nghiệp
+
+**Không chạy bất kỳ preset phân tích/đánh giá doanh nghiệp nào (fundamental_research_team,
+equity_research_team, value_investing_committee, risk_committee…) trước khi có thư mục bằng chứng gốc.**
+Agent chỉ được viết sau khi `FACTS.md` tồn tại.
 
 ```bash
-pip install git+https://github.com/thinh-vu/vnstock
+# venv DỰ ÁN (có crawl4ai + fitz + pdfplumber). $HOME/.venv KHÔNG có fitz.
+./.venv/Scripts/python.exe agent/scripts/evidence_pack.py <MÃ> --outdir _<mã>_research --auto
 ```
 
-> 💡 **Installation Decision**: When users mention "stable", "production", or "official" → use PyPI version. When users mention "latest", "beta", "new features", or "development" → use GitHub version.
+Script cào `finance.vietstock.vn/<MÃ>/tai-tai-lieu.htm`, tải PDF từ `static2.vietstock.vn` (không cần
+login), đo lớp text từng trang, trích sẵn phần có text và ghi `EVIDENCE_MANIFEST.md`.
+**Ưu tiên bản SOÁT XÉT bán niên** — thuyết minh đầy đủ nhất và có ý kiến kiểm toán.
+Nếu doanh nghiệp có **công ty con đã niêm yết**, tải luôn BCTC của nó.
+
+Sau khi có tài liệu, làm đủ 5 bước rồi mới sang Phase 1:
+1. Đọc mục lục → ánh xạ trang PDF ↔ trang tài liệu (thường lệch +2).
+2. Đọc ý kiến kiểm toán/soát xét — có ngoại trừ hoặc đoạn nhấn mạnh không.
+3. Đọc bảng cân đối → lấy **số hiệu thuyết minh** cho từng khoản cần soi.
+4. Render đúng dải trang đó (`--render 8-56`, 200 DPI) → đọc bằng vision →
+   **kiểm đẳng thức tổng cộng từng bảng**, số không khớp thì không dùng.
+5. Ghi `FACTS.md`: mỗi số kèm nguồn + số trang, gắn nhãn `[gốc]` / `[thứ cấp]` / `[giả định]` /
+   `[khoảng chặn]`. **Cấm ghế nào dùng số ngoài sổ.**
+
+**Cổng chặn:** vấn đề treo trọng yếu chưa giải → dừng, giao memo thiếu bằng chứng, KHÔNG viết
+báo cáo đầu tư. Mục "bất khả giải" phải **chặn khoảng** (cận trên/cận dưới + cách dựng), cấm ghi
+"không giải được" rồi đi tiếp.
+
+**Vì sao bắt buộc:** swarm MWG 07/09/2026 ra báo cáo **tin cậy 58%** với 5 vấn đề treo — không mục nào
+thực sự bất khả giải, chúng chưa được giải vì **không agent nào mở BCTC gốc**. Đọc thuyết minh xong
+(~45 phút) đóng **23/44** vấn đề, gồm cả hai mục từng bị xếp "bất khả giải". Chi tiết quy trình 4 pha
+2 cổng: memory `workflow-research-desk-v2`.
 
 ---
 
-## 📖 Documentation Structure
+## 💻 Môi trường Python
 
-The repository contains multiple documentation folders covering different parts of the ecosystem. To save context tokens and ensure you have the most up-to-date information, **do not assume the exact file structure**.
+| Env | Dùng cho |
+|---|---|
+| `.venv` (dự án) | backtest, `evidence_pack.py` (crawl4ai + fitz + pdfplumber), `yfinance`/`akshare` cho hàng hoá |
+| `$HOME\.venv` | crawl4ai, stack NLP tiếng Việt, script bản tin |
 
-**AI Instruction:** Use your directory listing tools (e.g., `list_dir`) to explore the `docs/` and `vnstock*/` directories to find the relevant markdown files. Key locations include:
-- `docs/setup-and-debug/`: Environment health check, installation troubleshooting, and AI vibe coding workflow.
-- `docs/vnstock/`: Free library documentation (listing, company, trading, finance).
-- `docs/vnstock-data/`: Sponsored library documentation, featuring the Unified UI (`01-unified-ui.md`) and layer guides (`02-reference-layer.md`, `03-market-layer.md`, etc.).
-- `docs/vnstock_ta/`: Technical analysis indicators and plotting.
-- `docs/vnstock_news/`: News crawling and sentiment.
-- `docs/vnstock_pipeline/`: Data pipelines and streaming.
+Gói vnstock có thể vẫn còn cài trong venv nhưng **không được import**.
 
 ---
 
-## 💻 Environment & Installation
-
-Proper environment management is critical for the Vnstock ecosystem. **Always verify the user's environment before installation.**
-
-### Global vs. Virtual Environments
-- **Free Libraries** (`vnstock`, `vnstock_ezchart`): Can be installed globally or in a virtual environment.
-- **Sponsored Libraries** (`vnstock_data`, `vnstock_ta`, `vnstock_news`): **STRONGLY PREFER** installation in a virtual environment. By default, vnstock libraries will be installed in `~/.venv` on macOS/Linux and `$HOME\.venv` (or `%USERPROFILE%\.venv`) on Windows for shared usage and local resource optimization.
-
-### 🚀 Sponsored-First Prioritization
-**AI Instruction:** Before suggesting any code or documentation, check if `vnstock_data` is installed in the standard `~/.venv` (macOS/Linux) or `$HOME\.venv` (Windows) directory. If detected, you **MUST** prioritize `vnstock_data` (Sponsored) over `vnstock` (Free) in all recommendations. Focus on the Unified UI and Sponsored-only features.
-
-### AI Environment Search Priority
-When looking for installed libraries or Python executables, search in this order:
-1. **Home Virtual Environment**: `~/.venv` on macOS/Linux and `$HOME\.venv` (or `%USERPROFILE%\.venv`) on Windows
-2. **Project Virtual Environment**: `./.venv`, `~/venv` or `~/env` (current project directory)
-3. **Global Environment**: System Python
-
-### Virtual Environment Activation
-Before running scripts or interacting with the sponsored ecosystem, activate the virtual environment:
-- **macOS/Linux**: `source ~/.venv/bin/activate` (or `source .venv/bin/activate` for project-specific)
-- **Windows (PowerShell)**: `& "$HOME\.venv\Scripts\Activate.ps1"`
-- **Windows (CMD)**: `%USERPROFILE%\.venv\Scripts\activate.bat`
-
-**More Info**: [Environment Setup Guide](https://vnstocks.com/onboard-member/cai-dat-go-loi/moi-truong-ao)
-
----
-
-## 🤖 Agent Guide Installation (For AI Agents)
-
-If the user asks you to "install the agent guide" or "setup the workspace", follow these precise steps to clone this repository into their **current project directory**:
-
-1. **Verify Project Directory & OS**: Ensure the user is in a specific project directory (NOT their home directory). **Crucially, identify the user's Operating System (macOS, Linux, or Windows) before executing any terminal commands**.
-2. **Check for Existing Files**: Check if any of these target files/folders already exist in the current directory: `AGENTS.md`, `docs/`, `.agents/`, `.github/`, `CLAUDE.md`, `.cursor/`.
-3. **Prompt for Confirmation**: If any target files exist, **STOP**. Ask the user if they want to commit these files to Git (for safety) or directly delete them to make room for the new installation. **Do not destructively overwrite without permission.**
-4. **Clone Repository**: Once confirmed (or if the directory is clean), check if `git` is installed. Clone the repository to a temporary location:
-   ```bash
-   git clone https://github.com/vnstock-hq/vnstock-agent-guide.git /tmp/vnstock-agent-guide
-   ```
-5. **Copy Essential Files**: Copy the essential files to the project root based on the OS:
-   - **macOS/Linux**:
-     ```bash
-     cp -r /tmp/vnstock-agent-guide/AGENTS.md /tmp/vnstock-agent-guide/docs /tmp/vnstock-agent-guide/.agents /tmp/vnstock-agent-guide/.github /tmp/vnstock-agent-guide/CLAUDE.md ./
-     ```
-   - **Windows (PowerShell)**:
-     ```powershell
-     Copy-Item -Path "C:\tmp\vnstock-agent-guide\AGENTS.md", "C:\tmp\vnstock-agent-guide\docs", "C:\tmp\vnstock-agent-guide\.agents", "C:\tmp\vnstock-agent-guide\.github", "C:\tmp\vnstock-agent-guide\CLAUDE.md" -Destination ".\" -Recurse -Force
-     ```
-6. **Clean Up**: Remove the temporary clone based on the OS:
-   - **macOS/Linux**:
-     ```bash
-     rm -rf /tmp/vnstock-agent-guide
-     ```
-   - **Windows (PowerShell)**:
-     ```powershell
-     Remove-Item -Path "C:\tmp\vnstock-agent-guide" -Recurse -Force
-     ```
-
----
-
-## 🚀 Common Use Cases
-
-### Use Case 1: Get Stock Price Data
-
-**User Request**: "I want to get historical stock prices for VCB"
-
-**Your Approach**:
-1. Determine user tier (free or sponsored)
-2. If **free**: Use `vnstock.ui.Market` → Reference `docs/vnstock/04-market-layer.md`
-3. If **sponsored**: Use `vnstock_data.Market` → Reference `docs/vnstock-data/03-market-layer.md`
-4. Provide basic code example
-
-**Example Code (Free User)**:
-```python
-from vnstock.ui import Market
-
-# Initialize Market API
-mkt = Market()
-
-# Get historical data
-df = mkt.equity("VCB").ohlcv(
-    start="2024-01-01",
-    end="2024-12-31"
-)
-
-print(df.head())
-```
-
-**Example Code (Sponsored User - Unified UI)**:
-```python
-from vnstock_data import Market, show_api, show_doc
-
-# 1. Inspect API (Mandatory for sponsored users)
-# show_api() 
-
-# 2. Get historical data using Unified UI
-mkt = Market()
-df = mkt.equity("VCB").ohlcv(
-    start="2024-01-01",
-    end="2024-12-31"
-)
-
-print(df.head())
-```
-
----
-
-### Use Case 2: Analyze Company Fundamentals
-
-**User Request**: "Show me financial data for VCB"
-
-**Your Approach**:
-1. Recommend **vnstock_data** for better financial data (if sponsored)
-2. Reference `docs/vnstock-data/04-fundamental-layer.md` or `docs/vnstock/05-fundamental-layer.md`
-3. Provide basic analysis script
-
-**Example Code (Unified UI)**:
-```python
-from vnstock_data import Fundamental, Market
-
-# Get financial data (Layer 3)
-fun = Fundamental()
-ratios = fun.equity("VCB").ratio()
-
-# Get price data (Layer 2)
-mkt = Market()
-price_data = mkt.equity("VCB").ohlcv(start="2024-01-01", end="2024-12-31")
-
-print("Latest Financial Metrics:")
-print(ratios.tail(1))
-```
-
----
-
-### Use Case 3: Build Stock Screener
-
-**User Request**: "Find all stocks in VN30 that are undervalued"
-
-**Your Approach**:
-1. This requires **vnstock_data** (sponsored feature)
-2. Reference `docs/vnstock-data/06-insights-layer.md` for screener
-3. Reference `docs/vnstock-data/02-reference-layer.md` for stock lists
-4. Build screening logic with clear criteria
-
-**Example Code**:
-```python
-from vnstock_data import Fundamental, Insights, Reference
-
-# Get VN30 stocks
-ref = Reference()
-vn30_stocks = ref.index.members("VN30")
-
-print(f"VN30 stocks: {vn30_stocks}")
-
-# Get financial ratios and screener data
-fun = Fundamental()
-ins = Insights()
-ratios = fun.equity("VCB").ratio(period="year")
-screener = ins.screener.filter()
-print(f"VCB financial ratios:\n{ratios.tail(1)}")
-
-# Note: For custom screening logic, see the paid course
-```
-
----
-
-### Use Case 4: Technical Analysis
-
-**User Request**: "Calculate moving averages and RSI"
-
-**Your Approach**:
-1. Use **vnstock_ta** for technical indicators
-2. Reference `docs/vnstock_ta/02-indicators.md`
-3. Combine with Quote data from vnstock or vnstock_data
-4. Provide visualization example
-
-**Example Code**:
-```python
-from vnstock_data import Market
-from vnstock_ta import Indicator
-
-# Get price data
-mkt = Market()
-df = mkt.equity("VCB").ohlcv(start="2024-01-01", end="2024-12-31")
-
-# Calculate indicators
-ta = Indicator(data=df)
-df["sma_20"] = ta.trend.sma(length=20)
-df["rsi"] = ta.momentum.rsi(length=14)
-
-print(df[["time", "close", "sma_20", "rsi"]].tail(20))
-```
-
----
-
-### 6. **Unified UI & Versioning**
-- **vnstock_data >= 3.0.0**: MUST use Unified UI (`Market`, `Fundamental`, `Reference`, etc.) and API discovery (`show_api`, `show_doc`).
-- **Robust Version Check**: Since older versions may not have `__version__`, use this snippet:
-
-```python
-def get_vnstock_data_version():
-    try:
-        # 1. Try __version__ attribute
-        import vnstock_data
-        return getattr(vnstock_data, '__version__', '2.0.0') # Fallback to 2.x if missing
-    except ImportError:
-        # 2. Try metadata (pip)
-        try:
-            from importlib.metadata import version
-            return version("vnstock_data")
-        except Exception:
-            return "0.0.0"
-
-version = get_vnstock_data_version()
-is_unified_ui = version >= '3.0.0'
-```
-
----
-
-## 🔍 API Discovery (v3.0.0+)
-
-For `vnstock_data`, ALWAYS run this first in your mind or a scratchpad:
-
-```python
-from vnstock_data import show_api, show_doc
-
-# 1. Discover the tree
-show_api()
-
-# 2. Read details of a specific method
-show_doc("Market.equity")
-```
-
----
-
-## 🛠️ Quick Reference
-
-### Task: Get Stock List
-```
-Free: vnstock.ui.Reference().equity.all_symbols()
-Sponsored: vnstock_data.Reference().equity.all_symbols()
-Reference: docs/vnstock/03-reference-layer.md and docs/vnstock-data/02-reference-layer.md
-```
-
-### Task: Get Company Info
-```
-Free: vnstock.ui.Reference().company("VCB").overview()
-Sponsored: vnstock_data.Reference().company("VCB").overview()
-Reference: docs/vnstock/03-reference-layer.md and docs/vnstock-data/02-reference-layer.md
-```
-
-### Task: Get Financial Statements
-```
-Free: vnstock.ui.Fundamental().equity("VCB").income_statement()
-Sponsored: vnstock_data.Fundamental().equity("VCB").income_statement()
-Reference: docs/vnstock/05-fundamental-layer.md and docs/vnstock-data/04-fundamental-layer.md
-```
-
-### Task: Calculate Technical Indicators
-```
-Sponsored: vnstock_ta.Indicators
-Reference: docs/vnstock_ta/02-indicators.md
-```
-
----
-
-## ⚠️ Important Notes
-
-1. **TCBS is Deprecated**: Don't use TCBS source, recommend VCI or KBS
-2. **Data Sources**: VCI and KBS are most reliable
-3. **Real-time Data**: Only available during trading hours (9:00-15:00 Vietnam time)
-4. **Caching**: Implement caching to avoid hitting rate limits
-5. **Error Handling**: Always wrap API calls in try-except blocks
-
----
-
-## 📚 Documentation Reference
-
-| Task               | Free User                     | Sponsored User                              |
-| ------------------ | ----------------------------- | ------------------------------------------- |
-| Get stock prices   | `vnstock/04-market-layer.md`  | `vnstock-data/03-market-layer.md`           |
-| Company research   | `vnstock/03-reference-layer.md` | `vnstock-data/02-reference-layer.md`      |
-| Financial analysis | `vnstock/05-fundamental-layer.md` | `vnstock-data/04-fundamental-layer.md`  |
-| Technical analysis | `vnstock_ta/02-indicators.md` | `vnstock_ta/02-indicators.md`               |
-| Stock screening    | `vnstock/advanced-usage/09-screener-api.md` | `vnstock-data/06-insights-layer.md` |
-| News & sentiment   | Not available                 | `vnstock_news/02-crawlers.md`               |
-| Data pipelines     | Not available                 | `vnstock_pipeline/02-tasks-and-builders.md` |
-| Macro data         | Not available                 | `vnstock-data/05-macro-layer.md`            |
-| Commodity prices   | Not available                 | `vnstock-data/05-macro-layer.md`            |
-| Setup & Debugging  | `setup-and-debug/`            | `setup-and-debug/`                          |
-
----
-
-## 🎓 Learning Path for Users
-
-If `vnstock_data` is detected in `~/.venv`, prioritize the **Sponsored Path**. Otherwise, follow the **Free Path**.
-
-### 🌟 Sponsored Path (Prioritized if vnstock_data is present)
-1. **Start Here**: `docs/vnstock-data/README.md` - Features & Data Sources
-2. **Unified UI**: `docs/vnstock-data/01-unified-ui.md` - Mastering Layer 1-7
-3. **Market Data**: `docs/vnstock-data/03-market-layer.md` - Comprehensive OHLCV
-4. **Fundamentals**: `docs/vnstock-data/04-fundamental-layer.md` - Financial Ratios & Stats
-5. **Technical Analysis**: `docs/vnstock_ta/02-indicators.md` - Pro Indicators
-6. **Automation**: `docs/vnstock_pipeline/01-overview.md` - Data Pipelines
-
-### 🍃 Free Path
-1. **Start Here**: `docs/vnstock/README.md` - Understand the ecosystem
-2. **Installation**: `docs/vnstock/02-installation.md` - Set up environment
-3. **First API**: `docs/vnstock/03-reference-layer.md` - Get list of stocks
-4. **Get Data**: `docs/vnstock/04-market-layer.md` - Fetch price data
-5. **Analyze**: `docs/vnstock/05-fundamental-layer.md` - Financial analysis
-6. **Upgrade**: `docs/vnstock/08-migration-guide.md` - Move to vnstock_data
-
----
-
-## 💡 Pro Tips
-
-1. **Batch Requests**: Fetch multiple symbols in one call to save rate limit
-2. **Cache Results**: Store data locally to avoid repeated API calls
-3. **Use Intervals**: Intraday data (1m, 5m, 15m) only for recent data
-4. **Error Retry**: Implement exponential backoff for rate limit errors
-5. **Data Validation**: Always validate data before using in calculations
-6. **Test Locally**: Test with small datasets before running on large portfolios
-
----
-
-**Last Updated**: May 2026  
-**Version**: 1.5  
-**Maintained By**: Thịnh Vũ
+## ⚠️ Quy tắc dữ liệu (BẮT BUỘC)
+
+1. **Không bịa số.** Mọi số tài chính có nguồn thật; cross-check ≥2 nguồn
+   (cafef.vn, vietstock.vn) bằng crawl4ai, lệch thì nêu rõ.
+2. **DataPro và VNDIRECT MCP đều thiếu → crawl4ai** từ cafef/vietstock/web công
+   ty rồi mới phân tích.
+3. Khoản mục bất thường → đọc **thuyết minh BCTC** gốc, trích số trang.
+4. Giờ giao dịch VN: 9:00–15:00; dữ liệu trong phiên chỉ có trong khung này.

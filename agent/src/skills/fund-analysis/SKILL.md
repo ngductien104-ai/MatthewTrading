@@ -1,6 +1,6 @@
 ---
 name: fund-analysis
-description: "Phân tích & sàng lọc quỹ tại VN — quỹ mở (cổ phiếu/trái phiếu/cân bằng) và ETF nội: hiệu suất (Sharpe/Sortino/IR), phân tích phong cách & trôi phong cách, đánh giá nhà điều hành quỹ, chọn ETF, xây danh mục FOF. Nguồn: vnstock_data Fund (Fmarket: NAV/holdings) + DataPro (giá ETF/chỉ số)."
+description: "Phân tích & sàng lọc quỹ tại VN — quỹ mở (cổ phiếu/trái phiếu/cân bằng) và ETF nội: hiệu suất (Sharpe/Sortino/IR), phân tích phong cách & trôi phong cách, đánh giá nhà điều hành quỹ, chọn ETF, xây danh mục FOF. Nguồn: VNDIRECT MCP (hiệu suất NAV + phân bổ danh mục quỹ mở) + DataPro (giá ETF/chỉ số)."
 category: asset-class
 ---
 
@@ -255,29 +255,29 @@ Lưu ý: Đây là nghiên cứu, không phải khuyến nghị đầu tư.
 
 | Việc cần | Nguồn |
 |------|------|
-| **Danh sách quỹ mở, loại quỹ, công ty QLQ, NAV, hiệu suất** | **vnstock_data** `vndata.reference.funds()` (nguồn Fmarket): `vndata.reference.funds()` → `short_name`, `fund_type`, `owner_name`; `Fund().filter(symbol)` |
-| Lịch sử NAV quỹ mở (tính LN/Sharpe/MDD) | **vnstock_data** `vndata.reference.fund_nav(symbol)` (vd `symbol="DCDS"`, `"VESAF"`, `"VCBF-BCF"`) |
-| Top cổ phiếu nắm giữ | **vnstock_data** `vndata.reference.fund_top_holding(symbol)` |
-| Phân bổ ngành của danh mục | **vnstock_data** `vndata.reference.fund_industry_holding(symbol)` |
-| Phân bổ loại tài sản (CP/trái phiếu/tiền) | **vnstock_data** `vndata.reference.fund_asset_holding(symbol)` |
+| **Danh sách quỹ mở, loại quỹ, công ty QLQ, NAV, hiệu suất** | Website công ty QLQ / Fmarket (VNDIRECT không có danh sách quỹ); mã quỹ nhận diện trong ICB 8700 |
+| Lịch sử NAV quỹ mở (tính LN/Sharpe/MDD) | **VNDIRECT** `FINFO_API__get_fund_ratios` (`NAV_CHG_PCT_CR_{1M,3M,6M,1Y,2Y,YD}`) — chỉ hiệu suất kỳ, KHÔNG có chuỗi NAV ngày → chuỗi NAV từ website QLQ |
+| Top cổ phiếu nắm giữ | **VNDIRECT** `FINFO_API__get_fund_allocation` → `stockHoldings` |
+| Phân bổ ngành của danh mục | **VNDIRECT** `FINFO_API__get_fund_allocation` → `industryAllocation` |
+| Phân bổ loại tài sản (CP/trái phiếu/tiền) | **VNDIRECT** `FINFO_API__get_fund_allocation` → tỷ trọng tài sản theo tháng |
 | **Giá ETF niêm yết** (E1VFVN30, FUEVFVND, FUESSVFL, FUEVN100...) | **DataPro** (`source="datapro"`, mã `.VN`) — như cổ phiếu, để tính TE/chiết khấu |
 | Giá chỉ số benchmark (VN-Index, VN30, VNMIDCAP, VNDIAMOND...) | **DataPro** (`VNINDEX.VN`, `VN30.VN`...) |
-| Cơ bản cổ phiếu trong danh mục (soi holdings) | **vnstock_data** (`ratio`/`income`); phân ngành ICB qua `vndata.reference.symbols_by_industry()` |
+| Cơ bản cổ phiếu trong danh mục (soi holdings) | **VNDIRECT** `get_latest_ratios`; phân ngành ICB qua `vndata.reference.classification()` |
 | Rf (lợi suất TPCP 1 năm / lãi tiền gửi 12T) | nguồn vĩ mô; xem skill `macro-analysis` |
 
-> **vnstock_data `vndata.reference.funds()` chỉ phủ quỹ mở phân phối qua Fmarket.** ETF niêm yết lấy GIÁ qua DataPro; NAV/iNAV ETF công bố tại website công ty QLQ.
+> **VNDIRECT `get_fund_*` không áp dụng cho ETF** và trả `0` cho kỳ thiếu số (DCDS 13/11/2026: NAV 1M/3M/6M = 0) — `0` là THIẾU, không phải "không đổi". ETF niêm yết lấy GIÁ qua DataPro; NAV/iNAV ETF công bố tại website công ty QLQ.
 
 Khi không có dữ liệu trực tiếp: nêu hạn chế và đưa khung phân tích, KHÔNG bịa số hiệu suất/NAV.
 
 ## Phụ thuộc
 
 ```bash
-pip install pandas numpy scipy vnstock_data
+pip install pandas numpy scipy
 ```
 
 
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ VNDIRECT MCP đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

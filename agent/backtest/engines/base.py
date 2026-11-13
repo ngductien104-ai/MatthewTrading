@@ -228,29 +228,23 @@ def _maybe_enrich_fundamentals(
 def _fundamental_provider(config: Dict[str, Any]):
     """Pick the fundamental provider matching the price source.
 
-    DataPro / vnstock / ``.VN`` symbols → vnstock statements; else → Tushare.
-    Within VN, the sponsored ``vnstock_data`` provider is preferred (8 annual
-    periods vs ~4, working ratios, bank/securities schemas) and the free
-    ``vnstock`` one is the fallback when the sponsor package is absent.
+    Vietnamese symbols (``source="datapro"`` or ``.VN`` codes) have no Python
+    fundamental source since the vnstock subscription was cancelled on
+    13/11/2026 — statements live on VNDIRECT MCP, which only an MCP client can
+    call. Asking for ``fundamental_fields`` on a VN backtest therefore fails
+    loudly instead of silently running a price-only strategy. Everything else
+    uses Tushare.
     """
     source = str(config.get("source") or "").lower()
     codes = config.get("codes") or []
-    is_vn = source in ("datapro", "vnstock_data", "vnstock") or any(
-        str(c).upper().endswith(".VN") for c in codes
-    )
+    is_vn = source == "datapro" or any(str(c).upper().endswith(".VN") for c in codes)
     if is_vn:
-        period = str(config.get("fundamental_period", "year"))
-        try:
-            from backtest.loaders.vnstock_data_fundamentals import (
-                VNStockDataFundamentalProvider,
-            )
+        from vndata.errors import moved_to_vndirect
 
-            return VNStockDataFundamentalProvider(period=period), "vnstock_data"
-        except Exception as exc:  # noqa: BLE001 - no sponsor entitlement, use free tier
-            logger.debug("vnstock_data fundamentals unavailable (%s); using free vnstock", exc)
-        from backtest.loaders.vnstock_fundamentals import VNStockFundamentalProvider
-
-        return VNStockFundamentalProvider(period=period), "vnstock"
+        raise moved_to_vndirect(
+            "fundamental_fields cho backtest cổ phiếu VN (lấy BCTC qua VNDIRECT MCP, ghi CSV, "
+            "rồi đọc CSV trong signal engine)"
+        )
     return TushareFundamentalProvider(), "Tushare"
 
 

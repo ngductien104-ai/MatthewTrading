@@ -6,10 +6,9 @@ official reference price that sets the daily band, foreign flow, proprietary
 (tu doanh) flow, put-through deals and active buy/sell pressure. Its daily CSV
 carries all of those in one row, which no other source in this stack does.
 
-When DataPro is down the layer falls back to the sponsored
-``vnstock_data.Market`` — announced, never silent, and flagged on the returned
-frame — because that still carries OHLCV. The free ``vnstock`` package is not
-part of this chain.
+When DataPro is down the layer raises :class:`SourceUnavailable`. There is no
+second price source: the ``vnstock_data`` fallback was retired with the vnstock
+subscription on 13/11/2026. Start the DataPro desktop app and retry.
 
 Unit conventions differ by instrument type — the 1,000x trap
 ------------------------------------------------------------
@@ -66,21 +65,6 @@ stores three decimals of thousand VND, i.e. 1 VND, and the tick is 50-100 VND.
 This matters for backtests that model a limit order, a tick-size constraint or
 a price band: those live on the traded grid, and an adjusted price is not on it.
 Returns and indicators are correct on the adjusted series and should stay there.
-
-The sponsored fallback agrees with DataPro
-------------------------------------------
-Measured 2026-09-01 with both sources live, 15 symbols x 65 sessions: the ratio
-of DataPro close to ``vnstock_data`` close is **1.000000** for every symbol, so
-there is no 1,000x trap between them and the fallback needs no rescaling. The
-two disagree only by the vendor's rounding -- ``vnstock_data`` publishes two
-decimals of thousand VND against DataPro's three -- which caps the gap at
-**5 VND**. Index and futures levels reconcile at 1.000000 as well.
-
-What the fallback cannot do is *classify*: ``vnstock_data`` returns no
-``listed_shares`` or ``open_interest``, the two structural signals
-:func:`classify_instrument` reads. So a degraded frame carries a verified scale
-and an unverified instrument, and :func:`to_vnd` refuses to convert it rather
-than guessing which rule applies.
 """
 
 from __future__ import annotations
@@ -183,29 +167,25 @@ def ohlcv(
         interval: ``1D`` for daily, or a minute bar such as ``5m``.
         columns: Subset of :data:`COLUMN_MAP` values to keep. ``None`` keeps
             every column DataPro returned.
-        allow_fallback: When DataPro is down, serve OHLCV from the sponsored
-            ``vnstock_data.Market`` instead of raising. The result carries
-            ``df.attrs["source"] == "vnstock_data"`` and ``df.attrs["degraded"]``.
+        allow_fallback: Accepted for call-site compatibility and ignored.
+            There has been no fallback source since 13/11/2026.
 
     Returns:
         DataFrame indexed by ``trade_date``. ``df.attrs["source"]`` names the
         source that actually served the request.
 
     Raises:
-        SourceUnavailable: DataPro is unreachable and *allow_fallback* is
-            False, or the fallback also failed.
+        SourceUnavailable: DataPro is unreachable.
         ValueError: A malformed schema for any one symbol fails the whole
             loader request; the backtest loader deliberately does not swallow
             this error. ``session_audit`` is passive metadata attached to
             ``DataFrame.attrs`` and currently has no automatic consumer.
     """
     if not datapro_available():
-        if not allow_fallback:
-            raise SourceUnavailable(
-                "DataPro desktop is not answering on "
-                f"{_base_url()}/api/ping — start the app or pass allow_fallback=True."
-            )
-        return _fallback_ohlcv(symbol, start, end)
+        raise SourceUnavailable(
+            "DataPro desktop is not answering on "
+            f"{_base_url()}/api/ping — start the app and retry. There is no fallback source."
+        )
 
     endpoint = "daily" if interval == "1D" else "minute"
     url = (
@@ -299,17 +279,15 @@ def traded_price(df: pd.DataFrame, column: str = "close") -> pd.Series:
         Series in the same unit as *column*, indexed by ``trade_date``.
 
     Raises:
-        ValueError: *df* has no ``adj_rate`` -- either it came from the
-            sponsored fallback, which does not publish one, or a ``columns=``
-            filter dropped it. Guessing the factor would be inventing a price.
+        ValueError: *df* has no ``adj_rate`` -- a ``columns=`` filter dropped
+            it. Guessing the factor would be inventing a price.
     """
     if column not in df.columns:
         raise ValueError(f"frame has no {column!r} column to unadjust")
     if "adj_rate" not in df.columns:
         raise ValueError(
             f"cannot recover the traded price of {column!r}: this frame carries no "
-            f"adj_rate (source={df.attrs.get('source')!r}). The sponsored fallback "
-            "does not publish one, and a columns= filter can drop it."
+            f"adj_rate (source={df.attrs.get('source')!r}). A columns= filter can drop it."
         )
     return df[column] * df["adj_rate"]
 
@@ -330,11 +308,10 @@ def to_vnd(df: pd.DataFrame) -> pd.DataFrame:
     unchanged.
 
     Raises:
-        ValueError: the frame's instrument is unclassified. That is the normal
-            state of a degraded frame from the sponsored fallback, which ships
-            neither ``listed_shares`` nor ``open_interest``. Its scale matches
-            DataPro's, but which of the three rules to apply is exactly what
-            cannot be established, and picking one would be a guess.
+        ValueError: the frame's instrument is unclassified (neither
+            ``listed_shares`` nor ``open_interest`` survived). Which of the
+            three rules to apply cannot be established, and picking one would
+            be a guess.
     """
     if df.attrs.get("price_unit") == "VND":
         return df
@@ -343,9 +320,9 @@ def to_vnd(df: pd.DataFrame) -> pd.DataFrame:
     if instrument not in {"equity", "index", "futures"}:
         raise ValueError(
             f"cannot convert to VND: instrument is {instrument!r}, so no scaling rule "
-            f"applies (source={df.attrs.get('source')!r}). The sponsored fallback "
-            "returns neither listed_shares nor open_interest, so it cannot be "
-            "classified; pass the frame through DataPro or convert it yourself."
+            f"applies (source={df.attrs.get('source')!r}). The frame carries neither "
+            "listed_shares nor open_interest, so it cannot be classified; fetch it "
+            "from DataPro without a columns= filter or convert it yourself."
         )
     out = df.copy()
     out.attrs.update(df.attrs)
@@ -495,96 +472,3 @@ def _attach_session_audit(df: pd.DataFrame, *, start: str, end: str) -> None:
         "absent_weekday_candidates": [day.date().isoformat() for day in absent],
         "internal_absent_weekday_candidates": [day.date().isoformat() for day in internal],
     }
-
-
-def _fallback_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
-    """Serve OHLCV from the sponsored Unified UI when DataPro is unreachable."""
-    try:
-        from vnstock_data import Market
-    except ImportError as exc:  # pragma: no cover - depends on install
-        raise SourceUnavailable(
-            "DataPro is down and vnstock_data is not installed — no price source left."
-        ) from exc
-
-    try:
-        df = Market().equity(_ticker(symbol)).ohlcv(start=start, end=end)
-    except Exception as exc:
-        raise SourceUnavailable(
-            f"DataPro is down and vnstock_data could not serve {symbol}: {exc}"
-        ) from exc
-
-    if df is None or df.empty:
-        return _empty_frame(
-            source="vnstock_data",
-            degraded=True,
-            start=start,
-            end=end,
-            degraded_reason=(
-                "DataPro desktop unreachable; vnstock_data returned no bars."
-            ),
-        )
-
-    df = df.rename(columns={"time": "trade_date"}).set_index("trade_date").sort_index()
-    df, collapsed = _collapse_vendor_snapshot_rows(df, symbol=symbol)
-    df.attrs["source"] = "vnstock_data"
-    df.attrs["degraded"] = True
-    df.attrs["degraded_reason"] = (
-        "DataPro desktop unreachable; no reference price, foreign/proprietary "
-        "flow, put-through or active buy-sell columns in this frame."
-    )
-    # vnstock_data returns neither listed_shares nor open_interest, the two
-    # structural signals classify_instrument reads, so this path cannot say
-    # which instrument it is holding. to_vnd refuses to convert on that.
-    instrument = df.attrs.get("instrument")
-    df.attrs["instrument"] = (
-        instrument if instrument in {"equity", "index", "futures"} else "unverified"
-    )
-    # The scale, unlike the instrument, IS verified: measured 2026-09-01 with
-    # both sources live, DataPro close / vnstock_data close = 1.000000 across
-    # 15 symbols x 65 sessions. See the module docstring.
-    df.attrs["price_unit"] = (
-        "same scale as DataPro (verified 2026-09-01); instrument unclassifiable here"
-    )
-    df.attrs["value_unit"] = df.attrs["price_unit"]
-    # This feed is adjusted like DataPro's but ships no adj_rate, so the
-    # back-adjustment cannot be undone from a degraded frame.
-    df.attrs["adjustment"] = "back-adjusted"
-    df.attrs["traded_price_rule"] = "unrecoverable — vnstock_data publishes no adj_rate"
-    if collapsed:
-        df.attrs["vendor_duplicate_sessions"] = collapsed
-    return _validate_and_audit(df, symbol=symbol, start=start, end=end)
-
-
-def _collapse_vendor_snapshot_rows(
-    df: pd.DataFrame, *, symbol: str,
-) -> tuple[pd.DataFrame, list[str]]:
-    """Collapse the extra in-session row ``vnstock_data`` emits for today.
-
-    On the newest session the sponsored feed returns the settled daily bar and
-    an in-session snapshot of it under the same timestamp: same high, low and
-    close, different open and volume. Historical ranges are clean. Left alone
-    this duplicate fails the schema gate, which would take every index request
-    down with it whenever DataPro is unreachable.
-
-    Only rows that agree on ``close`` are collapsed, keeping the higher-volume
-    one as the more complete snapshot. Duplicates that *disagree* on close are
-    not this artefact, so they fall through to the gate and raise.
-    """
-    if not df.index.has_duplicates:
-        return df, []
-    dupes = df.index[df.index.duplicated(keep=False)].unique()
-    keep_positions: set[int] = set()
-    collapsed: list[str] = []
-    for day in dupes:
-        block = df.loc[[day]]
-        if block["close"].nunique(dropna=False) != 1:
-            continue  # not the snapshot artefact — let the schema gate speak
-        winner = block["volume"].to_numpy().argmax()
-        positions = np.flatnonzero(df.index == day)
-        keep_positions.update(int(p) for p in positions if p != positions[winner])
-        collapsed.append(pd.Timestamp(day).date().isoformat())
-    if not keep_positions:
-        return df, []
-    mask = np.ones(len(df), dtype=bool)
-    mask[sorted(keep_positions)] = False
-    return df[mask], collapsed

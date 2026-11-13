@@ -123,7 +123,7 @@ def _infer_market(codes: list[str], source: str) -> str:
 
     if source in ("okx", "ccxt") or "-" in first or "/" in first:
         return "crypto"
-    if first.endswith(".VN") or source in ("datapro", "vnstock_data", "vnstock"):
+    if first.endswith(".VN") or source == "datapro":
         return "vn_equity"
     if first.endswith(".US"):
         return "us_equity"

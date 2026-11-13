@@ -13,8 +13,10 @@ markdown de ``_run_commodity.py`` tiem vao moi worker qua ``private_context``.
 Bon nguon, moi nguon mot vai tro:
 
 * **Yahoo** (``yfinance``) - hop dong toan cau, USD. Nguon chinh cho hau het.
-* **vndata.macro.commodity** - cung feed voi Yahoo cho dau/vang/khi, nhung la
-  nguon **duy nhat** cho gia VN noi dia (thep VN, vang SJC, xang ban le, heo hoi).
+* **vndata.macro.commodity** - DA NGUNG tu 13/11/2026 (huy goi vnstock): moi
+  route ``vndata`` gio ghi loi SourceUnavailable vao pack, khong im lang. Gia VN
+  noi dia (thep VN, vang SJC, xang ban le, heo hoi) phai lay qua VNDIRECT MCP
+  hoac crawl nguon cong bo goc, ghi ro nguon.
 * **akshare futures_main_sina** - hop dong lien tuc Trung Quoc, CNY, ~20 nam.
   Nguon **duy nhat** cho cao su (RU0), quang sat (I0), than coc (J0).
 * **DataPro** (``vndata.price``) - gia + khoi ngoai cac ma VN an theo hang hoa.

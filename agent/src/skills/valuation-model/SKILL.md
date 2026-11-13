@@ -1,6 +1,6 @@
 ---
 name: valuation-model
-description: "Định giá cổ phiếu Việt Nam THEO NGÀNH — phân loại ngành trước, rồi chọn bộ phương pháp phù hợp (ngân hàng→RIM, BĐS→RNAV, chu kỳ→EV/EBITDA chuẩn hóa, sản xuất/tiêu dùng→DCF, holdings→SOTP). Kèm thư viện phương pháp, độ nhạy, bẫy định giá. Nguồn: vnstock_data (BCTC + chỉ số) + vnstock_data Company.overview() (phân loại ngành) + DataPro (giá)."
+description: "Định giá cổ phiếu Việt Nam THEO NGÀNH — phân loại ngành trước, rồi chọn bộ phương pháp phù hợp (ngân hàng→RIM, BĐS→RNAV, chu kỳ→EV/EBITDA chuẩn hóa, sản xuất/tiêu dùng→DCF, holdings→SOTP). Kèm thư viện phương pháp, độ nhạy, bẫy định giá. Nguồn: BCTC gốc + VNDIRECT MCP (chỉ số, phân ngành ICB) + DataPro (giá)."
 category: analysis
 ---
 
@@ -10,11 +10,11 @@ category: analysis
 
 **Không có phương pháp định giá vạn năng.** Nguyên tắc cốt lõi: **phân loại ngành trước → chọn bộ phương pháp phù hợp với mô hình kinh doanh và bản chất tài sản của ngành đó**, rồi kiểm chứng chéo ≥2 phương pháp. Ngân hàng định giá khác sản xuất; bất động sản khác hàng tiêu dùng; DN chu kỳ khác DN tăng trưởng ổn định.
 
-> ⚠️ **Trước khi tính (checklist Karpathy):** số CP lưu hành = `Company.overview().issue_share` (KHÔNG suy từ EPS); β **tự tính từ DataPro full-history**, nêu cửa sổ + R²; bóc khoản một lần trước khi annualize; tính ≥2 cách khi nhạy cảm (ROIC, WACC, Ke).
+> ⚠️ **Trước khi tính (checklist Karpathy):** số CP lưu hành = VNDIRECT `OUTSTANDING_SHARES` (KHÔNG suy từ EPS); β **tự tính từ DataPro full-history**, nêu cửa sổ + R²; bóc khoản một lần trước khi annualize; tính ≥2 cách khi nhạy cảm (ROIC, WACC, Ke).
 
 ## Bước 0 — Phân loại ngành (quyết định phương pháp)
 
-**Cách TỰ ĐỘNG (khuyến nghị):** chạy script đi kèm — nó đọc `is_bank/sector/icb_code_lv2` từ vnstock_data và TRẢ THẲNG bộ phương pháp:
+**Cách TỰ ĐỘNG (khuyến nghị):** chạy script đi kèm — nó đọc mã ICB cấp 2 từ snapshot phân ngành VNDIRECT và TRẢ THẲNG bộ phương pháp:
 
 ```bash
 python classify_valuation.py VCB            # 1 mã
@@ -106,7 +106,7 @@ Giá mục tiêu = (RNAV / issue_share) × (1 ± premium/discount)
    discount theo: pháp lý chưa hoàn thiện, quản trị, đòn bẩy cao, thanh khoản quỹ đất
 ```
 
-**Động lực & dữ liệu cần (ngoài BCTC):** quỹ đất & pháp lý từng dự án, tiến độ bán hàng (**presales** = "Người mua trả tiền trước"/"Doanh thu chưa thực hiện" trên CĐKT = backlog đã chốt), giá bán khu vực. → Cần bổ sung từ báo cáo thường niên / bản cáo bạch (dùng skill `web-reader`/firecrawl); BCTC vnstock_data chỉ cho số sổ sách (giá vốn).
+**Động lực & dữ liệu cần (ngoài BCTC):** quỹ đất & pháp lý từng dự án, tiến độ bán hàng (**presales** = "Người mua trả tiền trước"/"Doanh thu chưa thực hiện" trên CĐKT = backlog đã chốt), giá bán khu vực. → Cần bổ sung từ báo cáo thường niên / bản cáo bạch (dùng skill `web-reader`/firecrawl); BCTC VNDIRECT MCP chỉ cho số sổ sách (giá vốn).
 
 **Biến thể KCN:** RNAV quỹ đất cho thuê còn lại + DCF dòng tiền cho thuê định kỳ. **Cho thuê/TTTM:** NAV = NOI / cap rate.
 
@@ -167,44 +167,29 @@ Ví dụ: mảng ngân hàng → RIM; mảng BĐS → RNAV; mảng bán lẻ →
 
 ## Nguồn dữ liệu
 
-- **Phân loại ngành → `vnstock_data`** qua `vndata`. Bản tài trợ không có cờ
-  `is_bank` sẵn, nhưng cả ba trường đều dựng lại được và dựng chắc hơn:
-  `vndata.fundamental.is_bank()` suy từ **cấu trúc KQKD** (có
-  `IS_NET_INTEREST_INCOME` ⇒ tổ chức tín dụng — là sự thật kế toán chứ không
-  phải một cờ metadata có thể dán sai), `sector` từ
-  `vndata.reference.company()`, `icb_code_lv2` từ
-  `vndata.reference.symbols_by_industry()` lọc `icb_level == 2`.
-  Script `classify_valuation.py` đã cấu hình đúng như vậy (đã kiểm chứng:
-  TCB→Banks, HPG→Basic Resources 1700, VHM→Real Estate 8600, SSI→8700).
-- **BCTC → `vnstock_data`** `Fundamental().equity("X").income_statement(period="year")`
-  (và `balance_sheet` / `cash_flow`): frame dạng dài, mã `id` ổn định, **8 kỳ năm
-  + 34 kỳ quý**. Mã hay dùng cho định giá: `IS_NET_REVENUE`, `IS_GROSS_PROFIT`,
-  `IS_NET_PROFIT_AFTER_TAX`, `IS_PROFIT_AFTER_TAX_FOR_SHAREHOLDERS_OF_PARENT_COMPANY`,
-  `IS_BASIC_EARNINGS_PER_SHARE`, `BS_EQUITY` (B0 cho RIM), `BS_TOTAL_ASSETS`,
-  `BS_SHORT_TERM_BORROWINGS`, `BS_LONG_TERM_BORROWINGS`,
-  `BS_CASH_AND_PRECIOUS_METALS` (nợ ròng), `CF_NET_CASH_FLOWS_FROM_OPERATING_ACTIVITIES`.
-  Trong backtest vẫn dùng được **key sạch** cũ (`net_sales`, `owners_equity`, …) —
-  loader `vnstock_data_fundamentals` ánh xạ sẵn.
-- **Chỉ số định giá/sinh lời → `f.ratio(period="year")`**: `RT_VALUE_PE`,
-  `RT_VALUE_PB`, `RT_VALUE_PS`, `RT_VALUE_EV_EBITDA`, `RT_VALUE_DIVIDEND_YIELD`,
-  `RT_VALUE_MARKET_CAP`, `RT_VALUE_OUTSTANDING_SHARES`, `RT_PRT_ROE`,
-  `RT_PRT_ROA`, `RT_PRT_ROIC`, `RT_PRT_NET_MARGIN`; ngân hàng thêm nguyên nhóm
-  `RT_BANK_*` (NIM/NPL/CASA/CAR/CIR/LDR). Bản tài trợ trả **số kỳ hiện hành** —
-  cảnh báo "ratio lỗi thời (số 2018)" chỉ còn đúng với bản free.
-- ⚠️ **Bốn bẫy khi đọc `RT_*`** (đã verify bằng giá trị trên HPG/TCB 2025):
-  1. `RT_PRT_*` và `RT_BANK_*` là **phân số** dù `unit` ghi `%`.
-  2. `RT_VALUE_MARKET_CAP` tính bằng **đồng**, không phải `tỷ VNĐ` như nhãn.
-  3. `RT_VALUE_EQUITY` **hỏng** → vốn chủ luôn lấy `BS_EQUITY`.
-  4. Với ngân hàng, các chỉ tiêu công nghiệp (`EBIT`, `EBITDA`, `ATR`, `CR`,
-     `LEV_DE`) trả **0,0 = KHÔNG ÁP DỤNG**, không phải bằng không.
-  Ngoài ra `RT_VALUE_EPS`, `RT_VALUE_BVPS`, `RT_VALUE_BETA` thường **NaN** → EPS
-  lấy `IS_BASIC_EARNINGS_PER_SHARE`, BVPS tự tính từ `BS_EQUITY` / số CP.
-- **Giá / vốn hóa / β → DataPro** (`source="datapro"`, mã `.VN`); không chạy
-  DataPro thì `source="vnstock_data"` (có cả `foreign_flow()`).
-  **β tự tính regress vs VNINDEX** (2Y khung tuần, nêu cửa sổ + R²) cho WACC —
-  KHÔNG dùng `RT_VALUE_BETA` (đang NaN).
-- **issue_share / target_price / room ngoại → `vndata.reference.company()`** (bản free),
-  hoặc `RT_VALUE_OUTSTANDING_SHARES` cho số CP lưu hành.
+Bảng tool đầy đủ: skill `data-routing`. Tóm tắt cho định giá:
+
+- **Phân loại ngành → snapshot ICB từ VNDIRECT** (`vndata.reference.classification()`,
+  làm mới bằng `FINFO_API__get_industry_classification`). `is_bank` = ICB cấp 2
+  `8300`. Script `classify_valuation.py` đọc đúng snapshot này (đã kiểm 13/11/2026:
+  VCB→Banks 8300, HPG→Basic Resources 1700, VHM→Real Estate 8600, SSI→8700).
+- **BCTC từng dòng → BCTC GỐC PDF** (`agent/scripts/evidence_pack.py`): B0 cho RIM
+  = VCSH; nợ vay ngắn/dài hạn + tiền cho nợ ròng; CFO, capex cho FCFF. VNDIRECT
+  KHÔNG có BCTC từng dòng.
+- **Chỉ số định giá/sinh lời → VNDIRECT `FINFO_API__get_ratios` / `get_latest_ratios`**:
+  `PRICE_TO_EARNINGS`, `PRICE_TO_BOOK`, `PRICE_TO_SALES`, `MARKETCAP`, `EPS_TR`,
+  `BVPS_CR`, `DIVIDEND_YIELD`, `ROAE_TR_AVG4Q`, `ROIC_TR_AVG4Q`,
+  `OPERATING_EBITDA_TR`, `DEBT_EBITDA`; **percentile lịch sử có sẵn**:
+  `PRICE_TO_EARNINGS_AVG_CR_{1Y,3Y,5Y}`, `PRICE_TO_BOOK_AVG_CR_{1Y,3Y,5Y}`.
+  Ngân hàng: `NET_INTEREST_MARGIN_TR_AVG5Q`, `BAD_LOANS_RATIO_AQ`,
+  `PROVISION_BAD_LOANS_AQ`, `LOANS_TO_DEPOSIT_AQ`.
+- ⚠️ **Bẫy VNDIRECT** (đo 13/11/2026): tỷ lệ là **phân số**; `EBITDA_TR` hỏng (HPG
+  âm −174.797 tỷ) → dùng `OPERATING_EBITDA_TR`; `QUICK_RATIO_AQ`/`CPS_AQ` sai dấu.
+- **Giá / vốn hóa → DataPro** (`source="datapro"`, mã `.VN`).
+  **β tự tính regress vs VNINDEX** (2Y khung tuần, nêu cửa sổ + R²) cho WACC;
+  `BETA` của VNDIRECT chỉ dùng để đối chiếu (không nêu cửa sổ).
+- **Số CP lưu hành / room ngoại → VNDIRECT** `OUTSTANDING_SHARES`,
+  `FINFO_API__get_foreign_trading` (`totalRoom`, `currentRoom`).
 - **RNAV / quỹ đất / presales / backlog → báo cáo thường niên + `web-reader`/firecrawl**
   (BCTC chỉ cho số sổ sách giá vốn).
 
@@ -212,5 +197,5 @@ Ví dụ: mảng ngân hàng → RIM; mảng BĐS → RNAV; mảng bán lẻ →
 ## ⚠️ Nguyên tắc dữ liệu (BẮT BUỘC)
 
 1. **Không bịa/cook số liệu.** Mọi số tài chính phải có nguồn thật. Luôn **audit nhanh, cross-check tối thiểu 2 nguồn uy tín** (vd `cafef.vn`, `vietstock.vn`) — dùng **crawl4ai** cào số rồi đối chiếu; nếu nguồn lệch nhau thì nêu rõ, không chọn bừa.
-2. **Nếu DataPro VÀ vnstock_data đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
+2. **Nếu DataPro VÀ VNDIRECT MCP đều KHÔNG có dữ liệu → ưu tiên crawl4ai** cào từ cafef/vietstock/web công ty để lấy số chính xác, RỒI mới phân tích. Không suy đoán thay số.
 - Khoản mục ghi nhận **bất thường** (thu nhập khác / lãi đột biến / LNTT > LN gộp / lãi vay vốn hóa) → đọc **thuyết minh BCTC**, trích nguồn rồi mới diễn giải.

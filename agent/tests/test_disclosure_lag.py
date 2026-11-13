@@ -1,33 +1,25 @@
-"""One point-in-time disclosure policy shared by vndata and VN loaders."""
+"""The point-in-time disclosure policy, and what a VN fundamentals backtest does now."""
 
 from __future__ import annotations
 
-import pandas as pd
 import pytest
 
-from backtest.loaders import vnstock_data_fundamentals, vnstock_fundamentals
+from backtest.engines.base import _fundamental_provider
 from vndata import fundamental
+from vndata.errors import SourceUnavailable
 
 
-def test_vn_loaders_share_vndata_disclosure_lag_policy() -> None:
+def test_disclosure_lag_policy_is_fixed_and_read_only() -> None:
     assert fundamental.DISCLOSURE_LAG_DAYS == {"year": 90, "quarter": 45}
-    assert vnstock_fundamentals.vndata_fundamental is fundamental
-    assert vnstock_data_fundamentals.vndata_fundamental is fundamental
     with pytest.raises(TypeError):
         fundamental.DISCLOSURE_LAG_DAYS["year"] = 0
 
 
-def test_both_loaders_preserve_synthesised_disclosure_dates() -> None:
-    free = object.__new__(vnstock_fundamentals.VNStockFundamentalProvider)
-    free._fetch_statement = lambda symbol, table, method: pd.DataFrame(
-        {"item_id": ["net_profit"], "2024": [123.0]}
-    )
-    annual = free.query_fundamentals(
-        "income", ["VCB.VN"], as_of="2025-12-31", fields=["net_profit"]
-    )
-
-    sponsor = object.__new__(vnstock_data_fundamentals.VNStockDataFundamentalProvider)
-
-    assert annual.loc[0, "ann_date"] == pd.Timestamp("2025-03-31")
-    assert sponsor._ann_date("2024") == pd.Timestamp("2025-03-31")
-    assert sponsor._ann_date("2024-Q1") == pd.Timestamp("2024-05-15")
+@pytest.mark.parametrize("config", [
+    {"source": "datapro", "codes": ["VCB.VN"]},
+    {"source": "auto", "codes": ["HPG.VN"]},
+])
+def test_vn_fundamental_fields_fail_loudly_instead_of_running_price_only(config) -> None:
+    """VN statements live on VNDIRECT MCP since 13/11/2026; Python has no source."""
+    with pytest.raises(SourceUnavailable, match="VNDIRECT MCP"):
+        _fundamental_provider(config)

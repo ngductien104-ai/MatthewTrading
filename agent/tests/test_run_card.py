@@ -75,7 +75,6 @@ def test_vn30_universe_accepts_the_series_the_real_source_returns(monkeypatch) -
 
 def test_vn30_universe_resolves_against_the_live_membership_source() -> None:
     """Ask the real source for its shape instead of asserting our stub's."""
-    pytest.importorskip("vnstock_data")
     try:
         config = _materialize_named_universe({"universe": "VN30"}, as_of=date(2026, 8, 30))
     except UniverseResolutionError as exc:

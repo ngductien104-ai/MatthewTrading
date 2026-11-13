@@ -10,6 +10,7 @@ import pytest
 from backtest.loaders.base import DataLoaderProtocol, NoAvailableSourceError
 from backtest.loaders.registry import (
     FALLBACK_CHAINS,
+    VALID_SOURCES,
     LOADER_REGISTRY,
     get_loader_cls_with_fallback,
     register,
@@ -131,17 +132,13 @@ class TestFallbackChains:
         assert FALLBACK_CHAINS["crypto"][:2] == ["okx", "ccxt"]
         assert FALLBACK_CHAINS["crypto"][-1] == "yfinance"
 
-    def test_vn_chain_prefers_datapro_then_sponsored(self) -> None:
-        """DataPro first: it is the only source carrying the reference price and
-        the full tape (foreign, proprietary, put-through, active buy/sell)."""
-        assert FALLBACK_CHAINS["vn_equity"] == ["datapro", "vnstock_data"]
-
-    def test_vn_chain_excludes_the_free_tier(self) -> None:
-        """The free ``vnstock`` loader stays registered for explicit opt-in but must
-        never be reached by an automatic fallback: its ratio layout is stale and its
-        bars carry no reference price, so a silent drop to it produced analysis that
-        disagreed with the market."""
-        assert "vnstock" not in FALLBACK_CHAINS["vn_equity"]
+    def test_vn_chain_is_datapro_only(self) -> None:
+        """DataPro is the only source carrying the reference price and the full
+        tape (foreign, proprietary, put-through, active buy/sell). The vnstock
+        loaders were removed with the subscription on 13/11/2026, so an outage
+        fails the backtest rather than switching price source silently."""
+        assert FALLBACK_CHAINS["vn_equity"] == ["datapro"]
+        assert not {"vnstock", "vnstock_data"} & VALID_SOURCES
 
 
 # ---------------------------------------------------------------------------

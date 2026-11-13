@@ -155,7 +155,6 @@ class TestLoadUniverse:
 
 def test_the_live_vn30_membership_has_the_shape_the_universe_loader_expects():
     """Ask the real reference source, rather than trusting a stub of it."""
-    pytest.importorskip("vnstock_data")
     from src.learning.attribution import vn30_symbols
 
     try:
