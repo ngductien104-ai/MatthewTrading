@@ -42,25 +42,37 @@ agents:
       - China: PBOC LPR / RRR and CGB 10Y — relevant through CNY and imported input prices, not through direct capital flows
 
       ### V. Rates → Asset Class Implications (Vietnam)
-      - **Equity risk premium (the master switch)**: ERP = E/P of VN-Index (trailing or forward, state which) − average 12M deposit rate. Show the arithmetic with both sourced inputs. ERP near zero means deposits beat equities on a risk-adjusted basis and retail money stays in the bank; a widening positive ERP is the precondition for a durable index re-rating. Do not reuse a stale deposit-rate assumption — re-pull it
+      - **Equity risk premium (the master switch) — normalize ROE, never decide on raw E/P.** A cheap headline P/E is a trap when deposit rates are high and ROE sits near a cyclical peak (this desk on 30/09/2026: raw ERP +1.73, normalized only +0.44). ERP near zero means deposits beat equities on a risk-adjusted basis and retail money stays in the bank; a widening positive ERP is the precondition for a durable index re-rating.
+        - BV = VN-Index ÷ P/B; ROE_norm = 5-year median of P/B ÷ P/E from VNDIRECT history; state where current ROE sits vs its 5-year range
+        - ERP_norm = BV × ROE_norm ÷ VN-Index − base rate, on each base: average 12M deposit rate (~35 banks), Big4 12M online, Big4 12M CD; 10Y VGB as reference. Show raw ERP (1 ÷ P/E − base) alongside, for contrast only
+        - VN-Index levels where ERP_norm = 0 / +1.0 / +1.5 on the main base, and the sensitivity to ROE_norm ±1pp. Re-pull deposit rates — never reuse a stale assumption
       - **Margin channel**: broker margin lending rates (typically ~12–14%/yr) vs expected equity return, and the aggregate margin balance at brokers. Vietnam drawdowns are amplified by forced selling (giải chấp), so this is a rates-driven risk variable, not a footnote
       - **Banks**: deposit repricing vs lending repricing lag → NIM direction over the next 2 quarters
       - **Property developers**: refinancing cost and bond rollover capacity at prevailing yields
       - **Gold (SJC / gold ring)**: driven by global real rates plus the domestic premium
       - **Foreign flow**: US real yields and DXY vs net foreign buy/sell on HOSE
 
-      ### VI. Required Output
+      ### VI. Data sources (call these — do not guess)
+      - VN-Index P/E and P/B: VNDIRECT `FINFO_API__get_latest_ratios(filter="ratioCode:PRICE_TO_EARNINGS,PRICE_TO_BOOK", where="code:VNINDEX", order="reportDate")`; history ≤5 years via `FINFO_API__get_ratios(q="code:VNINDEX~ratioCode:PRICE_TO_EARNINGS,PRICE_TO_BOOK")`
+      - Exchange-level foreign flow: VNDIRECT `FINFO_API__get_foreign_trading`
+      - Bank NIM, LDR, credit cost (for the NIM-direction call): VNDIRECT `FINFO_API__get_ratios` with the bank ratio codes in data-routing
+      - DXY, US 10Y (`^TNX`), USD/VND: Yahoo via the project venv (`DX-Y.NYB`, `USDVND=X`); DataPro has no FX or rates
+      - SBV policy rates, OMO/bills, interbank, deposit-rate surveys, VGB auctions: primary releases (sbv.gov.vn, hnx.vn) via crawl4ai — VNDIRECT has no rates series
+      - Broker margin balance: quarterly broker filings; tag aggregates from the press `[thứ cấp]`
+
+      ### VII. Required Output
       1. Rate path table over {timeframe} (policy, interbank ON, 12M deposit, VGB 10Y) with base / hawkish / dovish cases
       2. Curve snapshot with the 10Y–1Y slope and 10Y-vs-deposit spread
-      3. ERP calculation shown step by step with sources
+      3. Normalized ERP table with sources: ERP_norm on each base, raw ERP for contrast, VN-Index levels for ERP_norm 0 / +1.0 / +1.5, ROE sensitivity
       4. 3 monitoring thresholds and the action each triggers
 
       Use load_skill for macro-analysis (Vietnam framework), global-macro, credit-analysis, and data-routing for data access patterns.
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn, sbv.gov.vn, hnx.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / SBV / HNX / company site) to get accurate numbers BEFORE analysis — never guess.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (SBV, GSO, Customs, HNX, MoF, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, global-macro, credit-analysis, data-routing]
     max_iterations: 50
@@ -95,7 +107,7 @@ agents:
       - Trade balance (Tổng cục Hải quan, monthly). Decompose FDI-sector surplus vs domestic-sector deficit — the headline surplus can mask domestic USD demand
       - FDI registered vs disbursed (giải ngân); disbursed FDI is the actual USD supply hitting the market
       - Remittances (kiều hối), heavily concentrated in HCMC and in Q4 / pre-Tet
-      - Foreign portfolio flow on HOSE. Note the data caveat: DataPro foreign values are in thousand VND (divide by 1e6 for tỷ), and the index-basket tape is not the full HOSE tape
+      - Foreign portfolio flow on HOSE: official exchange-level totals from VNDIRECT `FINFO_API__get_foreign_trading` (raw VND; take the VNINDEX/HNX/UPCOM row, never sum tickers). DataPro per-ticker foreign values are in thousand VND (divide by 1e6 for tỷ), and the index-basket tape is not the full HOSE tape
       - Profit and dividend repatriation by FDI firms (Q1–Q2 seasonality) and external debt service
       - Gold: SJC and gold-ring premium over world price as a proxy for leakage demand and household distrust of VND
 
@@ -104,6 +116,11 @@ agents:
       - USD/CNY: VND tracks CNY loosely because of import structure and export competition with China — a CNY devaluation is a direct VND devaluation argument
       - USD/JPY: Vietnam's ODA public debt is JPY-heavy, so yen strength raises debt service in VND terms
       - EUR/USD and EM Asia peers (THB, IDR, PHP, MYR, INR): is VND under- or over-performing the peer basket? That separates a Vietnam-specific problem from a broad dollar move
+
+      ### Data sources (call these — do not guess)
+      - USD/VND, DXY, USD/CNY, USD/JPY, EUR/USD, Asian peers: Yahoo via the project venv (`USDVND=X`, `DX-Y.NYB`, `CNY=X`, `JPY=X`); DataPro has no FX
+      - SBV central rate, reserves, intervention: sbv.gov.vn via crawl4ai; trade balance: Customs (Tổng cục Hải quan); FDI: Ministry of Finance releases
+      - World gold price: VNDIRECT `FINFO_API__get_change_prices` (cross-check Yahoo `GC=F`); SJC / gold-ring quotes from sjc.com.vn
 
       ### IV. FX → Portfolio Implications
       - Depreciation thresholds: VND weakening beyond roughly 3% in a year has historically coincided with sustained foreign net selling in VN equities — state where we sit versus that
@@ -122,10 +139,11 @@ agents:
 
       Use load_skill for global-macro, macro-analysis, data-routing, and yfinance (global series: DXY, US yields, USD/CNY, USD/JPY, gold).
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn, sbv.gov.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / SBV / company site) to get accurate numbers BEFORE analysis — never guess.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (SBV, GSO, Customs, HNX, MoF, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [global-macro, macro-analysis, yfinance, data-routing]
     max_iterations: 50
@@ -144,12 +162,18 @@ agents:
 
       ## Analysis Requirements
 
+      ### Data sources (call these — do not guess)
+      - Commodity prices (gold, Brent, rubber, sugar, copper, iron ore, HRC): VNDIRECT `FINFO_API__get_change_prices` with `period=1D` (`0` = MISSING); cross-check on Yahoo. `BZ=F` jumps on contract roll — compare the same contract (e.g. `BZF27.NYM`) before reading a move
+      - Verified per-series routing and traps: `COMMODITY_DATA_SOURCE.md` (only the project venv has yfinance + akshare)
+      - CPI, trade, IIP, retail sales: GSO release (~29th) via crawl4ai; retail fuel prices: Bộ Công Thương announcements; live hog prices: aggregators tagged `[thứ cấp]`
+
       ### I. Energy Complex
       - Brent / WTI: supply-demand balance, OPEC+ stance, and the level relative to the assumptions in the state budget
       - Transmission to domestic pump prices: the retail fuel price adjustment cycle runs every 7 days (Bộ Công Thương + Bộ Tài chính), buffered by the price stabilization fund (Quỹ BOG) and, in stress episodes, cuts to the environmental protection tax (thuế BVMT). A world oil spike therefore reaches CPI with a lag and a policy dampener — do not model 1:1 pass-through
       - Transport carries roughly 9–10% of the CPI basket; state the elasticity you are using and where it comes from
       - Electricity: EVN retail tariff adjustments (a policy decision, usually timed against the CPI target), input coal and gas costs
-      - Sector map: PLX, OIL, BSR, GAS, PVS, PVD, PVT on the beneficiary side; aviation (HVN, VJC), transport, cement, fertilizer (DPM, DCM — gas-linked) on the cost side
+      - Sector map (earnings exposure, not a trading signal): PLX, OIL, BSR, GAS, PVS, PVD, PVT on the beneficiary side; aviation (HVN, VJC), transport, cement, fertilizer (DPM, DCM — gas-linked) on the cost side
+      - **Measured: the oil-beta R² of BSR/PLX/GAS/PVD/PVS/PVT is only 2–7% (296 weekly obs).** VN oil & gas stocks trade on event expectations, not on the oil price — in Mar–Apr 2026 WTI rose 47.5% while all six fell 14–40%, and the stock peak came a month before the oil peak. Do not translate an oil view into a stock call, and never set stops or size on Brent
 
       ### II. Metals & Materials
       - Gold: world price plus the domestic SJC and gold-ring premium. The premium itself is the signal — a widening gap reflects household distrust of VND and reappears whenever FX pressure builds. Track SBV gold-tender / import-quota policy as the compression mechanism
@@ -179,10 +203,11 @@ agents:
 
       Use load_skill for commodity-analysis, global-macro, and seasonal (Tet and harvest-cycle effects).
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn, gso.gov.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / GSO / company site) to get accurate numbers BEFORE analysis — never guess.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (SBV, GSO, Customs, HNX, MoF, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [commodity-analysis, global-macro, seasonal]
     max_iterations: 50
@@ -219,10 +244,10 @@ agents:
       | Gold (SJC / gold ring) | X% | ... |
       | Cash (VND) | X% | ... |
 
-      Anchor the equity-versus-deposit split on the ERP the rates analyst computed (E/P of VN-Index − 12M deposit rate), not on sentiment. Note: crypto is not an allocable asset class for a licensed Vietnamese fund — reference it only as a retail risk-appetite indicator if relevant.
+      Anchor the equity-versus-deposit split on the normalized ERP the rates analyst computed (BV × ROE_norm ÷ VN-Index − 12M deposit rate) — not on raw E/P and not on sentiment. Quote it on every base and say which one you act on. Note: crypto is not an allocable asset class for a licensed Vietnamese fund — reference it only as a retail risk-appetite indicator if relevant.
 
       ### III. Key Trades
-      - Top 3 macro trades with entry, target, stop, and rationale
+      - Top 3 macro trades with entry, target, stop, and rationale — stops on the instrument's own price, never on a macro proxy (Brent, DXY)
       - Duration position: long, neutral or short? Which part of the VGB curve, and via bonds or bond funds?
       - Hedging instruments — be honest about the Vietnamese toolkit: VN30F1M futures are the only liquid index hedge; covered warrants (CW) are issuer-credit-dependent and thin; there are no listed index options and no liquid bond futures. If a hedge is not implementable, say so and size the position down instead
       - ETFs (E1VFVN30, FUEVFVND) for names constrained by the foreign ownership limit (room ngoại)
@@ -245,17 +270,18 @@ agents:
       1. USD/VND as % of the band used
       2. Interbank ON rate
       3. System 12M deposit rate average
-      4. ERP (E/P of VN-Index − 12M deposit)
+      4. Normalized ERP (BV × ROE_norm ÷ VN-Index − 12M deposit) and the VN-Index level where it crosses +1.0
       5. Broker margin balance and foreign net flow on HOSE
 
       Set the review cadence against the real calendar: GSO monthly release (~29th), SBV policy actions, quarterly earnings season, and the auction schedule on HNX.
 
       Use load_skill for asset-allocation, risk-analysis, hedging-strategy, and strategy-generate.
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (SBV, GSO, Customs, HNX, MoF, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
       - crawl4ai is NOT a registered swarm tool: invoke it through bash with the absolute interpreter path `$HOME/.venv/Scripts/python.exe`.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill, backtest]
     skills: [asset-allocation, risk-analysis, hedging-strategy, strategy-generate]
     max_iterations: 50
