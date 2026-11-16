@@ -38,6 +38,12 @@ agents:
       - Global M2 and bond–equity yield gaps vs equities
       - Dollar trend (DXY) and transmission to VND, SBV FX reserves/intervention, and foreign portfolio flows into {market}
 
+      ### Data sources (call these — do not guess)
+      - Commodities (gold, Brent, rubber, sugar, copper, iron ore, HRC): VNDIRECT MCP `FINFO_API__get_change_prices` with `period=1D`; cross-check on Yahoo (`BZ=F` jumps on contract roll — compare the same contract, e.g. `BZF27.NYM`)
+      - DXY and USD/VND: Yahoo via the project venv (`DX-Y.NYB`, `USDVND=X`); DataPro has no FX
+      - Foreign flow into Vietnam: VNDIRECT `FINFO_API__get_foreign_trading` (exchange-level VNINDEX/HNX/UPCOM rows)
+      - Central-bank decisions, statements, dot plot: read_url on the official release
+
       ## Required outputs
       1. **Global macro headlines** — 3–5 one-line top themes, each tagged positive/negative/neutral for risk assets
       2. **Central-bank paths** — Fed/ECB/BOJ rate outlook over {horizon} with key decision dates
@@ -49,9 +55,10 @@ agents:
 
       Ground analysis in latest data; prefer read_url for timeliness.
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (GSO, SBV, MoF, HNX, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [global-macro, web-reader, geopolitical-risk]
     max_iterations: 50
@@ -70,7 +77,16 @@ agents:
 
       ### Domestic activity
       - Use load_skill("macro-analysis") for the Vietnam macro framework (GDP/CPI/PMI/rates/FX/credit, SBV-centric)
-      - Use load_skill("data-routing") for data-access patterns (DataPro for VN prices/flow, VNDIRECT MCP for official exchange-level foreign flow, breadth and ratios; VN macro from GSO/SBV primary releases)
+      - Use load_skill("data-routing") for the full tool table and unit traps
+
+      ### Data sources (call these — do not guess)
+      - Market valuation: VNDIRECT `FINFO_API__get_latest_ratios(filter="ratioCode:PRICE_TO_EARNINGS,PRICE_TO_BOOK", where="code:VNINDEX", order="reportDate")`; history ≤5 years via `FINFO_API__get_ratios(q="code:VNINDEX~ratioCode:PRICE_TO_EARNINGS,PRICE_TO_BOOK")`
+      - Exchange-level foreign flow: `FINFO_API__get_foreign_trading` (VNINDEX/HNX/UPCOM rows, raw VND)
+      - Breadth and matched + put-through value by exchange: `FINFO_API__get_vnmarket_prices`; points contributed by leaders/laggards: `FINFO_API__get_vnindex_leaderlarger`
+      - Banking-system stress (NIM, NPL, coverage, LDR, credit cost): `FINFO_API__get_ratios` with the bank ratio codes in data-routing
+      - Trading calendar: `FINFO_API__get_trading_calendar`
+      - Index bars, per-ticker foreign and proprietary flow: DataPro
+      - Macro prints (GDP, CPI, PMI, IIP, credit, OMO/bills, interbank, deposit rates, TPCP yields): primary releases (GSO, SBV, HNX, S&P Global) via crawl4ai — VNDIRECT has no macro series
       - GDP: contributions and trends in consumption / investment / net exports; quarterly GDP vs the National Assembly growth target
       - Inflation: CPI subcomponents (food & catering, housing/utilities, transport) vs the ~4–4.5% target; core CPI trend
       - Labor & income: employment, wage and remittance trends, retail sales (doanh thu bán lẻ) as a consumption proxy
@@ -102,12 +118,14 @@ agents:
       5. **Liquidity score** — Interbank tightness 1–5 and forward trend
       6. **Direct impact on {market}** — Channels to VN-Index valuations and corporate earnings
       7. **Policy surprise scenarios** — Upside/downside policy shock and elasticity of {market}
+      8. **Valuation & cost-of-capital inputs** — VN-Index P/E and P/B (VNDIRECT, as-of date), BV = VN-Index ÷ P/B, current ROE = P/B ÷ P/E, 5-year median of that ROE from `get_ratios` history, and the 12M deposit-rate bases (average of ~35 banks, Big4 online, Big4 CD) plus 10Y TPCP yield, each with source and date. The chief strategist computes ERP from these.
 
-      Prefer fresh VN macro data via the data-routing patterns (GSO/SBV via firecrawl, DataPro for flow); every judgment needs a data hook.
+      Prefer fresh VN macro data from primary releases (GSO/SBV via crawl4ai), VNDIRECT for exchange-level flow and valuation, DataPro for per-ticker flow; every judgment needs a data hook.
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (GSO, SBV, MoF, HNX, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [macro-analysis, data-routing]
     max_iterations: 50
@@ -149,6 +167,11 @@ agents:
       - FTA utilization (EVFTA, CPTPP, RCEP) and export competitiveness
       - Cross-border data / tech rules constraining the digital economy
 
+      ### Data sources (call these — do not guess)
+      - Regulations and effective dates: read_url on UBCKNN / HOSE / HNX / VSDC / Chính phủ releases (cite Nghị định / Thông tư number)
+      - Foreign-ownership room and exchange-level foreign flow: VNDIRECT `FINFO_API__get_foreign_trading`
+      - Index basket membership for passive-flow estimates: VNDIRECT `FINFO_API__get_top_stocks`; trading days around effective dates: `FINFO_API__get_trading_calendar`
+
       ## Required outputs
       1. **Policy themes** — 3–5 top directions with certainty rating high/medium/low
       2. **Regulatory detail** — Latest capital-market regulatory moves (market-upgrade, KRX, pre-funding, room ngoại); quantify funding/flow impact (VND trillions scale where possible)
@@ -160,9 +183,10 @@ agents:
 
       Prefer read_url with specific policy names and document references (Nghị định / Thông tư / Luật).
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (GSO, SBV, MoF, HNX, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill, read_url]
     skills: [regulatory-knowledge, sector-rotation, web-reader]
     max_iterations: 50
@@ -187,6 +211,13 @@ agents:
       - Where all three agree (high conviction); where they disagree (key uncertainty)
       - Chain: macro → asset class → sector → style
 
+      ### Equity risk premium (MANDATORY — anchor of the equity call)
+      - Normalize ROE; never decide on raw E/P. A cheap headline P/E is a trap when deposit rates are high and ROE sits near a cyclical peak.
+      - BV = VN-Index ÷ P/B; ROE_norm = 5-year median of P/B ÷ P/E (inputs from the domestic economist; state ROE_norm and where current ROE sits vs its 5-year range).
+      - ERP_norm = BV × ROE_norm ÷ VN-Index − base rate. Report it on each base: average 12M deposit rate (~35 banks), Big4 12M online, Big4 12M CD; 10Y TPCP as reference. Show raw ERP (1 ÷ P/E − base) alongside, for contrast only.
+      - Give the VN-Index levels where ERP_norm = 0, +1.0 and +1.5 on the main base, and the sensitivity to ROE_norm ±1pp.
+      - If a prior forum set an ERP trigger, recompute it with the new BV/ROE and say explicitly whether the trigger level moved and why.
+
       ### Cross-asset decisions
       - Equities (VN-Index): over / neutral / underweight; suggest range (e.g., 60–70%)
       - Bonds: TPCP government vs high-grade TPDN mix; duration stance
@@ -202,17 +233,19 @@ agents:
       ## Required outputs
       1. **Strategist headline** — ~120–160 words: clear directional macro-market call on {market}
       2. **Consensus vs conflict** — Map disagreements across the three streams and how you weight them
-      3. **Cross-asset table** — Recommended weights, thesis, key risk per bucket
-      4. **{market} outlook** — VN-Index point bands over {horizon} for bull/base/bear
-      5. **Top sectors & themes** — Top 3 sectors, logic chain, catalyst timing (e.g., FTSE upgrade flows, KRX go-live, SBV rate path, public-investment disbursement)
-      6. **Risk summary** — Aggregate risks from three streams by impact with rough probability
-      7. **Monthly/quarterly playbook** — Staged actions (e.g., phase 1 build X; add on trigger Y)
+      3. **ERP table** — ERP_norm and raw ERP on each base, VN-Index levels for ERP_norm 0 / +1.0 / +1.5, ROE sensitivity
+      4. **Cross-asset table** — Recommended weights, thesis, key risk per bucket
+      5. **{market} outlook** — VN-Index point bands over {horizon} for bull/base/bear
+      6. **Top sectors & themes** — Top 3 sectors, logic chain, catalyst timing (e.g., FTSE upgrade flows, KRX go-live, SBV rate path, public-investment disbursement)
+      7. **Risk summary** — Aggregate risks from three streams by impact with rough probability
+      8. **Monthly/quarterly playbook** — Staged actions (e.g., phase 1 build X; add on trigger Y)
 
       Use explicit numbers and dates; avoid vague “maybe”; attach confidence to each major call.
       ## Data integrity (MANDATORY)
-      - Never fabricate or "cook" figures — every number needs a real source. Quick-audit by cross-checking >=2 reputable sources (e.g. cafef.vn, vietstock.vn) via crawl4ai; if they disagree, say so.
-      - If BOTH DataPro and VNDIRECT MCP lack the data, prioritize crawling with crawl4ai (cafef / vietstock / company site) to get accurate numbers BEFORE analysis — never guess.
-      - For any abnormal line item (other income / one-off gain / pretax > gross profit / capitalized interest), read the financial-statement NOTES (thuyet minh) and cite the source before interpreting.
+      - Never fabricate or "cook" figures — every number carries a source and an as-of date. Prefer the primary publisher (GSO, SBV, MoF, HNX, Fed/ECB/BOJ releases); cross-check headline figures against >=2 sources (e.g. cafef.vn, vietstock.vn) and say so when they disagree.
+      - If neither DataPro nor VNDIRECT MCP carries the series, crawl the primary release with crawl4ai BEFORE analysis — never estimate a missing print. If it is not published yet, say so and give the expected release date.
+      - Tag every figure `[gốc]` (primary release / VNDIRECT / DataPro), `[thứ cấp]` (press, broker note), `[giả định]` or `[chủ quan]`.
+      - VNDIRECT unit traps: ratios are fractions; `get_foreign_trading` values are raw VND — use the VNINDEX/HNX/UPCOM row, never sum tickers; `0` in `get_change_prices` / `get_fund_ratios` means MISSING, not flat.
     tools: [bash, read_file, write_file, load_skill]
     skills: [asset-allocation, macro-analysis]
     max_iterations: 50
