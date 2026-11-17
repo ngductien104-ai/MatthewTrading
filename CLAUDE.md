@@ -82,6 +82,23 @@ thực sự bất khả giải, chúng chưa được giải vì **không agent 
 
 ---
 
+## 🧠 Atlas — bộ não ngành & doanh nghiệp toàn cầu
+
+Kho tri thức dài hạn ở `Obsidian/MatthewObsidian/25_Atlas/`. Khi anh nói "học tiếp",
+`/atlas`, hoặc hỏi về một ngành / doanh nghiệp nước ngoài (chuỗi giá trị, quy mô, đối
+thủ, bản đồ toàn cầu): đọc `25_Atlas/_HeThong/KIEN_TRUC.md` (luật + schema) rồi chạy
+
+```bash
+cd agent && ../.venv/Scripts/python.exe -m src.atlas.status
+```
+
+để biết mục kế tiếp trong `_HeThong/HANG_DOI.md`. Quy trình: skill `industry-atlas`
+(ngành) và `company-atlas` (hồ sơ L3 từ BCTN gốc). Đóng phiên bằng
+`python -m src.atlas.schema` (phải sạch lỗi) + cập nhật `HANG_DOI.md` và
+`NHAT_KY_HOC.md`. Số chỉ vào Atlas khi có nguồn + năm + nhãn; trí nhớ model chỉ là nháp.
+
+---
+
 ## 💻 Môi trường Python
 
 | Env | Dùng cho |

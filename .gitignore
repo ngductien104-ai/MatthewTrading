@@ -113,3 +113,13 @@ DichVuSSE/
 # Data pack ban tin thi truong hang ngay (sinh lai duoc tu market_datapack.py)
 _market_*/
 _market_logs/
+
+# Third Eyes runtime, private configuration and test artifacts
+.third-eyes*/
+third-eyes.json
+
+# Firecrawl research output (generated, untrusted web content)
+.firecrawl/
+
+# Atlas: tai lieu goc (BCTN, 10-K, 20-F) tai ve de doc
+_atlas_raw/
