@@ -99,39 +99,79 @@ def _path(rings) -> str:
 
 # ── HTML ────────────────────────────────────────────────────────────────────
 
+# Terminal look modelled on Fincept Terminal's "Obsidian" theme: near-black panels,
+# hairline borders, amber accent, monospace type. Deliberately dark-only.
 CSS = """
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mute:#647084;--line:#dfe3ea;--land:#e3e7ee;--sea:#f0f3f7;
---a1:#cfe0f5;--a2:#9dbfe8;--a3:#5d93d6;--a4:#2c66b8;--hi:#d9480f}
-@media (prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1a2029;--ink:#e6eaf0;--mute:#98a3b3;--line:#2c3542;
---land:#2a323e;--sea:#161b22;--a1:#24456f;--a2:#2f5f9c;--a3:#4583cf;--a4:#7fb0ee;--hi:#ff922b}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:1180px;margin:0 auto;padding:16px}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 10px}
-h3{font-size:14px;margin:14px 0 6px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
-.sub{color:var(--mute);font-size:13px}.stats{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:150px}
-.stat b{display:block;font-size:19px}.stat span{color:var(--mute);font-size:12px}
+:root{color-scheme:dark;--bg:#080808;--panel:#0a0a0a;--raised:#111;--hover:#161616;--line:#1f1f1f;--line2:#2c2c2c;
+--ink:#e5e5e5;--mute:#8a8a8a;--dim:#5a5a5a;--amber:#d97706;--amber-hi:#f59e0b;--amber-bg:#1a1000;--cyan:#22b8cf;--green:#22c55e;
+--land:#141414;--sea:#0b0b0b;--a1:#3b2205;--a2:#6b3a06;--a3:#a85a07;--a4:#f59e0b;
+--mono:"JetBrains Mono",Consolas,"Cascadia Mono",Menlo,"Courier New",monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.55 var(--mono);font-variant-numeric:tabular-nums}
+a{color:var(--amber-hi);text-decoration:none}a:hover{text-decoration:underline}
+.top{background:var(--raised);border-bottom:1px solid var(--line2);padding-block:8px;
+padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+.brand b{color:var(--amber);letter-spacing:.12em;font-size:14px}.brand span{color:var(--mute);font-size:11px;letter-spacing:.08em}
+.live{color:var(--green)}.tabs{display:flex;flex-wrap:wrap;gap:2px;margin-top:8px}
+.tabs a{color:var(--mute);font-size:11px;letter-spacing:.1em;padding:4px 10px;border:1px solid var(--line2);background:var(--panel)}
+.tabs a:first-child{background:var(--amber);color:#0a0a0a;border-color:var(--amber);font-weight:700}
+.tabs a:hover{color:var(--ink);text-decoration:none;border-color:var(--amber)}
+.tape{display:flex;gap:22px;overflow-x:auto;white-space:nowrap;background:var(--panel);border-bottom:1px solid var(--line);
+font-size:12px;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.tape b{color:var(--ink)}.tape i{font-style:normal;color:var(--amber-hi)}.tape u{text-decoration:none;color:var(--dim)}
+.wrap{max-width:1280px;margin:0 auto;padding-block:14px 0;display:grid;gap:12px;
+padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.box{background:var(--panel);border:1px solid var(--line);min-width:0}
+.hd{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;background:var(--raised);border-bottom:1px solid var(--line);padding:6px 10px}
+.hd h2{margin:0;font-size:11px;letter-spacing:.12em;color:var(--amber);font-weight:700;text-transform:uppercase;border-left:2px solid var(--amber);padding-left:8px}
+.hd span{color:var(--dim);font-size:11px;margin-left:auto}
+.bd{padding:10px}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line)}
+.kpi div{background:var(--panel);padding:10px 12px}.kpi b{display:block;font-size:20px;color:var(--amber-hi);font-weight:600}
+.kpi span{color:var(--mute);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
 .vh{position:absolute;opacity:0;pointer-events:none}
-.mapbox{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
-.map{position:relative;min-width:760px}.map svg{display:block;width:100%;height:auto;background:var(--sea);border-radius:12px}
-.land{fill:var(--land);stroke:var(--card);stroke-width:.4}.n1{fill:var(--a1)}.n2{fill:var(--a2)}.n3{fill:var(--a3)}.n4{fill:var(--a4)}
-.pin{position:absolute;transform:translate(-50%,-50%);background:var(--card);border:1.5px solid var(--a4);color:var(--ink);
-border-radius:999px;padding:1px 7px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;line-height:1.5}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
-.chip b{color:var(--a4)}.panel{display:none}
-.co{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:6px 0}
-.co summary{cursor:pointer;padding:9px 12px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;list-style:none}
-.co summary::-webkit-details-marker{display:none}.co summary b{font-size:15px}.co .tag{font-size:11px;color:var(--mute);border:1px solid var(--line);border-radius:6px;padding:0 6px}
-.co .rev{margin-left:auto;font-size:13px;color:var(--mute)}.co .in{padding:0 12px 12px;font-size:14px}
-.co dl{display:grid;grid-template-columns:130px 1fr;gap:3px 10px;margin:8px 0 0}.co dt{color:var(--mute)}.co dd{margin:0}
-.chain{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
-.link{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.link .no{color:var(--mute);font-size:12px}.link ul{margin:6px 0 0;padding:0;list-style:none}.link li{font-size:13px;padding:2px 0}
-.link li i{color:var(--mute);font-style:normal;font-size:11px}
-table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px}
-th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}th{color:var(--mute);font-weight:600;font-size:12px}
-.foot{color:var(--mute);font-size:12px;margin:24px 0 8px}
-@media (max-width:600px){.co dl{grid-template-columns:1fr}.co .rev{margin-left:0;width:100%}}
+.mapbox{overflow-x:auto}.map{position:relative;min-width:760px}
+.map svg{display:block;width:100%;height:auto;background:var(--sea)}
+.land{fill:var(--land);stroke:#262626;stroke-width:.35}.n1{fill:var(--a1)}.n2{fill:var(--a2)}.n3{fill:var(--a3)}.n4{fill:var(--a4)}
+.pin{position:absolute;transform:translate(-50%,-50%);background:#000;border:1px solid var(--amber);color:var(--amber-hi);
+padding:0 5px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;line-height:1.6;letter-spacing:.04em}
+.pin:hover{background:var(--amber);color:#000}
+.note{color:var(--dim);font-size:11px;padding:8px 10px;border-top:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;padding:10px;border-top:1px solid var(--line)}
+.chip{border:1px solid var(--line2);background:var(--bg);padding:3px 9px;font-size:11px;cursor:pointer;color:var(--mute);letter-spacing:.04em}
+.chip b{color:var(--amber-hi);font-weight:600}.chip:hover{border-color:var(--amber);color:var(--ink)}
+.panel{display:none}.panel>h2{margin:0 0 8px;font-size:12px;color:var(--ink);letter-spacing:.06em;text-transform:uppercase}
+#c-all:checked~.body .chip[for="c-all"] b,.chip:hover b{color:inherit}.panel h3{margin:12px 0 4px;font-size:10px;letter-spacing:.14em;color:var(--cyan);text-transform:uppercase}
+.panel h3:first-of-type{margin-top:0}
+.co{border-bottom:1px solid var(--line)}.co:nth-of-type(even){background:#0c0c0c}
+.co summary{cursor:pointer;padding:6px 8px;display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:4px 10px;align-items:baseline;list-style:none}
+.co summary::-webkit-details-marker{display:none}.co summary:hover{background:var(--hover)}
+.co summary b{font-weight:600;color:var(--ink);overflow-wrap:anywhere}.co summary b::before{content:"▸ ";color:var(--dim)}
+.co[open] summary b::before{content:"▾ ";color:var(--amber)}
+.tag{font-size:10px;color:var(--mute);border:1px solid var(--line2);padding:0 5px;letter-spacing:.06em;justify-self:start}
+.tag.l3{background:var(--amber-bg);color:var(--amber-hi);border-color:var(--amber)}
+.rev{font-size:12px;color:var(--ink);text-align:right}
+.co .in{padding:4px 10px 12px 22px;color:var(--mute);font-size:12px}
+.co dl{display:grid;grid-template-columns:120px minmax(0,1fr);gap:2px 12px;margin:8px 0 0}
+.co dt{color:var(--dim);text-transform:uppercase;font-size:10px;letter-spacing:.08em;padding-top:2px}.co dd{margin:0;color:var(--ink);overflow-wrap:anywhere}
+.chain{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--line)}
+.link{background:var(--panel);padding:10px}.link .no{color:var(--amber);font-size:10px;letter-spacing:.12em}
+.link b{display:block;margin:2px 0 6px;font-size:12px}.link ul{margin:0;padding:0;list-style:none}
+.link li{font-size:12px;padding:1px 0;display:flex;justify-content:space-between;gap:8px;color:var(--mute)}.link li i{font-style:normal;color:var(--dim)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{text-align:left;padding:5px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:var(--raised)}
+tr:nth-child(even) td{background:#0c0c0c}td.n{text-align:right;color:var(--amber-hi)}
+.arrow{color:var(--amber)}
+.status{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:12px;background:var(--raised);border-top:1px solid var(--line2);
+color:var(--dim);font-size:10px;letter-spacing:.08em;padding-block:6px;
+padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.status b{color:var(--mute);font-weight:400}.status .ok{color:var(--green)}
+:focus-visible{outline:1px solid var(--amber-hi);outline-offset:1px}
+@media (max-width:600px){.co summary{grid-template-columns:minmax(0,1fr) auto}.co .rev{grid-column:1/-1;text-align:left}
+.co dl{grid-template-columns:1fr}.co dt{padding-top:6px}}
 """
 
 
@@ -156,7 +196,7 @@ def _company_html(co: dict, chain_labels: dict, shapes: dict) -> str:
     body = "".join(f"<dt>{escape(k)}</dt><dd>{escape(str(v)).replace('_', ' ')}</dd>" for k, v in rows if v)
     return (
         f'<details class="co"><summary><b>{escape(str(co["ten"]))}</b>'
-        f'<span class="tag">{escape(co.get("cap_do", ""))}</span>'
+        f'<span class="tag{" l3" if co.get("cap_do") == "L3" else ""}">{escape(co.get("cap_do", ""))}</span>'
         f'<span class="tag">{escape(LEVEL_LABEL.get(co.get("loai"), ""))}</span>'
         f'<span class="rev">{escape(_money(co.get("doanh_thu"), co.get("don_vi_tien")))}</span></summary>'
         f'<div class="in">{escape(co.get("mo_ta", ""))}<dl>{body}</dl></div></details>'
@@ -216,10 +256,10 @@ def render_html(industry: dict, shapes: dict) -> str:
         panels.append(f'<div class="panel" data-c="{iso}"><h2>{name} — {n} doanh nghiệp</h2>{"".join(groups)}</div>')
         rules.append(
             f'#c-{iso}:checked~.body .panel[data-c="{iso}"]{{display:block}}'
-            f'#c-{iso}:checked~.body label[for="c-{iso}"]{{border-color:var(--hi);color:var(--hi)}}'
+            f'#c-{iso}:checked~.body label[for="c-{iso}"]{{border-color:var(--amber);background:var(--amber);color:#000}}'
         )
     rules.append('#c-all:checked~.body .panel[data-c="all"]{display:block}'
-                 '#c-all:checked~.body label[for="c-all"]{border-color:var(--hi);color:var(--hi)}')
+                 '#c-all:checked~.body label[for="c-all"]{border-color:var(--amber);background:var(--amber);color:#000}')
     overview = "".join(
         f"<tr><td>{escape(_country(iso, shapes))}</td><td>{len(by_country[iso])}</td>"
         f"<td>{escape(', '.join(str(co['ten']) for co in by_country[iso]))}</td></tr>" for iso in order
@@ -231,36 +271,64 @@ def render_html(industry: dict, shapes: dict) -> str:
         f'<input class="vh" type="radio" name="c" id="c-{iso}">' for iso in order)
 
     chain_html = "".join(
-        f'<div class="link"><span class="no">Mắt xích {i}</span><br><b>{escape(chain_labels[link])}</b><ul>'
-        + "".join(f"<li>{escape(str(co['ten']))} <i>{co['quoc_gia']}</i></li>"
+        f'<div class="link"><span class="no">{i:02d} · {"THƯỢNG NGUỒN" if i == 1 else "HẠ NGUỒN" if i == len(chain) else "MẮT XÍCH"}</span>'
+        f'<b>{escape(chain_labels[link])}</b><ul>'
+        + "".join(f"<li><span>{escape(str(co['ten']))}</span><i>{co['quoc_gia']}</i></li>"
                   for co in companies if link in (co.get("mat_xich") or []))
         + "</ul></div>"
         for i, link in enumerate(chain, 1)
     )
+    names = {co["file"]: str(co["ten"]) for co in companies}
+    flows = [(co, buyer) for co in companies for buyer in co.get("ban_cho") or [] if buyer in names]
+    flow_rows = "".join(
+        f"<tr><td>{escape(str(co['ten']))} <span class=\"tag\">{co['quoc_gia']}</span></td><td class=\"arrow\">→</td>"
+        f"<td>{escape(names[buyer])}</td></tr>" for co, buyer in flows
+    ) or '<tr><td colspan="3">Chưa có quan hệ nào có nguồn.</td></tr>'
+    deep = [co for co in companies if co.get("cap_do") == "L3"]
+    tape = "".join(
+        f"<span><b>{escape(str(co.get('ma') or co['ten']))}</b> <u>{co['quoc_gia']}</u> "
+        f"<i>{escape(_money(co.get('doanh_thu'), co.get('don_vi_tien')))}</i></span>" for co in deep
+    ) or "<span>Chưa có hồ sơ L3.</span>"
     size = industry.get("quy_mo_thi_truong")
     stats = [
         (_num(size) + " tr. " + str(industry.get("don_vi_tien", "")) if size else "chưa có",
          f"quy mô thị trường {industry.get('nam_quy_mo') or ''}".strip()),
-        (str(len(companies)), "doanh nghiệp trong Atlas"),
+        (str(len(companies)), "doanh nghiệp"),
+        (str(len(deep)), "hồ sơ sâu L3"),
         (str(len(by_country)), "quốc gia có trụ sở"),
-        (str(len(chain)), "mắt xích chuỗi giá trị"),
+        (str(len(chain)), "mắt xích chuỗi"),
+        (str(len(flows)), "quan hệ mua-bán có nguồn"),
     ]
-    stats_html = "".join(f'<div class="stat"><b>{escape(v)}</b><span>{escape(k)}</span></div>' for v, k in stats)
+    stats_html = "".join(f'<div><b>{escape(v)}</b><span>{escape(k)}</span></div>' for v, k in stats)
     title = escape(str(industry["ten"]))
+    today = date.today().isoformat()
     return f"""<!doctype html><html lang="vi"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Atlas — {title}</title>
-<style>{CSS}{''.join(rules)}</style></head><body><div class="wrap">
-<h1>{title}</h1><div class="sub">GICS {escape(industry['gics'])} · cấp {escape(str(industry.get('cap_do')))} · cập nhật {escape(str(industry.get('cap_nhat')))} · sinh tự động từ ghi chú Atlas ngày {date.today().isoformat()}</div>
-<div class="stats">{stats_html}</div>
-{radios}<div class="body">
-<h2>Bản đồ — bấm vào một nước</h2>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Atlas {title}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap">
+<style>{CSS}{''.join(rules)}</style></head><body>
+<header class="top"><div class="brand"><b>ATLAS TERMINAL</b><span>BỘ NÃO NGÀNH &amp; DOANH NGHIỆP</span>
+<span class="live">● DỮ LIỆU TỪ VAULT</span><span>{today}</span></div>
+<nav class="tabs"><a href="#tong-quan">TỔNG QUAN</a><a href="#ban-do">BẢN ĐỒ</a><a href="#chuoi">CHUỖI GIÁ TRỊ</a><a href="#mua-ban">MUA-BÁN</a></nav></header>
+<div class="tape" aria-label="Hồ sơ sâu L3, doanh thu năm gần nhất">{tape}</div>
+<main class="wrap">
+<section class="box" id="tong-quan"><div class="hd"><h2>{title}</h2><span>GICS {escape(industry['gics'])} · CẤP {escape(str(industry.get('cap_do')))} · CẬP NHẬT {escape(str(industry.get('cap_nhat')))}</span></div>
+<div class="kpi">{stats_html}</div></section>
+{radios}<div class="body" style="display:grid;gap:12px">
+<section class="box" id="ban-do"><div class="hd"><h2>Bản đồ trụ sở</h2><span>BẤM VÀO MỘT NƯỚC</span></div>
 <div class="mapbox"><div class="map"><svg viewBox="0 0 {MAP_W:.0f} {MAP_H:.0f}" role="img" aria-label="Bản đồ thế giới">{paths}</svg>{''.join(pins)}</div></div>
-<div class="sub">Trên điện thoại: kéo ngang bản đồ, hoặc bấm tên nước bên dưới. Màu đậm = nhiều doanh nghiệp đặt trụ sở. Số liệu là nơi đặt <b>trụ sở</b>, không phải nơi đặt nhà máy.</div>
 <div class="chips">{''.join(chips)}</div>
-{''.join(panels)}
-<h2>Chuỗi giá trị — thượng nguồn → hạ nguồn</h2><div class="chain">{chain_html}</div>
-<div class="foot">Số tiền theo đơn vị gốc của báo cáo từng doanh nghiệp, chưa quy đổi. Nguồn và nhãn độ tin cậy nằm trong từng ghi chú của Atlas.</div>
-</div></div></body></html>"""
+<div class="note">Màu đậm = nhiều doanh nghiệp đặt trụ sở. Bản đồ theo nơi đặt trụ sở, chưa theo nhà máy. Trên điện thoại kéo ngang bản đồ hoặc bấm tên nước.</div></section>
+<section class="box"><div class="hd"><h2>Doanh nghiệp theo nước</h2><span>DOANH THU NĂM GẦN NHẤT · ĐƠN VỊ GỐC</span></div>
+<div class="bd">{''.join(panels)}</div></section>
+</div>
+<section class="box" id="chuoi"><div class="hd"><h2>Chuỗi giá trị</h2><span>THƯỢNG NGUỒN → HẠ NGUỒN</span></div><div class="chain">{chain_html}</div></section>
+<section class="box" id="mua-ban"><div class="hd"><h2>Quan hệ mua-bán có nguồn</h2><span>NGƯỜI BÁN → NGƯỜI MUA</span></div>
+<div class="tbl"><table><tr><th>Bên bán</th><th></th><th>Bên mua</th></tr>{flow_rows}</table></div>
+<div class="note">Chỉ ghi quan hệ có báo cáo gốc nêu tên. Phần lớn hãng không nêu tên khách, nên bảng này chưa kín.</div></section>
+</main>
+<footer class="status"><span class="ok">● SẴN SÀNG</span><span>NGUỒN <b>GHI CHÚ ATLAS</b></span><span>SINH LÚC <b>{today}</b></span>
+<span>TIỀN <b>THEO ĐƠN VỊ GỐC, CHƯA QUY ĐỔI</b></span><span>NHÃN TIN CẬY <b>TRONG TỪNG GHI CHÚ</b></span></footer>
+</body></html>"""
 
 
 # ── canvas ──────────────────────────────────────────────────────────────────
